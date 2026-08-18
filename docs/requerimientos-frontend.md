@@ -7,9 +7,9 @@
 **Alcance:** funcionalidades base de la consigna  
 **Versión:** 1.3
 
-> Este documento define el **alcance funcional** de los cinco frontends: **Auth** (login/registro/recuperación), **Tienda** (clientes), **Admin de sucursal** (`apps/admin`), **Admin global** (`apps/admin-global`) y **Repartidor** (`apps/rider`). Incluye **stock de ingredientes por sucursal** (Extensión 1) y la **app del Repartidor** con viajes y ofertas (Extensión 2).
+> Este documento define el **alcance funcional** de los cinco frontends: **Auth** (login/registro/recuperación), **Tienda** (clientes), **Admin de sucursal** (`apps/branch`), **Admin global** (`apps/admin`) y **Repartidor** (`apps/rider`). Incluye **stock de ingredientes por sucursal** (Extensión 1) y la **app del Repartidor** con viajes y ofertas (Extensión 2).
 
-> **Fuentes de verdad:** este documento es la fuente de verdad **funcional**. La fuente de verdad **visual y de sistema** (dirección "Calor", paleta, tokens, layouts) es `client/docs/ui-manifesto.md`; ante cualquier conflicto visual gana el manifesto. La arquitectura implementada (monorepo, apps, paquetes) está en §16 y en `client/CLAUDE.md`.
+> **Fuentes de verdad:** este documento es la fuente de verdad **funcional**. La fuente de verdad **visual y de sistema** (dirección "Calor", paleta, tokens, layouts) es `docs/ui-manifesto.md`; ante cualquier conflicto visual gana el manifesto. La arquitectura implementada (monorepo, apps, paquetes) está en §16 y en `CLAUDE.md`.
 
 > **Nota de implementación:** la autenticación vive en su propia app (`apps/auth`), que tras el login redirige a Tienda, Admin de sucursal, Admin global o Repartidor según el `role` que devuelve el auth API. Las pantallas T-01 a T-04 corresponden a esa app.
 
@@ -45,8 +45,8 @@ La solución tendrá cinco aplicaciones web:
 
 1. **Frontend Auth**, compartido: login, registro y recuperación de contraseña.
 2. **Frontend Tienda**, utilizado por clientes.
-3. **Frontend Admin de sucursal** (`apps/admin`), utilizado por los administradores de cada sucursal.
-4. **Frontend Admin global** (`apps/admin-global`), utilizado por la administración central.
+3. **Frontend Admin de sucursal** (`apps/branch`), utilizado por los administradores de cada sucursal.
+4. **Frontend Admin global** (`apps/admin`), utilizado por la administración central.
 5. **Frontend Repartidor** (`apps/rider`), utilizado por repartidores.
 
 Todas las aplicaciones consumen su **BFF** (Backend for Frontend), que a su vez habla con un **API Gateway** (GraphQL) que enruta hacia los microservicios del backend. La lógica de negocio permanece en el servidor; los frontends se ocupan de presentar información, capturar datos, ejecutar acciones y mostrar los resultados devueltos por la API.
@@ -90,7 +90,7 @@ flowchart LR
 
 La administración son **dos apps separadas (dos frontends)**:
 
-**Admin global — `apps/admin-global` (`super_admin`)** — define lo global:
+**Admin global — `apps/admin` (`super_admin`)** — define lo global:
 
 - Definir **productos** (nombre, precio, imagen, categoría) y los **ingredientes/receta** de cada producto.
 - Definir el **catálogo de ingredientes** (materias primas y sus unidades).
@@ -99,7 +99,7 @@ La administración son **dos apps separadas (dos frontends)**:
 - Administrar **personal**: crear usuarios colaboradores de sucursal y **vincularlos a una sucursal ya creada**, además de crear otros admins globales.
 - Vista global: pedidos, stock y reportes de **todas** las sucursales.
 
-**Admin de sucursal — `apps/admin` (`branch_admin`)** — opera su propia sucursal:
+**Admin de sucursal — `apps/branch` (`branch_admin`)** — opera su propia sucursal:
 
 - Inicio de sesión administrativo.
 - **Pausar/reactivar productos** en su sucursal (decide qué vende, **sin editar** la definición del producto).
@@ -151,8 +151,8 @@ client/
 ├── apps/
 │   ├── auth/         # login, registro, recuperación; redirige por rol
 │   ├── store/        # catálogo, carrito, checkout, pedidos, perfil
-│   ├── admin/        # admin de sucursal (branch_admin)
-│   ├── admin-global/ # admin global central (super_admin)
+│   ├── branch/        # admin de sucursal (branch_admin)
+│   ├── admin/         # admin global central (super_admin)
 │   └── rider/        # app del repartidor (entregas)
 └── packages/
     ├── components/  # UI genérica + tokens (@repo/components)
@@ -226,8 +226,8 @@ El carrito debe considerarse un dato del servidor. La interfaz puede mantener un
 
 - **Auth app:** rutas públicas (login, registro, recuperación). Tras loguear, redirige a Tienda, Administración o Repartidor según el `role` del auth API.
 - **CustomerRoute (`RequireAuth`):** protege carrito, checkout, pedidos, perfil y direcciones de la Tienda; redirige al login de la app de auth (`VITE_AUTH_URL`).
-- **AdminRoute (`RequireAuth roles=["branch_admin"]`):** app `apps/admin` (admin de sucursal); solo ve/opera su propia sucursal.
-- **AdminGlobalRoute (`RequireAuth roles=["super_admin"]`):** app `apps/admin-global` (admin global); gestiona lo global (sucursales, categorías, promociones, estados, parámetros, personal) y ve todos los pedidos/reportes.
+- **AdminRoute (`RequireAuth roles=["branch_admin"]`):** app `apps/branch` (admin de sucursal); solo ve/opera su propia sucursal.
+- **AdminGlobalRoute (`RequireAuth roles=["super_admin"]`):** app `apps/admin` (admin global); gestiona lo global (sucursales, categorías, promociones, estados, parámetros, personal) y ve todos los pedidos/reportes.
 - **RiderRoute (`RequireAuth roles=["rider"]`):** toda la app del repartidor; solo usuarios con rol `rider`.
 - Un cliente no debe poder entrar a rutas administrativas ni de repartidor.
 - Un admin de sucursal no accede a sucursales, categorías, promociones, estados, parámetros ni personal (eso es del `super_admin`).
@@ -237,7 +237,7 @@ El carrito debe considerarse un dato del servidor. La interfaz puede mantener un
 
 # 4. Sistema de diseño compartido
 
-> **Visual ya definido:** la dirección "Calor", paleta, tipografía, geometría, patrones y tokens viven en `client/docs/ui-manifesto.md`; la implementación está en `@repo/theme` + `@repo/components`. Esta sección queda como propuesta histórica.
+> **Visual ya definido:** la dirección "Calor", paleta, tipografía, geometría, patrones y tokens viven en `docs/ui-manifesto.md`; la implementación está en `@repo/theme` + `@repo/components`. Esta sección queda como propuesta histórica.
 
 ## 4.1 Dirección visual
 
@@ -1387,7 +1387,7 @@ Longitud
 
 ---
 
-# 7. Navegación del Admin de sucursal (`apps/admin`)
+# 7. Navegación del Admin de sucursal (`apps/branch`)
 
 El admin de sucursal administra **solo lo relativo a su propia sucursal**. Navegación móvil-first igual que la Tienda, con dock y/o menú lateral.
 
@@ -1424,7 +1424,7 @@ El admin de sucursal **no** crea ni edita productos ni ingredientes (eso es del 
 
 ---
 
-# 8. Detalle página por página — Admin de sucursal (`apps/admin`)
+# 8. Detalle página por página — Admin de sucursal (`apps/branch`)
 
 > Todas las pantallas del admin de sucursal están **acotadas a su propia sucursal**: pausar productos (sin editarlos), stock de ingredientes de su almacén, pedidos y reportes de SU sucursal.
 
@@ -1748,7 +1748,7 @@ Columnas:
 
 ---
 
-# 9. Navegación del Admin global (`apps/admin-global`)
+# 9. Navegación del Admin global (`apps/admin`)
 
 El admin global gestiona **lo global**: sucursales, categorías, promociones, estados, parámetros y administradores, con vista de **todas** las sucursales.
 
@@ -1803,7 +1803,7 @@ El admin global define el menú completo: **productos, ingredientes y sus receta
 
 ---
 
-# 10. Detalle página por página — Admin global (`apps/admin-global`)
+# 10. Detalle página por página — Admin global (`apps/admin`)
 
 > El admin global define **productos, ingredientes/receta y el catálogo de ingredientes**, además de categorías, sucursales, promociones, estados, parámetros y administradores. Las pantallas de Productos/Configuraciones/Stock/Pedidos/Reportes son **globales** (todas las sucursales).
 
@@ -2432,7 +2432,7 @@ Velocidad promedio de traslado     25 km/h          Editar
 
 # 11. Navegación del Repartidor
 
-> **Regla absoluta — mismo sistema de diseño que la Tienda:** la app del Repartidor sigue **el sistema de diseño de la app Tienda**, que es la referencia visual absoluta del proyecto. Misma dirección "Calor" (`client/docs/ui-manifesto.md`), misma paleta, tipografía Outfit, tokens semánticos, geometría y los **mismos componentes y layouts** de `@repo/components`. No se inventan estilos ni variantes: si algo falta, se reusa el patrón de la Tienda o se agrega como token compartido. Es **mobile-first** (los repartidores operan desde el celular). El auth es compartido: `RequireAuth roles=["rider"]`.
+> **Regla absoluta — mismo sistema de diseño que la Tienda:** la app del Repartidor sigue **el sistema de diseño de la app Tienda**, que es la referencia visual absoluta del proyecto. Misma dirección "Calor" (`docs/ui-manifesto.md`), misma paleta, tipografía Outfit, tokens semánticos, geometría y los **mismos componentes y layouts** de `@repo/components`. No se inventan estilos ni variantes: si algo falta, se reusa el patrón de la Tienda o se agrega como token compartido. Es **mobile-first** (los repartidores operan desde el celular). El auth es compartido: `RequireAuth roles=["rider"]`.
 
 ## 11.1 Sistema de diseño (reuso de la Tienda)
 
@@ -2708,7 +2708,7 @@ shared/api/
     └── reports/     # reportes de productos
 ```
 
-`apps/auth` apunta al Auth BFF, `apps/store` al Store BFF, `apps/admin` al Admin BFF, `apps/admin-global` al AdminGlobal BFF y `apps/rider` al Rider BFF.
+`apps/auth` apunta al Auth BFF, `apps/store` al Store BFF, `apps/branch` al Admin BFF, `apps/admin` al AdminGlobal BFF y `apps/rider` al Rider BFF.
 
 ## 13.3 Contratos de UI
 
@@ -2750,8 +2750,8 @@ client/
 ├── apps/
 │   ├── auth/         # login/registro/recuperación; redirige por rol
 │   ├── store/        # Tienda (clientes) — implementada
-│   ├── admin/        # Admin de sucursal (branch_admin) — shell + RequireAuth roles=["branch_admin"]
-│   ├── admin-global/ # Admin global (super_admin) — RequireAuth roles=["super_admin"]
+│   ├── branch/        # Admin de sucursal (branch_admin) — shell + RequireAuth roles=["branch_admin"]
+│   ├── admin/         # Admin global (super_admin) — RequireAuth roles=["super_admin"]
 │   └── rider/        # Repartidor — planificada (§11–§12)
 └── packages/
     ├── components/  # @repo/components — UI genérica + tokens
@@ -2818,8 +2818,8 @@ apps/store/
 
 ## 14.3 Administración y Repartidor (planificadas)
 
-- `apps/admin` (admin de sucursal): shell `RequireAuth roles=["branch_admin"]` + páginas de su sucursal (§8). Misma estructura que Tienda (`src/pages`, `src/components`, `src/layouts`).
-- `apps/admin-global` (admin global): `RequireAuth roles=["super_admin"]` + páginas globales (§10). Misma estructura.
+- `apps/branch` (admin de sucursal): shell `RequireAuth roles=["branch_admin"]` + páginas de su sucursal (§8). Misma estructura que Tienda (`src/pages`, `src/components`, `src/layouts`).
+- `apps/admin` (admin global): `RequireAuth roles=["super_admin"]` + páginas globales (§10). Misma estructura.
 - `apps/rider`: mobile-first, `RequireAuth roles=["rider"]` + páginas R-01..R-05 (§12). Reusa los tokens/layouts de la Tienda.
 
 ## 14.4 Paquetes compartidos frente a componentes específicos
@@ -2836,11 +2836,11 @@ apps/store/
 
 # 17. Distribución del trabajo
 
-> **Modalidad actual:** todo se construye con **IA de corrido** (el equipo define el requisito, la IA lo implementa de punta a punta, el equipo revisa). Sin división manual por integrante. El detalle del plan por sprint está en `plan/division-de-tareas.md`.
+> **Modalidad actual:** todo se construye con **IA de corrido** (el equipo define el requisito, la IA lo implementa de punta a punta, el equipo revisa). Sin división manual por integrante.
 
 Estado:
 
-- **Hecho (backend):** arquitectura por dominio + orchestrators, modelos, DTOs, repos en memoria y endpoints.
+- **Hecho (backend):** arquitectura multicapa + orchestrators, modelos, DTOs, repos en memoria y endpoints.
 - **Hecho (frontend):** Tienda (rediseño "Calor" + tokens + validación RHF/Zod), app de auth (redirección por rol), paquetes compartidos (`@repo/*`), app Android (Capacitor).
 - **Pendiente:** lógica de negocio + ORM + auth real + tests (backend); **apps de Administración** (§8 y §10) y **app Repartidor** (§11–§12).
 
