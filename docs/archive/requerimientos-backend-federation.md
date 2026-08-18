@@ -1,5 +1,7 @@
 # Requerimientos — Backend (servicios)
 
+> ⚠️ **OBSOLETO — archivado.** Esta variante (Apollo Gateway / GraphQL Federation, v2.0) fue descartada. La arquitectura canónica es `docs/requerimientos-backend-rest.md` (GraphQL Gateway + microservicios REST). Este archivo se conserva solo como histórico; su §10 (modelo de datos) fue consolidado en el documento canónico.
+
 **Proyecto:** Plataforma de pedidos para una cadena de comidas rápidas
 **Documento:** requerimientos funcionales y no funcionales del backend
 **Arquitectura:** 3 servicios + Apollo Gateway (GraphQL Federation) + MongoDB

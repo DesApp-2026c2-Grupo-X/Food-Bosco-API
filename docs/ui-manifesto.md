@@ -4,7 +4,7 @@ Este documento es la **fuente de verdad visual, de sistema y de producto** para 
 
 > **Principio raíz:** no hacemos una versión "más linda" de lo que ya existe. Entendemos el problema, cuestionamos la estructura, quitamos lo innecesario, organizamos lo que importa, damos jerarquía y espacio, y recién después aplicamos identidad. **Preservar el propósito. Romper el layout. Diseñar la experiencia.**
 
-> **Spec funcional:** `requerimientos-funcionales.md` (en esta misma carpeta) define el **alcance funcional** (roles, admin página por página, responsive, integración backend). Este manifesto es la fuente de verdad **visual y de sistema**; la spec es la fuente de verdad **funcional**. Si una decisión cambia el sistema visual, actualizar este documento.
+> **Spec funcional:** `requerimientos-frontend.md` (en esta misma carpeta) define el **alcance funcional** (roles, admin página por página, responsive, integración backend). Este manifesto es la fuente de verdad **visual y de sistema**; la spec es la fuente de verdad **funcional**. Si una decisión cambia el sistema visual, actualizar este documento.
 
 ---
 
