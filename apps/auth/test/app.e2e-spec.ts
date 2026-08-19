@@ -49,15 +49,13 @@ describe('Auth Service (e2e)', () => {
   let adminToken = ''
 
   const register = (email: string) =>
-    request(app.getHttpServer())
-      .post('/v1/auth/register')
-      .send({
-        firstName: 'Juan',
-        lastName: 'Perez',
-        email,
-        phone: '11223344',
-        password: 'password123',
-      })
+    request(app.getHttpServer()).post('/v1/auth/register').send({
+      firstName: 'Juan',
+      lastName: 'Perez',
+      email,
+      phone: '11223344',
+      password: 'password123',
+    })
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create()

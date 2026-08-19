@@ -38,13 +38,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus()
-      response
-        .status(status)
-        .json({
-          code: codeForStatus(status),
-          message: extractMessage(exception.getResponse() as ErrorBody),
-          path,
-        })
+      response.status(status).json({
+        code: codeForStatus(status),
+        message: extractMessage(exception.getResponse() as ErrorBody),
+        path,
+      })
       return
     }
 
