@@ -67,7 +67,11 @@ describe('AuthOrchestrator.register (RQ-AUTH-01)', () => {
     expect(userService.createUser).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'customer', email: 'cliente@example.com' }),
     )
-    expect(jwtService.signAccessToken).toHaveBeenCalledWith({ id: 'u1', role: 'customer', branchId: null })
+    expect(jwtService.signAccessToken).toHaveBeenCalledWith({
+      id: 'u1',
+      role: 'customer',
+      branchId: null,
+    })
     expect(refreshTokenService.issue).toHaveBeenCalledWith('u1')
     expect(result).toEqual({ accessToken: 'access-token', refreshToken: 'refresh-token' })
   })
@@ -99,7 +103,10 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05)', () => {
     userService.verifyCredentials.mockResolvedValue(publicUser)
     refreshTokenService.issue.mockResolvedValue('refresh-token')
 
-    const result = await orchestrator.login({ email: 'cliente@example.com', password: 'secreto123' })
+    const result = await orchestrator.login({
+      email: 'cliente@example.com',
+      password: 'secreto123',
+    })
 
     expect(userService.verifyCredentials).toHaveBeenCalledWith('cliente@example.com', 'secreto123')
     expect(result.accessToken).toBe('access-token')
@@ -127,7 +134,11 @@ describe('AuthOrchestrator.refresh (RQ-AUTH-07)', () => {
     const result = await orchestrator.refresh('refresh-viejo')
 
     expect(refreshTokenService.rotate).toHaveBeenCalledWith('refresh-viejo')
-    expect(jwtService.signAccessToken).toHaveBeenCalledWith({ id: 'u1', role: 'customer', branchId: null })
+    expect(jwtService.signAccessToken).toHaveBeenCalledWith({
+      id: 'u1',
+      role: 'customer',
+      branchId: null,
+    })
     expect(result).toEqual({ accessToken: 'access-token', refreshToken: 'nuevo-refresh' })
   })
 
@@ -177,7 +188,8 @@ describe('AuthOrchestrator.requestPasswordRecovery (RQ-AUTH-09)', () => {
 
 describe('AuthOrchestrator.resetPassword (RQ-AUTH-10, RQ-SEC-08)', () => {
   it('restablece la contraseña y revoca las sesiones', async () => {
-    const { orchestrator, userService, passwordRecoveryService, refreshTokenService } = makeOrchestrator()
+    const { orchestrator, userService, passwordRecoveryService, refreshTokenService } =
+      makeOrchestrator()
     passwordRecoveryService.consume.mockResolvedValue('u1')
 
     await orchestrator.resetPassword('token', 'nueva-clave-123')

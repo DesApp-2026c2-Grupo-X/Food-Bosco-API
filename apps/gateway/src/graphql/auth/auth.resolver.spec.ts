@@ -53,7 +53,14 @@ describe('AuthResolver — mutaciones públicas', () => {
 
   it('registerRider → POST /v1/auth/register-rider', async () => {
     rest.post.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt' })
-    const input = { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', vehicle: 'Moto' }
+    const input = {
+      firstName: 'A',
+      lastName: 'B',
+      email: 'a@b.com',
+      phone: '1',
+      password: 'p',
+      vehicle: 'Moto',
+    }
 
     await resolver.registerRider(input)
 
@@ -74,13 +81,17 @@ describe('AuthResolver — mutaciones públicas', () => {
 
     await resolver.refreshToken('refresh-viejo')
 
-    expect(rest.post).toHaveBeenCalledWith('/v1/auth/refresh', { body: { refreshToken: 'refresh-viejo' } })
+    expect(rest.post).toHaveBeenCalledWith('/v1/auth/refresh', {
+      body: { refreshToken: 'refresh-viejo' },
+    })
   })
 
   it('requestPasswordRecovery → POST /v1/auth/password-recovery', async () => {
     await resolver.requestPasswordRecovery('a@b.com')
 
-    expect(rest.post).toHaveBeenCalledWith('/v1/auth/password-recovery', { body: { email: 'a@b.com' } })
+    expect(rest.post).toHaveBeenCalledWith('/v1/auth/password-recovery', {
+      body: { email: 'a@b.com' },
+    })
   })
 
   it('resetPassword → POST /v1/auth/reset-password', async () => {
@@ -114,7 +125,9 @@ describe('AuthResolver — operaciones autenticadas', () => {
 
     const result = await resolver.me(ctx)
 
-    expect(rest.get).toHaveBeenCalledWith('/v1/me', { context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.get).toHaveBeenCalledWith('/v1/me', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.id).toBe('u1')
     expect(result.role).toBe(Role.CUSTOMER)
   })
@@ -125,7 +138,10 @@ describe('AuthResolver — operaciones autenticadas', () => {
 
     const result = await resolver.updateProfile(input, ctx)
 
-    expect(rest.patch).toHaveBeenCalledWith('/v1/me', { body: input, context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.patch).toHaveBeenCalledWith('/v1/me', {
+      body: input,
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.firstName).toBe('Pedro')
   })
 })
@@ -162,32 +178,91 @@ describe('AuthResolver — usuarios (super_admin)', () => {
     expect(rest.get).toHaveBeenCalledWith(
       '/v1/users',
       expect.objectContaining({
-        query: { role: undefined, active: undefined, search: undefined, limit: undefined, offset: undefined },
+        query: {
+          role: undefined,
+          active: undefined,
+          search: undefined,
+          limit: undefined,
+          offset: undefined,
+        },
       }),
     )
   })
 
   it('user → GET /v1/users/{id} con fallback a _id y rol mapeado', async () => {
-    rest.get.mockResolvedValue({ _id: 'u9', email: 'a@b.com', firstName: 'A', lastName: 'B', phone: '1', role: 'super_admin', active: true, branchId: 'b1', vehicle: null })
+    rest.get.mockResolvedValue({
+      _id: 'u9',
+      email: 'a@b.com',
+      firstName: 'A',
+      lastName: 'B',
+      phone: '1',
+      role: 'super_admin',
+      active: true,
+      branchId: 'b1',
+      vehicle: null,
+    })
 
     const result = await resolver.user('u9', ctx)
 
-    expect(rest.get).toHaveBeenCalledWith('/v1/users/u9', { context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.get).toHaveBeenCalledWith('/v1/users/u9', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.id).toBe('u9')
     expect(result.role).toBe(Role.SUPER_ADMIN)
     expect(result.branchId).toBe('b1')
   })
 
   it.each([
-    { name: 'createStaff', path: '/v1/users/staff', call: (r: AuthResolver) => r.createStaff({ firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', branchId: 'b1' }, ctx) },
-    { name: 'createAdmin', path: '/v1/users/admins', call: (r: AuthResolver) => r.createAdmin({ firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p' }, ctx) },
-    { name: 'createRider', path: '/v1/users/riders', call: (r: AuthResolver) => r.createRider({ firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', vehicle: 'Moto' }, ctx) },
+    {
+      name: 'createStaff',
+      path: '/v1/users/staff',
+      call: (r: AuthResolver) =>
+        r.createStaff(
+          {
+            firstName: 'A',
+            lastName: 'B',
+            email: 'a@b.com',
+            phone: '1',
+            password: 'p',
+            branchId: 'b1',
+          },
+          ctx,
+        ),
+    },
+    {
+      name: 'createAdmin',
+      path: '/v1/users/admins',
+      call: (r: AuthResolver) =>
+        r.createAdmin(
+          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p' },
+          ctx,
+        ),
+    },
+    {
+      name: 'createRider',
+      path: '/v1/users/riders',
+      call: (r: AuthResolver) =>
+        r.createRider(
+          {
+            firstName: 'A',
+            lastName: 'B',
+            email: 'a@b.com',
+            phone: '1',
+            password: 'p',
+            vehicle: 'Moto',
+          },
+          ctx,
+        ),
+    },
   ])('$name → POST $path', async ({ path, call }) => {
     rest.post.mockResolvedValue(rawUser)
 
     const result = await call(resolver)
 
-    expect(rest.post).toHaveBeenCalledWith(path, { body: expect.any(Object), context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.post).toHaveBeenCalledWith(path, {
+      body: expect.any(Object),
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.id).toBe('u1')
   })
 
@@ -197,7 +272,10 @@ describe('AuthResolver — usuarios (super_admin)', () => {
 
     const result = await resolver.updateUser('u1', input, ctx)
 
-    expect(rest.patch).toHaveBeenCalledWith('/v1/users/u1', { body: input, context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.patch).toHaveBeenCalledWith('/v1/users/u1', {
+      body: input,
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.branchId).toBe('b2')
   })
 
@@ -206,7 +284,10 @@ describe('AuthResolver — usuarios (super_admin)', () => {
 
     const result = await resolver.setUserActive('u1', false, ctx)
 
-    expect(rest.patch).toHaveBeenCalledWith('/v1/users/u1/active', { body: { active: false }, context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.patch).toHaveBeenCalledWith('/v1/users/u1/active', {
+      body: { active: false },
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.active).toBe(false)
   })
 })
@@ -222,7 +303,9 @@ describe('AuthResolver — direcciones (customer)', () => {
 
     const result = await resolver.myAddresses(ctx)
 
-    expect(rest.get).toHaveBeenCalledWith('/v1/addresses', { context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.get).toHaveBeenCalledWith('/v1/addresses', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('a1')
     expect(result[0].label).toBe('Casa')
@@ -233,7 +316,9 @@ describe('AuthResolver — direcciones (customer)', () => {
 
     const result = await resolver.address('a1', ctx)
 
-    expect(rest.get).toHaveBeenCalledWith('/v1/addresses/a1', { context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.get).toHaveBeenCalledWith('/v1/addresses/a1', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.id).toBe('a1')
   })
 
@@ -243,7 +328,10 @@ describe('AuthResolver — direcciones (customer)', () => {
 
     await resolver.createAddress(input, ctx)
 
-    expect(rest.post).toHaveBeenCalledWith('/v1/addresses', { body: input, context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.post).toHaveBeenCalledWith('/v1/addresses', {
+      body: input,
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
   })
 
   it('updateAddress → PATCH /v1/addresses/{id}', async () => {
@@ -251,7 +339,10 @@ describe('AuthResolver — direcciones (customer)', () => {
 
     const result = await resolver.updateAddress('a1', { label: 'Trabajo' }, ctx)
 
-    expect(rest.patch).toHaveBeenCalledWith('/v1/addresses/a1', { body: { label: 'Trabajo' }, context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.patch).toHaveBeenCalledWith('/v1/addresses/a1', {
+      body: { label: 'Trabajo' },
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result.label).toBe('Trabajo')
   })
 
@@ -260,7 +351,9 @@ describe('AuthResolver — direcciones (customer)', () => {
 
     const result = await resolver.deleteAddress('a1', ctx)
 
-    expect(rest.delete).toHaveBeenCalledWith('/v1/addresses/a1', { context: expect.objectContaining({ userId: 'u1' }) })
+    expect(rest.delete).toHaveBeenCalledWith('/v1/addresses/a1', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
     expect(result).toBe(true)
   })
 })

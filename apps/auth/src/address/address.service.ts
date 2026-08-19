@@ -25,7 +25,11 @@ export class AddressService {
     return serializeAddress(doc)
   }
 
-  async update(id: string, userId: string, patch: UpdateAddressData): Promise<PublicAddress | null> {
+  async update(
+    id: string,
+    userId: string,
+    patch: UpdateAddressData,
+  ): Promise<PublicAddress | null> {
     const doc = await this.repository.updateOwned(id, userId, patch)
     return doc ? serializeAddress(doc) : null
   }

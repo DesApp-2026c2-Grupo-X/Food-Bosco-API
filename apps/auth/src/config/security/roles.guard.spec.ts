@@ -48,7 +48,9 @@ describe('RolesGuard.canActivate', () => {
 
   it('permite un usuario autenticado y puebla request.user', () => {
     const guard = makeGuard({ authenticated: true })
-    const context = buildContext({ authorization: `Bearer ${sign({ userId: 'u1', roles: ['customer'] })}` })
+    const context = buildContext({
+      authorization: `Bearer ${sign({ userId: 'u1', roles: ['customer'] })}`,
+    })
 
     expect(guard.canActivate(context.executionContext)).toBe(true)
     expect(context.request.user).toMatchObject({ authenticated: true, userId: 'u1' })
@@ -62,14 +64,18 @@ describe('RolesGuard.canActivate', () => {
 
   it('permite si el token tiene el rol requerido', () => {
     const guard = makeGuard({ roles: ['super_admin'] })
-    const context = buildContext({ authorization: `Bearer ${sign({ userId: 'u1', roles: ['super_admin'] })}` })
+    const context = buildContext({
+      authorization: `Bearer ${sign({ userId: 'u1', roles: ['super_admin'] })}`,
+    })
 
     expect(guard.canActivate(context.executionContext)).toBe(true)
   })
 
   it('rechaza con 403 si el token no tiene el rol requerido', () => {
     const guard = makeGuard({ roles: ['super_admin'] })
-    const context = buildContext({ authorization: `Bearer ${sign({ userId: 'u1', roles: ['customer'] })}` })
+    const context = buildContext({
+      authorization: `Bearer ${sign({ userId: 'u1', roles: ['customer'] })}`,
+    })
 
     expect(() => guard.canActivate(context.executionContext)).toThrow(ForbiddenException)
   })

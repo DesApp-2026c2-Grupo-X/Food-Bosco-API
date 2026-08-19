@@ -44,7 +44,10 @@ export class RolesGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<RequestLike>()
 
-    if (allowInternal && headerToString(request.headers?.[HEADERS.internalToken]) === env.internalApiToken) {
+    if (
+      allowInternal &&
+      headerToString(request.headers?.[HEADERS.internalToken]) === env.internalApiToken
+    ) {
       request.user = { authenticated: false, userId: null, roles: [], branchId: null }
       return true
     }

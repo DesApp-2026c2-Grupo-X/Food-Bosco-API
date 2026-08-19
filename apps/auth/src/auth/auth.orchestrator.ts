@@ -29,7 +29,10 @@ export class AuthOrchestrator {
   }
 
   async registerRider(input: RegisterRiderDto): Promise<AuthTokensResponse> {
-    const user = await this.userService.createUser({ ...this.toCreateInput(input, ROLES.rider), vehicle: input.vehicle })
+    const user = await this.userService.createUser({
+      ...this.toCreateInput(input, ROLES.rider),
+      vehicle: input.vehicle,
+    })
     return this.issueTokens(user)
   }
 
@@ -39,7 +42,8 @@ export class AuthOrchestrator {
   }
 
   async refresh(refreshToken: string): Promise<AuthTokensResponse> {
-    const { userId, refreshToken: newRefreshToken } = await this.refreshTokenService.rotate(refreshToken)
+    const { userId, refreshToken: newRefreshToken } =
+      await this.refreshTokenService.rotate(refreshToken)
     const user = await this.userService.findById(userId)
 
     if (!user || !user.active) {

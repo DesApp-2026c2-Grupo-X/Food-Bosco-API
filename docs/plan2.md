@@ -5,6 +5,7 @@
 **Reemplaza:** `docs/propuesta.md` (este plan es la versión actualizada y completa)
 
 **Fuentes de verdad:**
+
 - `docs/requerimientos-backend-rest.md` §3, §4, §6, §10, §11.1, §12, §13, §15
 - `docs/requerimientos-frontend.md` §1–§13 (clientes: Auth, Tienda, Admin sucursal, Admin global, Repartidor)
 
@@ -15,7 +16,7 @@
 Entregar **de punta a punta** la parte de autenticación para que los cinco frontends puedan
 consumirla:
 
-1. **Auth Service** (`apps/auth`, puerto `4201`) — implementación completa (identidad, sesión, roles, direcciones, recuperación). *(detalle completo en `docs/propuesta.md`)*
+1. **Auth Service** (`apps/auth`, puerto `4201`) — implementación completa (identidad, sesión, roles, direcciones, recuperación). _(detalle completo en `docs/propuesta.md`)_
 2. **API Gateway** (`apps/gateway`, puerto `4000`) — extensión del esquema GraphQL y sus resolvers para exponer las operaciones de autenticación/usuarios/direcciones, traduciendo a REST contra el Auth Service.
 
 El gateway ya tiene la infraestructura transversal lista (JWT/RBAC, rate limiting, `RestClient`,
@@ -35,7 +36,7 @@ Se mantiene exactamente como está en `docs/propuesta.md` (estructura por domini
 - El JWT access lo emite Auth Service y el gateway **solo lo verifica** (secreto compartido `JWT_SECRET`).
 - El rol viaja en el JWT como `roles: [string]` (valores en minúscula: `customer`, `branch_admin`, `super_admin`, `rider`).
 
-*No se repite aquí el detalle de `propuesta.md`; sigue vigente para toda la Parte 1.*
+_No se repite aquí el detalle de `propuesta.md`; sigue vigente para toda la Parte 1._
 
 ---
 
@@ -43,21 +44,21 @@ Se mantiene exactamente como está en `docs/propuesta.md` (estructura por domini
 
 ## 2.1 Estado actual del gateway (qué ya existe y se reutiliza)
 
-| Pieza | Archivo(s) | Estado |
-| --- | --- | --- |
-| Bootstrap + CORS | `src/main.ts` | listo |
-| Config env | `src/config/env.ts` | listo (`AUTH_SERVICE_URL` ya configurado) |
-| Constantes | `src/config/constants.ts` | listo (`ROLES`, `ERROR_CODES`, `HEADERS`) |
-| GraphQLModule (code-first, Apollo) | `src/gateway/gateway.module.ts` | listo; usa `autoSchemaFile` |
-| Contexto por request | `src/gateway/gateway.context.ts` | listo; verifica JWT y expone `userId/roles/branchId/authorization/requestId` |
-| Resolver placeholder | `src/gateway/gateway.resolver.ts` | **se reemplaza** (solo tiene `ping`) |
-| JWT + RBAC | `src/security/*` | listo; **se extiende** con "solo autenticado" (ver §3.4) |
-| Cliente REST | `src/rest/rest.client.ts` + `rest.module.ts` | listo; tokens `AUTH_REST_CLIENT`, `COMMERCE_REST_CLIENT`, `DELIVERY_REST_CLIENT` |
-| DataLoader | `src/rest/data-loader.ts` | listo |
-| Rate limiting | `src/throttle/*` | listo |
-| Errores GraphQL | `src/observability/graphql-error-formatter.ts` | listo (mueve `extensions.code`) |
-| Health | `src/health/*` | listo |
-| requestId | `src/observability/request-id.middleware.ts` | listo |
+| Pieza                              | Archivo(s)                                     | Estado                                                                           |
+| ---------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Bootstrap + CORS                   | `src/main.ts`                                  | listo                                                                            |
+| Config env                         | `src/config/env.ts`                            | listo (`AUTH_SERVICE_URL` ya configurado)                                        |
+| Constantes                         | `src/config/constants.ts`                      | listo (`ROLES`, `ERROR_CODES`, `HEADERS`)                                        |
+| GraphQLModule (code-first, Apollo) | `src/gateway/gateway.module.ts`                | listo; usa `autoSchemaFile`                                                      |
+| Contexto por request               | `src/gateway/gateway.context.ts`               | listo; verifica JWT y expone `userId/roles/branchId/authorization/requestId`     |
+| Resolver placeholder               | `src/gateway/gateway.resolver.ts`              | **se reemplaza** (solo tiene `ping`)                                             |
+| JWT + RBAC                         | `src/security/*`                               | listo; **se extiende** con "solo autenticado" (ver §3.4)                         |
+| Cliente REST                       | `src/rest/rest.client.ts` + `rest.module.ts`   | listo; tokens `AUTH_REST_CLIENT`, `COMMERCE_REST_CLIENT`, `DELIVERY_REST_CLIENT` |
+| DataLoader                         | `src/rest/data-loader.ts`                      | listo                                                                            |
+| Rate limiting                      | `src/throttle/*`                               | listo                                                                            |
+| Errores GraphQL                    | `src/observability/graphql-error-formatter.ts` | listo (mueve `extensions.code`)                                                  |
+| Health                             | `src/health/*`                                 | listo                                                                            |
+| requestId                          | `src/observability/request-id.middleware.ts`   | listo                                                                            |
 
 ## 2.2 Alcance de la extensión
 
@@ -166,43 +167,102 @@ type Mutation {
   deleteAddress(id: ID!): Boolean!
 }
 
-input RegisterInput { firstName: String! lastName: String! email: String! phone: String! password: String! }
-input LoginInput { email: String! password: String! }
-input UpdateProfileInput { firstName: String! lastName: String! phone: String! }
-input CreateStaffInput { firstName: String! lastName: String! email: String! phone: String! password: String! branchId: ID! }
-input CreateAdminInput { firstName: String! lastName: String! email: String! phone: String! password: String! }
-input CreateRiderInput { firstName: String! lastName: String! email: String! phone: String! password: String! vehicle: String! }
-input UpdateUserInput { firstName: String lastName: String phone: String branchId: ID }
-input CreateAddressInput { label: String! text: String! city: String postalCode: String latitude: Float! longitude: Float! }
-input UpdateAddressInput { label: String text: String city: String postalCode: String latitude: Float longitude: Float }
-input UserFilter { role: Role active: Boolean search: String }
-input PageInput { limit: Int offset: Int }
+input RegisterInput {
+  firstName: String!
+  lastName: String!
+  email: String!
+  phone: String!
+  password: String!
+}
+input LoginInput {
+  email: String!
+  password: String!
+}
+input UpdateProfileInput {
+  firstName: String!
+  lastName: String!
+  phone: String!
+}
+input CreateStaffInput {
+  firstName: String!
+  lastName: String!
+  email: String!
+  phone: String!
+  password: String!
+  branchId: ID!
+}
+input CreateAdminInput {
+  firstName: String!
+  lastName: String!
+  email: String!
+  phone: String!
+  password: String!
+}
+input CreateRiderInput {
+  firstName: String!
+  lastName: String!
+  email: String!
+  phone: String!
+  password: String!
+  vehicle: String!
+}
+input UpdateUserInput {
+  firstName: String
+  lastName: String
+  phone: String
+  branchId: ID
+}
+input CreateAddressInput {
+  label: String!
+  text: String!
+  city: String
+  postalCode: String
+  latitude: Float!
+  longitude: Float!
+}
+input UpdateAddressInput {
+  label: String
+  text: String
+  city: String
+  postalCode: String
+  latitude: Float
+  longitude: Float
+}
+input UserFilter {
+  role: Role
+  active: Boolean
+  search: String
+}
+input PageInput {
+  limit: Int
+  offset: Int
+}
 ```
 
 ## 2.5 Mapeo Resolver → REST
 
-| Operación GraphQL | REST | Acceso (gateway) |
-| --- | --- | --- |
-| `register` | `POST /v1/auth/register` | público |
-| `login` | `POST /v1/auth/login` | público |
-| `refreshToken` | `POST /v1/auth/refresh` | público |
-| `logout` | `POST /v1/auth/logout` | autenticado |
-| `requestPasswordRecovery` | `POST /v1/auth/password-recovery` | público |
-| `resetPassword` | `POST /v1/auth/reset-password` | público |
-| `me` | `GET /v1/me` | autenticado |
-| `updateProfile` | `PATCH /v1/me` | autenticado |
-| `users` | `GET /v1/users?role=&active=&search=&limit=&offset=` | `super_admin` |
-| `user` | `GET /v1/users/{id}` | `super_admin` (interno para resolver cross-service) |
-| `createStaff` | `POST /v1/users/staff` | `super_admin` |
-| `createAdmin` | `POST /v1/users/admins` | `super_admin` |
-| `createRider` | `POST /v1/users/riders` | `super_admin` |
-| `updateUser` | `PATCH /v1/users/{id}` | `super_admin` |
-| `setUserActive` | `PATCH /v1/users/{id}/active` | `super_admin` |
-| `myAddresses` | `GET /v1/addresses` | `customer` |
-| `address` | `GET /v1/addresses/{id}` | `customer` |
-| `createAddress` | `POST /v1/addresses` | `customer` |
-| `updateAddress` | `PATCH /v1/addresses/{id}` | `customer` |
-| `deleteAddress` | `DELETE /v1/addresses/{id}` | `customer` |
+| Operación GraphQL         | REST                                                 | Acceso (gateway)                                    |
+| ------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| `register`                | `POST /v1/auth/register`                             | público                                             |
+| `login`                   | `POST /v1/auth/login`                                | público                                             |
+| `refreshToken`            | `POST /v1/auth/refresh`                              | público                                             |
+| `logout`                  | `POST /v1/auth/logout`                               | autenticado                                         |
+| `requestPasswordRecovery` | `POST /v1/auth/password-recovery`                    | público                                             |
+| `resetPassword`           | `POST /v1/auth/reset-password`                       | público                                             |
+| `me`                      | `GET /v1/me`                                         | autenticado                                         |
+| `updateProfile`           | `PATCH /v1/me`                                       | autenticado                                         |
+| `users`                   | `GET /v1/users?role=&active=&search=&limit=&offset=` | `super_admin`                                       |
+| `user`                    | `GET /v1/users/{id}`                                 | `super_admin` (interno para resolver cross-service) |
+| `createStaff`             | `POST /v1/users/staff`                               | `super_admin`                                       |
+| `createAdmin`             | `POST /v1/users/admins`                              | `super_admin`                                       |
+| `createRider`             | `POST /v1/users/riders`                              | `super_admin`                                       |
+| `updateUser`              | `PATCH /v1/users/{id}`                               | `super_admin`                                       |
+| `setUserActive`           | `PATCH /v1/users/{id}/active`                        | `super_admin`                                       |
+| `myAddresses`             | `GET /v1/addresses`                                  | `customer`                                          |
+| `address`                 | `GET /v1/addresses/{id}`                             | `customer`                                          |
+| `createAddress`           | `POST /v1/addresses`                                 | `customer`                                          |
+| `updateAddress`           | `PATCH /v1/addresses/{id}`                           | `customer`                                          |
+| `deleteAddress`           | `DELETE /v1/addresses/{id}`                          | `customer`                                          |
 
 ## 2.6 Detalles de mapeo de datos
 

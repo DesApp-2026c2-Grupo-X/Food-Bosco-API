@@ -30,11 +30,27 @@ describe('JwtService.verify', () => {
     jwt.sign(payload, env.jwtSecret, options)
 
   it.each([
-    { name: 'token válido', token: () => sign({ userId: 'u1', roles: ['customer'], branchId: 'b1' }), authenticated: true },
-    { name: 'con prefijo Bearer', token: () => `Bearer ${sign({ userId: 'u1', roles: ['rider'] })}`, authenticated: true },
+    {
+      name: 'token válido',
+      token: () => sign({ userId: 'u1', roles: ['customer'], branchId: 'b1' }),
+      authenticated: true,
+    },
+    {
+      name: 'con prefijo Bearer',
+      token: () => `Bearer ${sign({ userId: 'u1', roles: ['rider'] })}`,
+      authenticated: true,
+    },
     { name: 'sin token', token: () => undefined, authenticated: false },
-    { name: 'token expirado', token: () => sign({ userId: 'u1' }, { expiresIn: -10 }), authenticated: false },
-    { name: 'firma inválida', token: () => jwt.sign({ userId: 'u1' }, 'otro-secreto'), authenticated: false },
+    {
+      name: 'token expirado',
+      token: () => sign({ userId: 'u1' }, { expiresIn: -10 }),
+      authenticated: false,
+    },
+    {
+      name: 'firma inválida',
+      token: () => jwt.sign({ userId: 'u1' }, 'otro-secreto'),
+      authenticated: false,
+    },
     { name: 'malformado', token: () => 'no-es-un-jwt', authenticated: false },
   ])('$name', ({ token, authenticated }) => {
     expect(service.verify(token()).authenticated).toBe(authenticated)

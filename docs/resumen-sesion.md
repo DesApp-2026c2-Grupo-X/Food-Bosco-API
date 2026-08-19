@@ -13,16 +13,16 @@
 
 ### Decisiones confirmadas por el equipo
 
-| Tema | Decisión |
-| --- | --- |
-| Hash de contraseña | `bcryptjs` |
-| Refresh/recovery tokens | almacenados hasheados (SHA-256) |
-| Validación de sucursal (`RQ-AUTH-13`) | **no se valida por ahora** → registrado en `pendings.md` |
-| Acceso interno `GET /v1/users/{id}` | header `X-Internal-Token` (`INTERNAL_API_TOKEN`) |
-| Seed del `super_admin` | script standalone (`npm run seed`) |
-| `PageInfo` en GraphQL | sí, `users` devuelve `UserPage { data, pageInfo }` |
-| Auto-registro de repartidores | sí, mutation `registerRider` (REST `POST /v1/auth/register-rider`) |
-| Alcance del gateway | solo el dominio auth (Commerce/Delivery quedan para después) |
+| Tema                                  | Decisión                                                           |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| Hash de contraseña                    | `bcryptjs`                                                         |
+| Refresh/recovery tokens               | almacenados hasheados (SHA-256)                                    |
+| Validación de sucursal (`RQ-AUTH-13`) | **no se valida por ahora** → registrado en `pendings.md`           |
+| Acceso interno `GET /v1/users/{id}`   | header `X-Internal-Token` (`INTERNAL_API_TOKEN`)                   |
+| Seed del `super_admin`                | script standalone (`npm run seed`)                                 |
+| `PageInfo` en GraphQL                 | sí, `users` devuelve `UserPage { data, pageInfo }`                 |
+| Auto-registro de repartidores         | sí, mutation `registerRider` (REST `POST /v1/auth/register-rider`) |
+| Alcance del gateway                   | solo el dominio auth (Commerce/Delivery quedan para después)       |
 
 ---
 
@@ -64,12 +64,12 @@ apps/auth/src/
 
 ## 4. Tests
 
-| Suite | Ubicación | Cantidad |
-| --- | --- | --- |
-| Auth unit | `apps/auth/src/**/*.spec.ts` | 61 |
-| Auth e2e | `apps/auth/test/app.e2e-spec.ts` (mongodb-memory-server) | 26 |
-| Gateway unit | `apps/gateway/src/**/*.spec.ts` | 60 |
-| Gateway e2e | `apps/gateway/test/auth.e2e-spec.ts` (fetch mockeado) | 8 |
+| Suite        | Ubicación                                                | Cantidad |
+| ------------ | -------------------------------------------------------- | -------- |
+| Auth unit    | `apps/auth/src/**/*.spec.ts`                             | 61       |
+| Auth e2e     | `apps/auth/test/app.e2e-spec.ts` (mongodb-memory-server) | 26       |
+| Gateway unit | `apps/gateway/src/**/*.spec.ts`                          | 60       |
+| Gateway e2e  | `apps/gateway/test/auth.e2e-spec.ts` (fetch mockeado)    | 8        |
 
 - **Auth unit**: servicios, orchestrator, guard, JWT, filtro de errores (parametrizados).
 - **Auth e2e**: flujo HTTP real contra Mongo en memoria (registro→login→me→refresh→logout→recuperación→reset→direcciones→alta de personal→listado→activar/desactivar→403/401→acceso interno→register-rider).

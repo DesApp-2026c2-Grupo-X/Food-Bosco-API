@@ -51,7 +51,13 @@ describe('Auth Service (e2e)', () => {
   const register = (email: string) =>
     request(app.getHttpServer())
       .post('/v1/auth/register')
-      .send({ firstName: 'Juan', lastName: 'Perez', email, phone: '11223344', password: 'password123' })
+      .send({
+        firstName: 'Juan',
+        lastName: 'Perez',
+        email,
+        phone: '11223344',
+        password: 'password123',
+      })
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create()
@@ -289,7 +295,13 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/addresses')
         .set('Authorization', `Bearer ${customerToken}`)
-        .send({ label: 'Casa', text: 'Av. Siempre Viva 123', city: 'CABA', latitude: -34.6, longitude: -58.4 })
+        .send({
+          label: 'Casa',
+          text: 'Av. Siempre Viva 123',
+          city: 'CABA',
+          latitude: -34.6,
+          longitude: -58.4,
+        })
         .expect(201)
 
       addressId = res.body.id as string
@@ -332,7 +344,14 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/users/staff')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ firstName: 'S', lastName: 'S', email: 'staff@test.com', phone: '1', password: 'password123', branchId: 'branch-1' })
+        .send({
+          firstName: 'S',
+          lastName: 'S',
+          email: 'staff@test.com',
+          phone: '1',
+          password: 'password123',
+          branchId: 'branch-1',
+        })
         .expect(201)
 
       expect(res.body.role).toBe('branch_admin')
@@ -343,7 +362,13 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/users/admins')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ firstName: 'A', lastName: 'A', email: 'admin2@test.com', phone: '1', password: 'password123' })
+        .send({
+          firstName: 'A',
+          lastName: 'A',
+          email: 'admin2@test.com',
+          phone: '1',
+          password: 'password123',
+        })
         .expect(201)
 
       expect(res.body.role).toBe('super_admin')
@@ -353,7 +378,14 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/v1/users/riders')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ firstName: 'R', lastName: 'R', email: 'rider@test.com', phone: '1', password: 'password123', vehicle: 'Moto' })
+        .send({
+          firstName: 'R',
+          lastName: 'R',
+          email: 'rider@test.com',
+          phone: '1',
+          password: 'password123',
+          vehicle: 'Moto',
+        })
         .expect(201)
 
       expect(res.body.role).toBe('rider')
@@ -411,7 +443,14 @@ describe('Auth Service (e2e)', () => {
     it('registra un rider con vehicle', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .send({ firstName: 'R', lastName: 'R', email: 'rider-self@test.com', phone: '1', password: 'password123', vehicle: 'Bici' })
+        .send({
+          firstName: 'R',
+          lastName: 'R',
+          email: 'rider-self@test.com',
+          phone: '1',
+          password: 'password123',
+          vehicle: 'Bici',
+        })
         .expect(201)
 
       const payload = jwt.decode(res.body.accessToken as string) as jwt.JwtPayload

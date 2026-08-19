@@ -40,7 +40,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const status = exception.getStatus()
       response
         .status(status)
-        .json({ code: codeForStatus(status), message: extractMessage(exception.getResponse() as ErrorBody), path })
+        .json({
+          code: codeForStatus(status),
+          message: extractMessage(exception.getResponse() as ErrorBody),
+          path,
+        })
       return
     }
 

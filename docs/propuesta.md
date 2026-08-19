@@ -16,6 +16,7 @@ Se cubren los requerimientos `RQ-AUTH-01` a `RQ-AUTH-22`, más los transversales
 `RQ-SEC-01/02/04/07/08`, `RQ-REST-04/07`, `NFR-01/02/05/07/08`.
 
 **Queda fuera de esta tarea:**
+
 - Tests (otro agente los escribe luego).
 - GraphQL Gateway, Commerce Service y Delivery Service (ya existen esqueletos; no se tocan aquí).
 
@@ -23,19 +24,20 @@ Se cubren los requerimientos `RQ-AUTH-01` a `RQ-AUTH-22`, más los transversales
 
 ## 2. Decisiones técnicas
 
-| Tema | Decisión | Motivo |
-| --- | --- | --- |
-| ODM | `@nestjs/mongoose` + `mongoose` | Estándar NestJS + MongoDB, modelos tipados con decoradores. |
-| Hash de contraseña | `bcryptjs` | Puro JS, sin compilación nativa (compatible Windows/Linux/CI). Requerimiento permite bcrypt/argon2. |
-| JWT | `jsonwebtoken` (crudo, como el gateway) | Consistencia con `apps/gateway`; el secreto se comparte (`JWT_SECRET`). |
-| Validación | `class-validator` + `class-transformer` con `ValidationPipe` global | Validación de DTOs declarativa. |
-| Config | módulo `config/env.ts` (como el gateway) | Sin `@nestjs/config`; se lee `process.env` con defaults de desarrollo. |
-| Refresh token | opaco (`crypto.randomBytes`), almacenado **hasheado** (SHA-256) en `refreshTokens` | Revocable y sin secretos legibles en la BD. |
-| Token de recuperación | opaco, hasheado, de un solo uso (`used`) con expiración | `RQ-SEC-08`. |
-| HTTP a Commerce | `fetch` nativo de Node 20 (sin dependencia) | Validación de sucursal en `RQ-AUTH-13`. |
-| IDs | `crypto.randomUUID()` / `ObjectId` de Mongoose | Sin dependencia extra. |
+| Tema                  | Decisión                                                                           | Motivo                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ODM                   | `@nestjs/mongoose` + `mongoose`                                                    | Estándar NestJS + MongoDB, modelos tipados con decoradores.                                         |
+| Hash de contraseña    | `bcryptjs`                                                                         | Puro JS, sin compilación nativa (compatible Windows/Linux/CI). Requerimiento permite bcrypt/argon2. |
+| JWT                   | `jsonwebtoken` (crudo, como el gateway)                                            | Consistencia con `apps/gateway`; el secreto se comparte (`JWT_SECRET`).                             |
+| Validación            | `class-validator` + `class-transformer` con `ValidationPipe` global                | Validación de DTOs declarativa.                                                                     |
+| Config                | módulo `config/env.ts` (como el gateway)                                           | Sin `@nestjs/config`; se lee `process.env` con defaults de desarrollo.                              |
+| Refresh token         | opaco (`crypto.randomBytes`), almacenado **hasheado** (SHA-256) en `refreshTokens` | Revocable y sin secretos legibles en la BD.                                                         |
+| Token de recuperación | opaco, hasheado, de un solo uso (`used`) con expiración                            | `RQ-SEC-08`.                                                                                        |
+| HTTP a Commerce       | `fetch` nativo de Node 20 (sin dependencia)                                        | Validación de sucursal en `RQ-AUTH-13`.                                                             |
+| IDs                   | `crypto.randomUUID()` / `ObjectId` de Mongoose                                     | Sin dependencia extra.                                                                              |
 
 **Dependencias nuevas en `apps/auth/package.json`** (dependencies):
+
 - `@nestjs/mongoose`, `mongoose`
 - `bcryptjs`
 - `jsonwebtoken` (+ `@types/jsonwebtoken` en dev)
@@ -45,17 +47,17 @@ Se cubren los requerimientos `RQ-AUTH-01` a `RQ-AUTH-22`, más los transversales
 
 ## 3. Variables de entorno (las carga el usuario)
 
-| Variable | Default (dev) | Uso |
-| --- | --- | --- |
-| `PORT` | `4201` | Puerto HTTP. |
-| `MONGODB_URI` | `mongodb://localhost:27017/fastfood` | Cadena de conexión a MongoDB (la provee el usuario). |
-| `JWT_SECRET` | `dev-secret-change-me` | Secreto compartido con el gateway. |
-| `JWT_ACCESS_EXPIRES_IN` | `15m` | Vida del access token. |
-| `JWT_REFRESH_EXPIRES_IN` | `7d` | Vida del refresh token. |
-| `PASSWORD_RECOVERY_EXPIRES_IN` | `1h` | Vida del token de recuperación. |
-| `COMMERCE_SERVICE_URL` | `http://localhost:4202` | Validación de sucursal (`RQ-AUTH-13`). |
-| `INTERNAL_API_TOKEN` | `dev-internal-token` | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`. |
-| `SEED_SUPER_ADMIN_*` | (ver §8) | Credenciales del `super_admin` inicial por seed. |
+| Variable                       | Default (dev)                        | Uso                                                           |
+| ------------------------------ | ------------------------------------ | ------------------------------------------------------------- |
+| `PORT`                         | `4201`                               | Puerto HTTP.                                                  |
+| `MONGODB_URI`                  | `mongodb://localhost:27017/fastfood` | Cadena de conexión a MongoDB (la provee el usuario).          |
+| `JWT_SECRET`                   | `dev-secret-change-me`               | Secreto compartido con el gateway.                            |
+| `JWT_ACCESS_EXPIRES_IN`        | `15m`                                | Vida del access token.                                        |
+| `JWT_REFRESH_EXPIRES_IN`       | `7d`                                 | Vida del refresh token.                                       |
+| `PASSWORD_RECOVERY_EXPIRES_IN` | `1h`                                 | Vida del token de recuperación.                               |
+| `COMMERCE_SERVICE_URL`         | `http://localhost:4202`              | Validación de sucursal (`RQ-AUTH-13`).                        |
+| `INTERNAL_API_TOKEN`           | `dev-internal-token`                 | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`. |
+| `SEED_SUPER_ADMIN_*`           | (ver §8)                             | Credenciales del `super_admin` inicial por seed.              |
 
 Se documentará en un `apps/auth/.env.example` (no se versiona `.env`; ya está en `.gitignore`).
 También se actualizará `turbo.json` (`globalEnv`) con las variables nuevas que Turborepo
@@ -159,6 +161,7 @@ coordinaciones viven en `auth.orchestrator.ts` y `user-management.orchestrator.t
 Base `fastfood`. Colecciones según §11.1.
 
 ### `users`
+
 ```text
 {
   _id: ObjectId,
@@ -174,24 +177,31 @@ Base `fastfood`. Colecciones según §11.1.
   createdAt: Date
 }
 ```
+
 Índices (NFR-01): `email` único.
 
 ### `refreshTokens`
+
 ```text
 { _id, userId, tokenHash (unique), expiresAt, revoked (default false), createdAt }
 ```
+
 Índices: `userId`, `tokenHash` único.
 
 ### `passwordRecovery`
+
 ```text
 { _id, userId, tokenHash, expiresAt, used (default false), createdAt }
 ```
+
 Índices: `userId`.
 
 ### `addresses`
+
 ```text
 { _id, userId, label, text, city, postalCode, latitude, longitude, active (default true) }
 ```
+
 Índices: `userId`.
 
 Los `passwordHash` y `tokenHash` nunca se serializan en respuestas; el `passwordHash`
@@ -202,31 +212,32 @@ cambiar contraseña.
 
 ## 6. Endpoints
 
-| Método | Ruta | Acceso | Coordinación |
-| --- | --- | --- | --- |
-| POST | `/v1/auth/register` | público | `AuthOrchestrator` → `UserService` + `RefreshTokenService` + `JwtService` |
-| POST | `/v1/auth/login` | público | `AuthOrchestrator` |
-| POST | `/v1/auth/refresh` | público | `AuthOrchestrator` → `RefreshTokenService` (rota el refresh) |
-| POST | `/v1/auth/logout` | autenticado | `AuthOrchestrator` → `RefreshTokenService` (revoca) |
-| POST | `/v1/auth/password-recovery` | público | `AuthOrchestrator` (respuesta neutral, `RQ-AUTH-09`) |
-| POST | `/v1/auth/reset-password` | público | `AuthOrchestrator` → `PasswordRecoveryService` (un solo uso) |
-| GET | `/v1/me` | autenticado | `MeController` → `UserService` |
-| PATCH | `/v1/me` | autenticado | `MeController` → `UserService` |
-| GET | `/v1/users` | `super_admin` | `UserController` → `UserService` (filtros + paginación `{data, meta}`) |
-| GET | `/v1/users/{userId}` | `super_admin` / interno | `UserController` → `UserService` |
-| POST | `/v1/users/staff` | `super_admin` | `UserManagementOrchestrator` (valida sucursal) |
-| POST | `/v1/users/admins` | `super_admin` | `UserManagementOrchestrator` |
-| POST | `/v1/users/riders` | `super_admin` | `UserManagementOrchestrator` |
-| PATCH | `/v1/users/{userId}` | `super_admin` | `UserController` → `UserService` |
-| PATCH | `/v1/users/{userId}/active` | `super_admin` | `UserController` → `UserService` |
-| GET | `/v1/addresses` | `customer` | `AddressController` → `AddressService` |
-| POST | `/v1/addresses` | `customer` | `AddressController` → `AddressService` |
-| GET | `/v1/addresses/{addressId}` | `customer` | `AddressController` → `AddressService` |
-| PATCH | `/v1/addresses/{addressId}` | `customer` | `AddressController` → `AddressService` |
-| DELETE | `/v1/addresses/{addressId}` | `customer` | `AddressController` → `AddressService` (desactiva) |
-| GET | `/health` | público | `HealthController` |
+| Método | Ruta                         | Acceso                  | Coordinación                                                              |
+| ------ | ---------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| POST   | `/v1/auth/register`          | público                 | `AuthOrchestrator` → `UserService` + `RefreshTokenService` + `JwtService` |
+| POST   | `/v1/auth/login`             | público                 | `AuthOrchestrator`                                                        |
+| POST   | `/v1/auth/refresh`           | público                 | `AuthOrchestrator` → `RefreshTokenService` (rota el refresh)              |
+| POST   | `/v1/auth/logout`            | autenticado             | `AuthOrchestrator` → `RefreshTokenService` (revoca)                       |
+| POST   | `/v1/auth/password-recovery` | público                 | `AuthOrchestrator` (respuesta neutral, `RQ-AUTH-09`)                      |
+| POST   | `/v1/auth/reset-password`    | público                 | `AuthOrchestrator` → `PasswordRecoveryService` (un solo uso)              |
+| GET    | `/v1/me`                     | autenticado             | `MeController` → `UserService`                                            |
+| PATCH  | `/v1/me`                     | autenticado             | `MeController` → `UserService`                                            |
+| GET    | `/v1/users`                  | `super_admin`           | `UserController` → `UserService` (filtros + paginación `{data, meta}`)    |
+| GET    | `/v1/users/{userId}`         | `super_admin` / interno | `UserController` → `UserService`                                          |
+| POST   | `/v1/users/staff`            | `super_admin`           | `UserManagementOrchestrator` (valida sucursal)                            |
+| POST   | `/v1/users/admins`           | `super_admin`           | `UserManagementOrchestrator`                                              |
+| POST   | `/v1/users/riders`           | `super_admin`           | `UserManagementOrchestrator`                                              |
+| PATCH  | `/v1/users/{userId}`         | `super_admin`           | `UserController` → `UserService`                                          |
+| PATCH  | `/v1/users/{userId}/active`  | `super_admin`           | `UserController` → `UserService`                                          |
+| GET    | `/v1/addresses`              | `customer`              | `AddressController` → `AddressService`                                    |
+| POST   | `/v1/addresses`              | `customer`              | `AddressController` → `AddressService`                                    |
+| GET    | `/v1/addresses/{addressId}`  | `customer`              | `AddressController` → `AddressService`                                    |
+| PATCH  | `/v1/addresses/{addressId}`  | `customer`              | `AddressController` → `AddressService`                                    |
+| DELETE | `/v1/addresses/{addressId}`  | `customer`              | `AddressController` → `AddressService` (desactiva)                        |
+| GET    | `/health`                    | público                 | `HealthController`                                                        |
 
 Notas:
+
 - `GET /v1/users/{id}` "interno": además de `super_admin`, acepta header
   `X-Internal-Token` = `INTERNAL_API_TOKEN` (para que el gateway resuelva `Order.client`).
 - Listas devuelven `{ data, meta: { total, limit, offset } }` (convención §5).
@@ -258,13 +269,13 @@ Notas:
 
 Script standalone `npm run seed` (idempotente: upsert por email), que lee:
 
-| Variable | Default (dev) |
-| --- | --- |
-| `SEED_SUPER_ADMIN_EMAIL` | `admin@foodbosco.local` |
-| `SEED_SUPER_ADMIN_PASSWORD` | `Admin123!` (solo dev) |
-| `SEED_SUPER_ADMIN_FIRST_NAME` | `Super` |
-| `SEED_SUPER_ADMIN_LAST_NAME` | `Admin` |
-| `SEED_SUPER_ADMIN_PHONE` | `0000000000` |
+| Variable                      | Default (dev)           |
+| ----------------------------- | ----------------------- |
+| `SEED_SUPER_ADMIN_EMAIL`      | `admin@foodbosco.local` |
+| `SEED_SUPER_ADMIN_PASSWORD`   | `Admin123!` (solo dev)  |
+| `SEED_SUPER_ADMIN_FIRST_NAME` | `Super`                 |
+| `SEED_SUPER_ADMIN_LAST_NAME`  | `Admin`                 |
+| `SEED_SUPER_ADMIN_PHONE`      | `0000000000`            |
 
 No se ejecuta en el arranque de la app (mantiene NFR-02 stateless); se corre manualmente o
 por CI. En producción las credenciales vienen de secretos.

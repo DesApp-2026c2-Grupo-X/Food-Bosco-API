@@ -24,7 +24,10 @@ export class MeController {
 
   @Patch()
   @Authenticated()
-  async updateMe(@CurrentUser() auth: AuthContext, @Body() dto: UpdateProfileDto): Promise<PublicUser> {
+  async updateMe(
+    @CurrentUser() auth: AuthContext,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<PublicUser> {
     const user = auth.userId ? await this.userService.update(auth.userId, dto) : null
     if (!user) {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)

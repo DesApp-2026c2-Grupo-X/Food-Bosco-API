@@ -7,7 +7,12 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
 
-export const USER_ROLE_VALUES: Role[] = [ROLES.customer, ROLES.branchAdmin, ROLES.superAdmin, ROLES.rider]
+export const USER_ROLE_VALUES: Role[] = [
+  ROLES.customer,
+  ROLES.branchAdmin,
+  ROLES.superAdmin,
+  ROLES.rider,
+]
 
 export const ERROR_CODES = {
   emailTaken: 'EMAIL_TAKEN',

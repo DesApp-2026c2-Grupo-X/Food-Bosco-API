@@ -23,7 +23,10 @@ describe('HttpExceptionFilter (RQ-REST-07, NFR-05)', () => {
 
   it('serializa un DomainException como envelope { code, message, path }', () => {
     const { host, status, json } = buildHost('/v1/auth/login')
-    filter.catch(new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401), host)
+    filter.catch(
+      new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401),
+      host,
+    )
 
     expect(status).toHaveBeenCalledWith(401)
     expect(json).toHaveBeenCalledWith({
@@ -47,7 +50,10 @@ describe('HttpExceptionFilter (RQ-REST-07, NFR-05)', () => {
 
     expect(status).toHaveBeenCalledWith(400)
     expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({ code: ERROR_CODES.validationError, message: 'firstName no debe estar vacío' }),
+      expect.objectContaining({
+        code: ERROR_CODES.validationError,
+        message: 'firstName no debe estar vacío',
+      }),
     )
   })
 
@@ -57,7 +63,10 @@ describe('HttpExceptionFilter (RQ-REST-07, NFR-05)', () => {
 
     expect(status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR)
     expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({ code: ERROR_CODES.internal, message: 'Error interno del servidor' }),
+      expect.objectContaining({
+        code: ERROR_CODES.internal,
+        message: 'Error interno del servidor',
+      }),
     )
   })
 })

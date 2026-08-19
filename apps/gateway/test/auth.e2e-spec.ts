@@ -104,7 +104,11 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
   it('expone el login y devuelve los tokens', async () => {
     const res = await request(app.getHttpServer())
       .post('/graphql')
-      .send(gql('mutation { login(input: { email: "a@b.com", password: "p" }) { accessToken refreshToken } }'))
+      .send(
+        gql(
+          'mutation { login(input: { email: "a@b.com", password: "p" }) { accessToken refreshToken } }',
+        ),
+      )
       .expect(200)
 
     expect(res.body.data.login).toEqual({ accessToken: 'at-login', refreshToken: 'rt-login' })
@@ -120,7 +124,10 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
       )
       .expect(200)
 
-    expect(res.body.data.registerRider).toEqual({ accessToken: 'at-rider', refreshToken: 'rt-rider' })
+    expect(res.body.data.registerRider).toEqual({
+      accessToken: 'at-rider',
+      refreshToken: 'rt-rider',
+    })
   })
 
   it('resuelve me con un JWT válido y mapea el role a enum', async () => {
@@ -152,7 +159,11 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
     const res = await request(app.getHttpServer())
       .post('/graphql')
       .set('Authorization', `Bearer ${token}`)
-      .send(gql('query { users(filter: { role: SUPER_ADMIN }, page: { limit: 20, offset: 0 }) { data { id role } pageInfo { total limit offset } } }'))
+      .send(
+        gql(
+          'query { users(filter: { role: SUPER_ADMIN }, page: { limit: 20, offset: 0 }) { data { id role } pageInfo { total limit offset } } }',
+        ),
+      )
       .expect(200)
 
     expect(res.body.data.users.data).toEqual([{ id: 'u1', role: 'SUPER_ADMIN' }])

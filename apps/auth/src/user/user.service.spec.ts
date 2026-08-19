@@ -103,7 +103,9 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
   it('rechaza con error genérico si el correo no existe', async () => {
     repository.findByEmailWithPassword.mockResolvedValue(null)
 
-    await expect(service.verifyCredentials('nadie@example.com', 'secreto123')).rejects.toMatchObject({
+    await expect(
+      service.verifyCredentials('nadie@example.com', 'secreto123'),
+    ).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
     })
   })
@@ -111,7 +113,9 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
   it('rechaza con error genérico si la contraseña es incorrecta', async () => {
     repository.findByEmailWithPassword.mockResolvedValue(buildDoc({ passwordHash }))
 
-    await expect(service.verifyCredentials('cliente@example.com', 'otra-clave')).rejects.toMatchObject({
+    await expect(
+      service.verifyCredentials('cliente@example.com', 'otra-clave'),
+    ).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
     })
   })
@@ -119,7 +123,9 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
   it('rechaza un usuario inactivo', async () => {
     repository.findByEmailWithPassword.mockResolvedValue(buildDoc({ passwordHash, active: false }))
 
-    await expect(service.verifyCredentials('cliente@example.com', 'secreto123')).rejects.toMatchObject({
+    await expect(
+      service.verifyCredentials('cliente@example.com', 'secreto123'),
+    ).rejects.toMatchObject({
       code: ERROR_CODES.userInactive,
     })
   })

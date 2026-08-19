@@ -23,14 +23,7 @@ import {
   UpdateUserInput,
   UserFilterInput,
 } from './auth.inputs'
-import {
-  Address,
-  AuthTokens,
-  User,
-  UserPage,
-  mapAddress,
-  mapUser,
-} from './auth.types'
+import { Address, AuthTokens, User, UserPage, mapAddress, mapUser } from './auth.types'
 
 type RawRecord = Record<string, unknown>
 
@@ -82,7 +75,10 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
-  async resetPassword(@Args('token') token: string, @Args('newPassword') newPassword: string): Promise<boolean> {
+  async resetPassword(
+    @Args('token') token: string,
+    @Args('newPassword') newPassword: string,
+  ): Promise<boolean> {
     await this.rest.post('/v1/auth/reset-password', { body: { token, newPassword } })
     return true
   }
@@ -96,8 +92,14 @@ export class AuthResolver {
 
   @Mutation(() => User)
   @Authenticated()
-  async updateProfile(@Args('input') input: UpdateProfileInput, @Context() ctx: GraphQLContext): Promise<User> {
-    const raw = await this.rest.patch<RawRecord>('/v1/me', { body: input, context: toRestContext(ctx) })
+  async updateProfile(
+    @Args('input') input: UpdateProfileInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
+    const raw = await this.rest.patch<RawRecord>('/v1/me', {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
@@ -134,22 +136,40 @@ export class AuthResolver {
 
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
-  async createStaff(@Args('input') input: CreateStaffInput, @Context() ctx: GraphQLContext): Promise<User> {
-    const raw = await this.rest.post<RawRecord>('/v1/users/staff', { body: input, context: toRestContext(ctx) })
+  async createStaff(
+    @Args('input') input: CreateStaffInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
+    const raw = await this.rest.post<RawRecord>('/v1/users/staff', {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
-  async createAdmin(@Args('input') input: CreateAdminInput, @Context() ctx: GraphQLContext): Promise<User> {
-    const raw = await this.rest.post<RawRecord>('/v1/users/admins', { body: input, context: toRestContext(ctx) })
+  async createAdmin(
+    @Args('input') input: CreateAdminInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
+    const raw = await this.rest.post<RawRecord>('/v1/users/admins', {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
-  async createRider(@Args('input') input: CreateRiderInput, @Context() ctx: GraphQLContext): Promise<User> {
-    const raw = await this.rest.post<RawRecord>('/v1/users/riders', { body: input, context: toRestContext(ctx) })
+  async createRider(
+    @Args('input') input: CreateRiderInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
+    const raw = await this.rest.post<RawRecord>('/v1/users/riders', {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
@@ -160,35 +180,55 @@ export class AuthResolver {
     @Args('input') input: UpdateUserInput,
     @Context() ctx: GraphQLContext,
   ): Promise<User> {
-    const raw = await this.rest.patch<RawRecord>(`/v1/users/${id}`, { body: input, context: toRestContext(ctx) })
+    const raw = await this.rest.patch<RawRecord>(`/v1/users/${id}`, {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
-  async setUserActive(@Args('id') id: string, @Args('active') active: boolean, @Context() ctx: GraphQLContext): Promise<User> {
-    const raw = await this.rest.patch<RawRecord>(`/v1/users/${id}/active`, { body: { active }, context: toRestContext(ctx) })
+  async setUserActive(
+    @Args('id') id: string,
+    @Args('active') active: boolean,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
+    const raw = await this.rest.patch<RawRecord>(`/v1/users/${id}/active`, {
+      body: { active },
+      context: toRestContext(ctx),
+    })
     return mapUser(raw)
   }
 
   @Query(() => [Address])
   @Roles(ROLES.customer)
   async myAddresses(@Context() ctx: GraphQLContext): Promise<Address[]> {
-    const raw = await this.rest.get<AddressListRest>('/v1/addresses', { context: toRestContext(ctx) })
+    const raw = await this.rest.get<AddressListRest>('/v1/addresses', {
+      context: toRestContext(ctx),
+    })
     return raw.data.map(mapAddress)
   }
 
   @Query(() => Address)
   @Roles(ROLES.customer)
   async address(@Args('id') id: string, @Context() ctx: GraphQLContext): Promise<Address> {
-    const raw = await this.rest.get<RawRecord>(`/v1/addresses/${id}`, { context: toRestContext(ctx) })
+    const raw = await this.rest.get<RawRecord>(`/v1/addresses/${id}`, {
+      context: toRestContext(ctx),
+    })
     return mapAddress(raw)
   }
 
   @Mutation(() => Address)
   @Roles(ROLES.customer)
-  async createAddress(@Args('input') input: CreateAddressInput, @Context() ctx: GraphQLContext): Promise<Address> {
-    const raw = await this.rest.post<RawRecord>('/v1/addresses', { body: input, context: toRestContext(ctx) })
+  async createAddress(
+    @Args('input') input: CreateAddressInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Address> {
+    const raw = await this.rest.post<RawRecord>('/v1/addresses', {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapAddress(raw)
   }
 
@@ -199,7 +239,10 @@ export class AuthResolver {
     @Args('input') input: UpdateAddressInput,
     @Context() ctx: GraphQLContext,
   ): Promise<Address> {
-    const raw = await this.rest.patch<RawRecord>(`/v1/addresses/${id}`, { body: input, context: toRestContext(ctx) })
+    const raw = await this.rest.patch<RawRecord>(`/v1/addresses/${id}`, {
+      body: input,
+      context: toRestContext(ctx),
+    })
     return mapAddress(raw)
   }
 

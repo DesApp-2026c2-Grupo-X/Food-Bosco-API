@@ -26,7 +26,10 @@ export class AddressController {
   }
 
   @Get(':addressId')
-  async get(@CurrentUser() auth: AuthContext, @Param('addressId') addressId: string): Promise<PublicAddress> {
+  async get(
+    @CurrentUser() auth: AuthContext,
+    @Param('addressId') addressId: string,
+  ): Promise<PublicAddress> {
     const address = await this.addressService.findOwned(addressId, auth.userId ?? '')
     if (!address) {
       throw new DomainException(ERROR_CODES.addressNotFound, 'Dirección no encontrada', 404)
@@ -48,7 +51,10 @@ export class AddressController {
   }
 
   @Delete(':addressId')
-  async remove(@CurrentUser() auth: AuthContext, @Param('addressId') addressId: string): Promise<{ ok: boolean }> {
+  async remove(
+    @CurrentUser() auth: AuthContext,
+    @Param('addressId') addressId: string,
+  ): Promise<{ ok: boolean }> {
     const removed = await this.addressService.remove(addressId, auth.userId ?? '')
     if (!removed) {
       throw new DomainException(ERROR_CODES.addressNotFound, 'Dirección no encontrada', 404)
