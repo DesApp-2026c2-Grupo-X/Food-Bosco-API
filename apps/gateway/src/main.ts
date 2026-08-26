@@ -1,11 +1,12 @@
 import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
+import { env } from './config/env'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
-  const port = process.env.PORT ?? 4201
-  await app.listen(port)
-  Logger.log(`Auth API corriendo en http://localhost:${port}`, 'Bootstrap')
+  app.enableCors()
+  await app.listen(env.port)
+  Logger.log(`Gateway corriendo en http://localhost:${env.port}`, 'Bootstrap')
 }
 void bootstrap()

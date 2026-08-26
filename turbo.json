@@ -1,6 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": ["PORT"],
+  "globalEnv": [
+    "PORT",
+    "NODE_ENV",
+    "JWT_SECRET",
+    "AUTH_SERVICE_URL",
+    "COMMERCE_SERVICE_URL",
+    "DELIVERY_SERVICE_URL",
+    "THROTTLE_TTL_MS",
+    "THROTTLE_LIMIT"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
