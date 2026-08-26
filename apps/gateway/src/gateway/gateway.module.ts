@@ -7,11 +7,12 @@ import { env } from '../config/env'
 import { buildContext } from './gateway.context'
 import { formatGraphQLError } from '../observability/graphql-error-formatter'
 import { RestModule } from '../rest/rest.module'
-import { GatewayResolver } from './gateway.resolver'
+import { AuthGraphqlModule } from '../graphql/auth/auth.module'
 
 @Module({
   imports: [
     RestModule,
+    AuthGraphqlModule,
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       imports: [SecurityModule],
@@ -26,6 +27,5 @@ import { GatewayResolver } from './gateway.resolver'
       }),
     }),
   ],
-  providers: [GatewayResolver],
 })
 export class GatewayModule {}
