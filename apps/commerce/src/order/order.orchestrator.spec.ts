@@ -123,7 +123,9 @@ describe('OrderOrchestrator.create (RQ-ORD-01..10)', () => {
     mocks.parameterService.getValue.mockImplementation((key: string) =>
       key === 'BASE_PREP_MIN' ? 15 : 25,
     )
-    mocks.orderService.create.mockResolvedValue(order({ estimatedDeliveryAt: '2026-01-01T00:15:00.000Z' }))
+    mocks.orderService.create.mockResolvedValue(
+      order({ estimatedDeliveryAt: '2026-01-01T00:15:00.000Z' }),
+    )
 
     const result = await mocks.orchestrator.create('c1', {
       addressId: 'a1',

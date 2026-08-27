@@ -102,10 +102,7 @@ export class BranchController {
     @Param('branchId') branchId: string,
     @Body() dto: UpdateBranchHoursDto,
   ): Promise<PublicBranchHour[]> {
-    const branch = await this.branchService.updateHours(
-      branchId,
-      dto.hours.map(toHour),
-    )
+    const branch = await this.branchService.updateHours(branchId, dto.hours.map(toHour))
     if (!branch) {
       throw new DomainException(ERROR_CODES.branchNotFound, 'Sucursal no encontrada', 404)
     }

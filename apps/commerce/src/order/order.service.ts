@@ -51,10 +51,7 @@ export class OrderService {
       changedAt: new Date(),
     }
 
-    const doc = await this.repository.create(
-      { ...input, number },
-      initialHistory,
-    )
+    const doc = await this.repository.create({ ...input, number }, initialHistory)
     return serializeOrder(doc)
   }
 

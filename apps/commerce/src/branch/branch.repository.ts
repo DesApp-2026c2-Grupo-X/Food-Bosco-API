@@ -84,11 +84,7 @@ export class BranchRepository {
     return this.availabilityModel.find({ branchId }).exec()
   }
 
-  async upsertAvailability(
-    branchId: string,
-    productId: string,
-    available: boolean,
-  ): Promise<void> {
+  async upsertAvailability(branchId: string, productId: string, available: boolean): Promise<void> {
     await this.availabilityModel
       .findOneAndUpdate(
         { branchId, productId },

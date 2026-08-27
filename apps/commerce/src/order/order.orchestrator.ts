@@ -3,13 +3,7 @@ import { randomUUID } from 'node:crypto'
 import type { CartItemData } from '../cart/cart.repository'
 import { CartOrchestrator } from '../cart/cart.orchestrator'
 import { CartService } from '../cart/cart.service'
-import {
-  ERROR_CODES,
-  ORDER_STATUS,
-  PARAMETER_KEYS,
-  ROLES,
-  OrderStatus,
-} from '../config/constants'
+import { ERROR_CODES, ORDER_STATUS, PARAMETER_KEYS, ROLES, OrderStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
 import { EventBus } from '../config/messaging/event-bus'
@@ -168,8 +162,7 @@ export class OrderOrchestrator {
       }
 
       const options = this.resolveOptions(product, cartItem.optionIds)
-      const unitPrice =
-        product.price + options.reduce((sum, option) => sum + option.extraPrice, 0)
+      const unitPrice = product.price + options.reduce((sum, option) => sum + option.extraPrice, 0)
 
       items.push({
         productId: product.id,
@@ -187,9 +180,7 @@ export class OrderOrchestrator {
     return { items, requirements }
   }
 
-  private async computeRequirementsFromOrder(
-    order: PublicOrder,
-  ): Promise<IngredientRequirements> {
+  private async computeRequirementsFromOrder(order: PublicOrder): Promise<IngredientRequirements> {
     const productIds = order.items.map((item) => item.productId)
     const products = await this.productService.findByIds(productIds)
     const productById = new Map(products.map((product) => [product.id, product]))
@@ -232,7 +223,8 @@ export class OrderOrchestrator {
     for (const entry of product.recipe) {
       const adjustment = entry.optionAdjustments.find((adj) => optionIds.includes(adj.optionId))
       const perUnit = adjustment ? adjustment.quantity : entry.quantity
-      requirements[entry.ingredientId] = (requirements[entry.ingredientId] ?? 0) + perUnit * quantity
+      requirements[entry.ingredientId] =
+        (requirements[entry.ingredientId] ?? 0) + perUnit * quantity
     }
   }
 

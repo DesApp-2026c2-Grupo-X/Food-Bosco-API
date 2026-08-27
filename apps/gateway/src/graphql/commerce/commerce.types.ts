@@ -443,9 +443,7 @@ export class OutOfStockRow {
 }
 
 const asStatusList = (value: unknown): OrderStatus[] =>
-  Array.isArray(value)
-    ? value.map((entry) => orderStatusFromRest(asString(entry)))
-    : []
+  Array.isArray(value) ? value.map((entry) => orderStatusFromRest(asString(entry))) : []
 
 export const mapCategory = (raw: RawRecord): Category => ({
   id: idOf(raw),

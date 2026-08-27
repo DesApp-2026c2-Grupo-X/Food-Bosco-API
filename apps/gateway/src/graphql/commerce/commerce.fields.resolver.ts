@@ -31,7 +31,10 @@ export class ProductFieldResolver {
   ) {}
 
   @ResolveField('category', () => Category, { nullable: true })
-  async category(@Parent() product: Product, @Context() ctx: GraphQLContext): Promise<Category | null> {
+  async category(
+    @Parent() product: Product,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Category | null> {
     const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).category.load(
       product.categoryId,
     )

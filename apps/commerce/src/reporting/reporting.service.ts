@@ -80,9 +80,7 @@ export class ReportingService {
         continue
       }
       const minQuantity = Math.min(
-        ...product.recipe.map(
-          (item) => stockByIngredient.get(item.ingredientId) ?? 0,
-        ),
+        ...product.recipe.map((item) => stockByIngredient.get(item.ingredientId) ?? 0),
       )
       if (minQuantity <= 0) {
         result.push({

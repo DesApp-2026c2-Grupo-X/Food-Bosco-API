@@ -7,7 +7,12 @@ export const ROLES = {
 
 export type Role = (typeof ROLES)[keyof typeof ROLES]
 
-export const ROLE_VALUES: Role[] = [ROLES.customer, ROLES.branchAdmin, ROLES.superAdmin, ROLES.rider]
+export const ROLE_VALUES: Role[] = [
+  ROLES.customer,
+  ROLES.branchAdmin,
+  ROLES.superAdmin,
+  ROLES.rider,
+]
 
 export const ORDER_STATUS = {
   pending: 'pending',

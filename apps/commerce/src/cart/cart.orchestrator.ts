@@ -58,7 +58,11 @@ export class CartOrchestrator {
     return updated ?? this.notFound()
   }
 
-  async updateItem(clientId: string, itemId: string, patch: UpdateCartItemInput): Promise<PublicCart> {
+  async updateItem(
+    clientId: string,
+    itemId: string,
+    patch: UpdateCartItemInput,
+  ): Promise<PublicCart> {
     const cart = await this.getCart(clientId)
     const existing = cart.items.find((item) => item.id === itemId)
     if (!existing) {

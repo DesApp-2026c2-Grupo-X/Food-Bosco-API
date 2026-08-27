@@ -36,7 +36,10 @@ export class StockService {
     return doc ? serializeBranchStock(doc) : { ingredientId, branchId, quantity }
   }
 
-  async validateAvailability(branchId: string, requirements: IngredientRequirements): Promise<void> {
+  async validateAvailability(
+    branchId: string,
+    requirements: IngredientRequirements,
+  ): Promise<void> {
     const docs = await this.repository.list(branchId)
     const stockByIngredient = new Map(docs.map((doc) => [doc.ingredientId, doc.quantity]))
 
@@ -52,7 +55,11 @@ export class StockService {
     }
   }
 
-  async discount(branchId: string, requirements: IngredientRequirements, orderId: string): Promise<void> {
+  async discount(
+    branchId: string,
+    requirements: IngredientRequirements,
+    orderId: string,
+  ): Promise<void> {
     const docs = await this.repository.list(branchId)
     const stockByIngredient = new Map(docs.map((doc) => [doc.ingredientId, doc.quantity]))
 

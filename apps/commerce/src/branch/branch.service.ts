@@ -65,10 +65,7 @@ export class BranchService {
       .map(serializeBranch)
       .filter((branch) => isBranchOpenNow(branch.hours))
       .filter((branch) => haversineDistanceKm(origin, branch) <= maxDistanceKm)
-      .sort(
-        (a, b) =>
-          haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b),
-      )
+      .sort((a, b) => haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b))
   }
 
   async getAvailabilityMap(branchId: string): Promise<Map<string, boolean>> {

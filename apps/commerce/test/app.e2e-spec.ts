@@ -203,7 +203,9 @@ describe('Commerce Service (e2e)', () => {
         .set('Authorization', `Bearer ${branchAdminTokenFor(branchId)}`)
         .expect(200)
 
-      const entry = stock.body.find((row: { ingredientId: string }) => row.ingredientId === ingredientId)
+      const entry = stock.body.find(
+        (row: { ingredientId: string }) => row.ingredientId === ingredientId,
+      )
       expect(entry.quantity).toBe(8)
     })
 

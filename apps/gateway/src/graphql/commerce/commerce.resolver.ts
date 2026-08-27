@@ -479,10 +479,13 @@ export class CommerceResolver {
     @Args('input') input: ConfigGroupInput,
     @Context() ctx: GraphQLContext,
   ): Promise<ConfigGroup> {
-    const raw = await this.rest.post<RawRecord>(`/v1/catalog/products/${productId}/configurations`, {
-      body: input,
-      context: toRestContext(ctx),
-    })
+    const raw = await this.rest.post<RawRecord>(
+      `/v1/catalog/products/${productId}/configurations`,
+      {
+        body: input,
+        context: toRestContext(ctx),
+      },
+    )
     return mapConfigGroup(raw)
   }
 

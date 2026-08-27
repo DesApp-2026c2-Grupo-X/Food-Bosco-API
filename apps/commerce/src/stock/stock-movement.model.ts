@@ -14,7 +14,11 @@ export class StockMovement {
   @Prop({ required: true })
   delta!: number
 
-  @Prop({ required: true, enum: [STOCK_MOVEMENT_REASON.adjust, STOCK_MOVEMENT_REASON.preparing], type: String })
+  @Prop({
+    required: true,
+    enum: [STOCK_MOVEMENT_REASON.adjust, STOCK_MOVEMENT_REASON.preparing],
+    type: String,
+  })
   reason!: StockMovementReason
 
   @Prop({ default: null, type: String })

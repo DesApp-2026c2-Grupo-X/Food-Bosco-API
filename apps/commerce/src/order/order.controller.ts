@@ -46,10 +46,7 @@ export class OrderController {
 
   @Post()
   @Roles(ROLES.customer)
-  create(
-    @CurrentUser() auth: AuthContext,
-    @Body() dto: CreateOrderDto,
-  ): Promise<PublicOrder> {
+  create(@CurrentUser() auth: AuthContext, @Body() dto: CreateOrderDto): Promise<PublicOrder> {
     return this.orchestrator.create(auth.userId ?? '', dto)
   }
 
@@ -106,7 +103,10 @@ export class OrderController {
     return this.orchestrator.repeat(auth.userId ?? '', orderId)
   }
 
-  private assertCanView(auth: AuthContext, order: PublicOrder | null): asserts order is PublicOrder {
+  private assertCanView(
+    auth: AuthContext,
+    order: PublicOrder | null,
+  ): asserts order is PublicOrder {
     if (!order) {
       throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
     }

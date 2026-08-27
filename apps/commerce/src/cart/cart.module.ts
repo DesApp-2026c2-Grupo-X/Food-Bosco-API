@@ -8,10 +8,7 @@ import { CartRepository } from './cart.repository'
 import { CartService } from './cart.service'
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([{ name: Cart.name, schema: CartSchema }]),
-    ProductModule,
-  ],
+  imports: [MongooseModule.forFeature([{ name: Cart.name, schema: CartSchema }]), ProductModule],
   controllers: [CartController],
   providers: [CartRepository, CartService, CartOrchestrator],
   exports: [CartService, CartOrchestrator],

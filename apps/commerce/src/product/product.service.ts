@@ -106,11 +106,7 @@ export class ProductService {
     return option ? serializeOption(option) : null
   }
 
-  async removeConfigOption(
-    productId: string,
-    groupId: string,
-    optionId: string,
-  ): Promise<boolean> {
+  async removeConfigOption(productId: string, groupId: string, optionId: string): Promise<boolean> {
     return this.repository.removeConfigOption(productId, groupId, optionId)
   }
 

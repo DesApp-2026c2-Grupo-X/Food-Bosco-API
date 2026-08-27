@@ -66,8 +66,6 @@ export class OrderRepository {
   }
 
   markAssigned(orderIds: string[], tripId: string, riderId: string): Promise<unknown> {
-    return this.model
-      .updateMany({ _id: { $in: orderIds } }, { $set: { tripId, riderId } })
-      .exec()
+    return this.model.updateMany({ _id: { $in: orderIds } }, { $set: { tripId, riderId } }).exec()
   }
 }

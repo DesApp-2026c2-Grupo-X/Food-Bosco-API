@@ -1,4 +1,13 @@
-import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator'
 import { CONFIG_GROUP_TYPE_VALUES } from '../../config/constants'
 import type { ConfigGroupType } from '../../config/constants'
 

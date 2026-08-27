@@ -41,13 +41,13 @@ sus resolvers**, reutilizando esa infraestructura.
 
 ## 1.1 Estado actual (verificado en el repo)
 
-| App / paquete  | Estado real                                                                                                                                                                                                                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/auth`    | Implementado por completo (usuarios, auth, direcciones, recuperación, seed). Expone `GET /v1/users/{userId}` (interno) y `GET /v1/addresses/{addressId}` (customer).                                                                                                                                 |
-| `apps/delivery`| Implementado por completo. Emite `trip.accepted`/`trip.completed`; consume `order.status_changed`; llama `PATCH /v1/orders/{id}/status` (Commerce) y `GET /v1/orders/{id}`, `GET /v1/branches/{id}`.                                                                                                |
-| `apps/gateway` | Infraestructura transversal lista + dominios GraphQL `auth` y `delivery`. `COMMERCE_REST_CLIENT`, `DataLoader`, `RestClient`, `@Roles`/`@Authenticated`, enums de `graphql/common` listos. **Falta el dominio GraphQL `commerce`.**                                                                   |
-| `apps/commerce`| **Template NestJS vacío** (app.controller/service + main en 4202). Sin dependencias de Mongo/validación/JWT/eventos. **Hay que construirlo desde cero.**                                                                                                                                             |
-| Broker/eventos | Abstracción `config/messaging` ya existe en Delivery (event-bus + transports in-process/RabbitMQ + esquemas de eventos `order.status_changed`, `trip.accepted`, `trip.completed`). Se **replica** en Commerce (con queue prefix `commerce`).                                                          |
+| App / paquete   | Estado real                                                                                                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/auth`     | Implementado por completo (usuarios, auth, direcciones, recuperación, seed). Expone `GET /v1/users/{userId}` (interno) y `GET /v1/addresses/{addressId}` (customer).                                                                         |
+| `apps/delivery` | Implementado por completo. Emite `trip.accepted`/`trip.completed`; consume `order.status_changed`; llama `PATCH /v1/orders/{id}/status` (Commerce) y `GET /v1/orders/{id}`, `GET /v1/branches/{id}`.                                         |
+| `apps/gateway`  | Infraestructura transversal lista + dominios GraphQL `auth` y `delivery`. `COMMERCE_REST_CLIENT`, `DataLoader`, `RestClient`, `@Roles`/`@Authenticated`, enums de `graphql/common` listos. **Falta el dominio GraphQL `commerce`.**          |
+| `apps/commerce` | **Template NestJS vacío** (app.controller/service + main en 4202). Sin dependencias de Mongo/validación/JWT/eventos. **Hay que construirlo desde cero.**                                                                                     |
+| Broker/eventos  | Abstracción `config/messaging` ya existe en Delivery (event-bus + transports in-process/RabbitMQ + esquemas de eventos `order.status_changed`, `trip.accepted`, `trip.completed`). Se **replica** en Commerce (con queue prefix `commerce`). |
 
 ## 1.2 Requerimientos explícitos de backend (Commerce)
 
@@ -55,34 +55,34 @@ Fuente: `requerimientos-backend-rest.md` §7.1–§7.7, §9, §10, §11.2, §15.
 
 ### 7.1 Catalog
 
-| Método | Ruta | Acceso |
-| ------ | ---- | ------ |
-| GET/POST | `/v1/catalog/categories` | público (activas) / `super_admin` |
-| GET/PATCH | `/v1/catalog/categories/{id}` | `super_admin` (by-id también público para resolución, RQ-CAT-14) |
-| PATCH | `/v1/catalog/categories/{id}/active` | `super_admin` |
-| GET/POST | `/v1/catalog/products` | público / `super_admin` |
-| GET/PATCH | `/v1/catalog/products/{id}` | público / `super_admin` |
-| PATCH | `/v1/catalog/products/{id}/available` | `super_admin` |
-| GET/POST | `/v1/catalog/products/{id}/configurations` | `super_admin` |
-| PATCH/DELETE | `/v1/catalog/products/{id}/configurations/{groupId}` | `super_admin` |
-| POST/PATCH/DELETE | `.../configurations/{groupId}/options/{optionId?}` | `super_admin` |
-| GET/PUT | `/v1/catalog/products/{id}/recipe` | `super_admin` |
-| POST/PATCH/DELETE | `/v1/catalog/products/{id}/recipe/items/{itemId?}` | `super_admin` |
-| GET/POST | `/v1/catalog/ingredients` | `super_admin` |
-| PATCH | `/v1/catalog/ingredients/{id}` (+`/active`) | `super_admin` |
-| GET/POST | `/v1/catalog/promotions` | `super_admin` |
-| GET/PATCH | `/v1/catalog/promotions/{id}` (+`/active`) | `super_admin` |
+| Método            | Ruta                                                 | Acceso                                                           |
+| ----------------- | ---------------------------------------------------- | ---------------------------------------------------------------- |
+| GET/POST          | `/v1/catalog/categories`                             | público (activas) / `super_admin`                                |
+| GET/PATCH         | `/v1/catalog/categories/{id}`                        | `super_admin` (by-id también público para resolución, RQ-CAT-14) |
+| PATCH             | `/v1/catalog/categories/{id}/active`                 | `super_admin`                                                    |
+| GET/POST          | `/v1/catalog/products`                               | público / `super_admin`                                          |
+| GET/PATCH         | `/v1/catalog/products/{id}`                          | público / `super_admin`                                          |
+| PATCH             | `/v1/catalog/products/{id}/available`                | `super_admin`                                                    |
+| GET/POST          | `/v1/catalog/products/{id}/configurations`           | `super_admin`                                                    |
+| PATCH/DELETE      | `/v1/catalog/products/{id}/configurations/{groupId}` | `super_admin`                                                    |
+| POST/PATCH/DELETE | `.../configurations/{groupId}/options/{optionId?}`   | `super_admin`                                                    |
+| GET/PUT           | `/v1/catalog/products/{id}/recipe`                   | `super_admin`                                                    |
+| POST/PATCH/DELETE | `/v1/catalog/products/{id}/recipe/items/{itemId?}`   | `super_admin`                                                    |
+| GET/POST          | `/v1/catalog/ingredients`                            | `super_admin`                                                    |
+| PATCH             | `/v1/catalog/ingredients/{id}` (+`/active`)          | `super_admin`                                                    |
+| GET/POST          | `/v1/catalog/promotions`                             | `super_admin`                                                    |
+| GET/PATCH         | `/v1/catalog/promotions/{id}` (+`/active`)           | `super_admin`                                                    |
 
 ### 7.2 Branch
 
-| Método | Ruta | Acceso |
-| ------ | ---- | ------ |
-| GET/POST | `/v1/branches` | `super_admin` |
-| GET/PATCH | `/v1/branches/{id}` (+`/active`) | público/admin / `super_admin` |
-| GET/PUT | `/v1/branches/{id}/hours` | público/admin / `super_admin` |
-| GET | `/v1/branches/available?lat=&lng=` | público |
-| GET | `/v1/branches/{id}/products` | `branch_admin` (su sucursal) |
-| PATCH | `/v1/branches/{id}/products/{productId}/availability` | `branch_admin` |
+| Método    | Ruta                                                  | Acceso                        |
+| --------- | ----------------------------------------------------- | ----------------------------- |
+| GET/POST  | `/v1/branches`                                        | `super_admin`                 |
+| GET/PATCH | `/v1/branches/{id}` (+`/active`)                      | público/admin / `super_admin` |
+| GET/PUT   | `/v1/branches/{id}/hours`                             | público/admin / `super_admin` |
+| GET       | `/v1/branches/available?lat=&lng=`                    | público                       |
+| GET       | `/v1/branches/{id}/products`                          | `branch_admin` (su sucursal)  |
+| PATCH     | `/v1/branches/{id}/products/{productId}/availability` | `branch_admin`                |
 
 ### 7.3 Cart
 
@@ -119,20 +119,20 @@ Fuente: `requerimientos-backend-rest.md` §7.1–§7.7, §9, §10, §11.2, §15.
 
 ## 1.3 Decisiones de diseño
 
-| # | Tema | Decisión | Fundamento |
-| -- | ---- | -------- | ---------- |
-| D1 | Estructura | Misma de `auth`/`delivery`: dominio → `controller` → `orchestrator`/`servicio` → `repository` → BD. Orchestrators viven en su dominio (como `offer.orchestrator`). | skill `orchestrator-domain-architecture` + consistencia. |
-| D2 | Módulos de dominio | Se separa por entidad de negocio: `category`, `product`, `ingredient`, `promotion`, `branch`, `cart`, `order`, `stock`, `reporting`, `parameter`, `order-state`. | Evita colisión de nombre con `src/config` y mantiene un dominio por carpeta. |
-| D3 | Parámetros de sistema | `ParameterService` (dominio `parameter`) se inyecta en `BranchService`/`OrderOrchestrator` para leer `MAX_DISTANCE_KM`, `BASE_PREP_MIN`, `AVG_SPEED_KMH`. Se interpreta como **acceso a configuración** (RQ-CFG-03/04 dicen literalmente "el módulo de Branch/Order deberá leer …"), no como coordinación entre servicios primarios. | RQ-CFG-03/04. |
-| D4 | Dirección en `POST /v1/orders` | El gateway valida la dirección contra Auth y envía el snapshot (`addressId` + `deliveryAddress { text, latitude, longitude }`). Commerce **no** llama a Auth (RQ-COM-07, RQ-ORD-02). | RQ-ORD-02/05. |
-| D5 | Número de pedido | `number` secuencial zero-padded de 6 dígitos derivado del conteo de órdenes (`count+1`). Se documenta la limitación de concurrencia (aceptable en este alcance). | `Pedido #000123` (T-12), NFR-01 indexa `number`. |
-| D6 | Descuento de stock | El `OrderOrchestrator` descuenta stock al transicionar a `PREPARING` llamando a `StockService` (interno, sin broker). Se registra `stockMovements{reason:'preparing'}`. | RQ-STK-07/08, RQ-COM-02. |
-| D7 | Asignación de repartidor | Consumo de `trip.accepted` → `orders.updateMany({riderId, tripId})`. `trip.completed` → no-op idempotente (el estado ya lo transicionó Delivery vía REST). | §9, RQ-COM-05. |
-| D8 | Máquina de estados | Transiciones fijas en código (`order`), catálogo de visualización en `order-states` (`order-state`). `availableTransitions`/`transitions` derivan de la matriz. | RQ-ORD-14/20, RQ-CFG-07. |
-| D9 | Stock por ingrediente | `branchStock{branchId, ingredientId, quantity}` único por `(branchId, ingredientId)`. La validación al confirmar suma, por ingrediente, `receta.quantity × item.quantity` y compara contra `branchStock`. | RQ-STK-01/05/06. |
-| D10 | Receta con opciones (RQ-CAT-12) | `recipe[]` = `{ ingredientId, quantity, optionAdjustments?: [{ optionId, quantity }] }`. Si una opción seleccionada figura en `optionAdjustments`, reemplaza la cantidad base del ingrediente para el cálculo de stock. | RQ-CAT-12, frontend G-06. |
-| D11 | Broker | Réplica de `config/messaging` de Delivery (in-process si `BROKER_URL` vacío, RabbitMQ si no), queue prefix `commerce`, exchange `fastfood.events`. | Consistencia con Delivery. |
-| D12 | Uniones cross-service (gateway) | `DataLoader` por request (sobre `ctx.req`) para `Order.client` (Auth), `Order.branch`/`Product.category`/`RecipeItem.ingredient`/`CartItem.product` (Commerce). | RQ-GW-08/09. |
+| #   | Tema                            | Decisión                                                                                                                                                                                                                                                                                                                             | Fundamento                                                                   |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| D1  | Estructura                      | Misma de `auth`/`delivery`: dominio → `controller` → `orchestrator`/`servicio` → `repository` → BD. Orchestrators viven en su dominio (como `offer.orchestrator`).                                                                                                                                                                   | skill `orchestrator-domain-architecture` + consistencia.                     |
+| D2  | Módulos de dominio              | Se separa por entidad de negocio: `category`, `product`, `ingredient`, `promotion`, `branch`, `cart`, `order`, `stock`, `reporting`, `parameter`, `order-state`.                                                                                                                                                                     | Evita colisión de nombre con `src/config` y mantiene un dominio por carpeta. |
+| D3  | Parámetros de sistema           | `ParameterService` (dominio `parameter`) se inyecta en `BranchService`/`OrderOrchestrator` para leer `MAX_DISTANCE_KM`, `BASE_PREP_MIN`, `AVG_SPEED_KMH`. Se interpreta como **acceso a configuración** (RQ-CFG-03/04 dicen literalmente "el módulo de Branch/Order deberá leer …"), no como coordinación entre servicios primarios. | RQ-CFG-03/04.                                                                |
+| D4  | Dirección en `POST /v1/orders`  | El gateway valida la dirección contra Auth y envía el snapshot (`addressId` + `deliveryAddress { text, latitude, longitude }`). Commerce **no** llama a Auth (RQ-COM-07, RQ-ORD-02).                                                                                                                                                 | RQ-ORD-02/05.                                                                |
+| D5  | Número de pedido                | `number` secuencial zero-padded de 6 dígitos derivado del conteo de órdenes (`count+1`). Se documenta la limitación de concurrencia (aceptable en este alcance).                                                                                                                                                                     | `Pedido #000123` (T-12), NFR-01 indexa `number`.                             |
+| D6  | Descuento de stock              | El `OrderOrchestrator` descuenta stock al transicionar a `PREPARING` llamando a `StockService` (interno, sin broker). Se registra `stockMovements{reason:'preparing'}`.                                                                                                                                                              | RQ-STK-07/08, RQ-COM-02.                                                     |
+| D7  | Asignación de repartidor        | Consumo de `trip.accepted` → `orders.updateMany({riderId, tripId})`. `trip.completed` → no-op idempotente (el estado ya lo transicionó Delivery vía REST).                                                                                                                                                                           | §9, RQ-COM-05.                                                               |
+| D8  | Máquina de estados              | Transiciones fijas en código (`order`), catálogo de visualización en `order-states` (`order-state`). `availableTransitions`/`transitions` derivan de la matriz.                                                                                                                                                                      | RQ-ORD-14/20, RQ-CFG-07.                                                     |
+| D9  | Stock por ingrediente           | `branchStock{branchId, ingredientId, quantity}` único por `(branchId, ingredientId)`. La validación al confirmar suma, por ingrediente, `receta.quantity × item.quantity` y compara contra `branchStock`.                                                                                                                            | RQ-STK-01/05/06.                                                             |
+| D10 | Receta con opciones (RQ-CAT-12) | `recipe[]` = `{ ingredientId, quantity, optionAdjustments?: [{ optionId, quantity }] }`. Si una opción seleccionada figura en `optionAdjustments`, reemplaza la cantidad base del ingrediente para el cálculo de stock.                                                                                                              | RQ-CAT-12, frontend G-06.                                                    |
+| D11 | Broker                          | Réplica de `config/messaging` de Delivery (in-process si `BROKER_URL` vacío, RabbitMQ si no), queue prefix `commerce`, exchange `fastfood.events`.                                                                                                                                                                                   | Consistencia con Delivery.                                                   |
+| D12 | Uniones cross-service (gateway) | `DataLoader` por request (sobre `ctx.req`) para `Order.client` (Auth), `Order.branch`/`Product.category`/`RecipeItem.ingredient`/`CartItem.product` (Commerce).                                                                                                                                                                      | RQ-GW-08/09.                                                                 |
 
 ## 1.4 Seguridad por endpoint (resumen de guards del servicio)
 
@@ -177,14 +177,14 @@ clientes HTTP (no se necesita en Commerce, salvo eventos), `amqplib` para el bro
 
 ## 2.3 Variables de entorno
 
-| Variable | Default (dev) | Uso |
-| -------- | ------------- | --- |
-| `PORT` | `4202` | Puerto HTTP. |
-| `MONGODB_URI` | `mongodb://localhost:27017/fastfood` | Conexión MongoDB. |
-| `JWT_SECRET` | `dev-secret-change-me` | Secreto compartido. |
-| `INTERNAL_API_TOKEN` | `dev-internal-token` | Token interno (endpoints cross-service). |
-| `BROKER_URL` | (vacío) | Broker RabbitMQ; vacío → bus en proceso. |
-| `SEED_PARAM_*` | — | (opcional) valores iniciales de parámetros. |
+| Variable             | Default (dev)                        | Uso                                         |
+| -------------------- | ------------------------------------ | ------------------------------------------- |
+| `PORT`               | `4202`                               | Puerto HTTP.                                |
+| `MONGODB_URI`        | `mongodb://localhost:27017/fastfood` | Conexión MongoDB.                           |
+| `JWT_SECRET`         | `dev-secret-change-me`               | Secreto compartido.                         |
+| `INTERNAL_API_TOKEN` | `dev-internal-token`                 | Token interno (endpoints cross-service).    |
+| `BROKER_URL`         | (vacío)                              | Broker RabbitMQ; vacío → bus en proceso.    |
+| `SEED_PARAM_*`       | —                                    | (opcional) valores iniciales de parámetros. |
 
 Se documenta en `apps/commerce/.env.example`. Se actualiza `turbo.json` `globalEnv`
 (agrega `SEED_PARAMETER_*` si aplica; `BROKER_URL`/`JWT_SECRET`/`MONGODB_URI`/`PORT`
@@ -252,11 +252,11 @@ para asignación D7), `branchStock` (unique `(branchId, ingredientId)`),
 
 ## 2.7 Eventos (esquemas versionados, RQ-COM-04)
 
-| Evento | Rol Commerce | Payload |
-| ------ | ------------ | ------- |
-| `order.status_changed` | **Emite** | `{ version, eventId, orderId, status, branchId, branchLocation, deliveryAddress, occurredAt }` |
-| `trip.accepted` | Consume | `{ tripId, riderId, orderIds[] }` → set `riderId`/`tripId` |
-| `trip.completed` | Consume | `{ tripId, riderId, orderIds[] }` → no-op idempotente |
+| Evento                 | Rol Commerce | Payload                                                                                        |
+| ---------------------- | ------------ | ---------------------------------------------------------------------------------------------- |
+| `order.status_changed` | **Emite**    | `{ version, eventId, orderId, status, branchId, branchLocation, deliveryAddress, occurredAt }` |
+| `trip.accepted`        | Consume      | `{ tripId, riderId, orderIds[] }` → set `riderId`/`tripId`                                     |
+| `trip.completed`       | Consume      | `{ tripId, riderId, orderIds[] }` → no-op idempotente                                          |
 
 ## 2.8 Manejo de errores
 
@@ -298,14 +298,14 @@ stock, reportes y config, más `availableBranches(lat,lng)`, `branchProducts(bra
 
 ## 3.3 Uniones cross-service (DataLoader, RQ-GW-08/09)
 
-| Campo | Resolución |
-| ----- | ---------- |
-| `Order.client` | `AUTH_REST_CLIENT` `GET /v1/users/{clientId}` (DataLoader) |
-| `Order.branch` | `COMMERCE_REST_CLIENT` `GET /v1/branches/{branchId}` (DataLoader) |
-| `Order.deliveryAddress` | snapshot del pedido (`text/lat/lng`) + `addressId` |
-| `Product.category` | `GET /v1/catalog/categories/{id}` (DataLoader) |
-| `RecipeItem.ingredient` | `GET /v1/catalog/ingredients/{id}` (DataLoader) |
-| `CartItem.product` | `GET /v1/catalog/products/{id}` (DataLoader) |
+| Campo                   | Resolución                                                        |
+| ----------------------- | ----------------------------------------------------------------- |
+| `Order.client`          | `AUTH_REST_CLIENT` `GET /v1/users/{clientId}` (DataLoader)        |
+| `Order.branch`          | `COMMERCE_REST_CLIENT` `GET /v1/branches/{branchId}` (DataLoader) |
+| `Order.deliveryAddress` | snapshot del pedido (`text/lat/lng`) + `addressId`                |
+| `Product.category`      | `GET /v1/catalog/categories/{id}` (DataLoader)                    |
+| `RecipeItem.ingredient` | `GET /v1/catalog/ingredients/{id}` (DataLoader)                   |
+| `CartItem.product`      | `GET /v1/catalog/products/{id}` (DataLoader)                      |
 
 Los DataLoaders se instancian una vez por request (se cuelgan de `ctx.req`) para agrupar
 y deduplicar (N+1).
@@ -314,19 +314,19 @@ y deduplicar (N+1).
 
 # PARTE 4 — Orden de implementación (fases)
 
-| Fase | Contenido | Salida |
-| ---- | --------- | ------ |
-| 0 | `planCommerce.md` (este documento) + actualizar `package.json` + `turbo.json` + `.env.example`. | Documento + deps. |
-| 1 | Esqueleto Commerce: `main.ts`, `app.module.ts`, `config/*`, `health`. Quitar template. | `build`/`typecheck` en `apps/commerce`. |
-| 2 | Dominios de catálogo: `category`, `ingredient`, `promotion`, `product` (configs + receta). | CRUD catálogo funcional. |
-| 3 | `branch` (sucursales, horarios, disponibles, disponibilidad por producto). | Sucursales + `available`. |
-| 4 | `parameter` + `order-state` + `seed`. | Config del sistema + estados. |
-| 5 | `cart`. | Carrito con recálculo server-side. |
-| 6 | `stock` (branchStock + movimientos) y `order` (service + orchestrator + eventos). | Confirmar/cambiar/repetir pedido + descuento de stock. |
-| 7 | `reporting`. | Reportes. |
-| 8 | Gateway `graphql/commerce/*` + registrar módulo + DataLoaders. | Playground expone dominio commerce. |
-| 9 | Tests (skill `high-quality-tests`): unit servicios/orchestrator/guard + e2e (mongodb-memory-server + bus en proceso). | `npm run test` + `test:e2e` verde. |
-| 10 | Verificación global: `typecheck`, `lint`, `build`, `test`. | Todo verde. |
+| Fase | Contenido                                                                                                             | Salida                                                 |
+| ---- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 0    | `planCommerce.md` (este documento) + actualizar `package.json` + `turbo.json` + `.env.example`.                       | Documento + deps.                                      |
+| 1    | Esqueleto Commerce: `main.ts`, `app.module.ts`, `config/*`, `health`. Quitar template.                                | `build`/`typecheck` en `apps/commerce`.                |
+| 2    | Dominios de catálogo: `category`, `ingredient`, `promotion`, `product` (configs + receta).                            | CRUD catálogo funcional.                               |
+| 3    | `branch` (sucursales, horarios, disponibles, disponibilidad por producto).                                            | Sucursales + `available`.                              |
+| 4    | `parameter` + `order-state` + `seed`.                                                                                 | Config del sistema + estados.                          |
+| 5    | `cart`.                                                                                                               | Carrito con recálculo server-side.                     |
+| 6    | `stock` (branchStock + movimientos) y `order` (service + orchestrator + eventos).                                     | Confirmar/cambiar/repetir pedido + descuento de stock. |
+| 7    | `reporting`.                                                                                                          | Reportes.                                              |
+| 8    | Gateway `graphql/commerce/*` + registrar módulo + DataLoaders.                                                        | Playground expone dominio commerce.                    |
+| 9    | Tests (skill `high-quality-tests`): unit servicios/orchestrator/guard + e2e (mongodb-memory-server + bus en proceso). | `npm run test` + `test:e2e` verde.                     |
+| 10   | Verificación global: `typecheck`, `lint`, `build`, `test`.                                                            | Todo verde.                                            |
 
 ---
 
@@ -360,11 +360,11 @@ npm run test:e2e -- --filter @repo/commerce   # (o cd apps/commerce)
 
 # Anexo — Riesgos y consideraciones
 
-| # | Tema | Nota / mitigación |
-| -- | ---- | ----------------- |
-| 1 | Número de pedido secuencial | Conteo basado en `count+1`; bajo alta concurrencia podría colisionar. Se acepta en este alcance (sin colección de contador especificada). |
-| 2 | `optionAdjustments` de receta | Estructura no normalizada en la spec; se define `{ optionId, quantity }` como reemplazo de la cantidad base al seleccionar la opción. |
-| 3 | `Order.deliveryAddress` en GraphQL | Commerce guarda snapshot (`text/lat/lng`); el gateway lo expone como `Address` con `id=addressId` y campos de Auth (`label/city/postalCode`) nulos. |
-| 4 | Parámetros de sistema | Se leen como configuración (D3); `ParameterService` se inyecta en Branch/Order (justificado por RQ-CFG-03/04). |
-| 5 | `trip.completed` | No-op idempotente: los estados `ON_THE_WAY`/`DELIVERED` los aplica Delivery vía `PATCH /v1/orders/{id}/status` (RQ-ORD-16, D4 de delivery). |
-| 6 | Stock = ingredientes (no productos) | `branchStock` es por ingrediente; la validación/descuento traduce receta → ingredientes. |
+| #   | Tema                                | Nota / mitigación                                                                                                                                   |
+| --- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Número de pedido secuencial         | Conteo basado en `count+1`; bajo alta concurrencia podría colisionar. Se acepta en este alcance (sin colección de contador especificada).           |
+| 2   | `optionAdjustments` de receta       | Estructura no normalizada en la spec; se define `{ optionId, quantity }` como reemplazo de la cantidad base al seleccionar la opción.               |
+| 3   | `Order.deliveryAddress` en GraphQL  | Commerce guarda snapshot (`text/lat/lng`); el gateway lo expone como `Address` con `id=addressId` y campos de Auth (`label/city/postalCode`) nulos. |
+| 4   | Parámetros de sistema               | Se leen como configuración (D3); `ParameterService` se inyecta en Branch/Order (justificado por RQ-CFG-03/04).                                      |
+| 5   | `trip.completed`                    | No-op idempotente: los estados `ON_THE_WAY`/`DELIVERED` los aplica Delivery vía `PATCH /v1/orders/{id}/status` (RQ-ORD-16, D4 de delivery).         |
+| 6   | Stock = ingredientes (no productos) | `branchStock` es por ingrediente; la validación/descuento traduce receta → ingredientes.                                                            |

@@ -184,11 +184,7 @@ export class ProductRepository {
     return option
   }
 
-  async removeConfigOption(
-    productId: string,
-    groupId: string,
-    optionId: string,
-  ): Promise<boolean> {
+  async removeConfigOption(productId: string, groupId: string, optionId: string): Promise<boolean> {
     const doc = await this.model.findById(productId).exec()
     if (!doc) return false
     const group = doc.configGroups.find((entry) => entry._id?.toString() === groupId)

@@ -79,7 +79,9 @@ describe('StockService.adjust (RQ-STK-04)', () => {
   it('suma el delta y registra un movimiento "adjust"', async () => {
     const { repository, service } = makeService({
       findOne: jest.fn().mockResolvedValue({ quantity: 10 }),
-      setQuantity: jest.fn().mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
+      setQuantity: jest
+        .fn()
+        .mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
     })
 
     const result = await service.adjust('b1', 'i1', 5)

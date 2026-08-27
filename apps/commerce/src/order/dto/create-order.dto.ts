@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer'
-import { IsLatitude, IsLongitude, IsNotEmpty, IsString, MaxLength, ValidateNested } from 'class-validator'
+import {
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator'
 
 export class DeliveryAddressDto {
   @IsString()

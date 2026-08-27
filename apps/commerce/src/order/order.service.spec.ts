@@ -42,17 +42,72 @@ describe('OrderService.applyTransition (RQ-ORD-14/15)', () => {
     target: OrderStatus
     expected: 'ok' | 'error'
   }> = [
-    { name: 'pendiente → confirmado', current: ORDER_STATUS.pending, target: ORDER_STATUS.confirmed, expected: 'ok' },
-    { name: 'pendiente → cancelado', current: ORDER_STATUS.pending, target: ORDER_STATUS.cancelled, expected: 'ok' },
-    { name: 'pendiente → en preparación (salto)', current: ORDER_STATUS.pending, target: ORDER_STATUS.preparing, expected: 'error' },
-    { name: 'confirmado → en preparación', current: ORDER_STATUS.confirmed, target: ORDER_STATUS.preparing, expected: 'ok' },
-    { name: 'confirmado → pendiente (retroceso)', current: ORDER_STATUS.confirmed, target: ORDER_STATUS.pending, expected: 'error' },
-    { name: 'en preparación → listo', current: ORDER_STATUS.preparing, target: ORDER_STATUS.readyForDelivery, expected: 'ok' },
-    { name: 'listo → en camino', current: ORDER_STATUS.readyForDelivery, target: ORDER_STATUS.onTheWay, expected: 'ok' },
-    { name: 'en camino → entregado', current: ORDER_STATUS.onTheWay, target: ORDER_STATUS.delivered, expected: 'ok' },
-    { name: 'entregado → en camino (retroceso)', current: ORDER_STATUS.delivered, target: ORDER_STATUS.onTheWay, expected: 'error' },
-    { name: 'cancelado → confirmado', current: ORDER_STATUS.cancelled, target: ORDER_STATUS.confirmed, expected: 'error' },
-    { name: 'entregado → cualquier estado', current: ORDER_STATUS.delivered, target: ORDER_STATUS.cancelled, expected: 'error' },
+    {
+      name: 'pendiente → confirmado',
+      current: ORDER_STATUS.pending,
+      target: ORDER_STATUS.confirmed,
+      expected: 'ok',
+    },
+    {
+      name: 'pendiente → cancelado',
+      current: ORDER_STATUS.pending,
+      target: ORDER_STATUS.cancelled,
+      expected: 'ok',
+    },
+    {
+      name: 'pendiente → en preparación (salto)',
+      current: ORDER_STATUS.pending,
+      target: ORDER_STATUS.preparing,
+      expected: 'error',
+    },
+    {
+      name: 'confirmado → en preparación',
+      current: ORDER_STATUS.confirmed,
+      target: ORDER_STATUS.preparing,
+      expected: 'ok',
+    },
+    {
+      name: 'confirmado → pendiente (retroceso)',
+      current: ORDER_STATUS.confirmed,
+      target: ORDER_STATUS.pending,
+      expected: 'error',
+    },
+    {
+      name: 'en preparación → listo',
+      current: ORDER_STATUS.preparing,
+      target: ORDER_STATUS.readyForDelivery,
+      expected: 'ok',
+    },
+    {
+      name: 'listo → en camino',
+      current: ORDER_STATUS.readyForDelivery,
+      target: ORDER_STATUS.onTheWay,
+      expected: 'ok',
+    },
+    {
+      name: 'en camino → entregado',
+      current: ORDER_STATUS.onTheWay,
+      target: ORDER_STATUS.delivered,
+      expected: 'ok',
+    },
+    {
+      name: 'entregado → en camino (retroceso)',
+      current: ORDER_STATUS.delivered,
+      target: ORDER_STATUS.onTheWay,
+      expected: 'error',
+    },
+    {
+      name: 'cancelado → confirmado',
+      current: ORDER_STATUS.cancelled,
+      target: ORDER_STATUS.confirmed,
+      expected: 'error',
+    },
+    {
+      name: 'entregado → cualquier estado',
+      current: ORDER_STATUS.delivered,
+      target: ORDER_STATUS.cancelled,
+      expected: 'error',
+    },
   ]
 
   it.each(cases)('$name → $expected', async ({ current, target, expected }) => {
