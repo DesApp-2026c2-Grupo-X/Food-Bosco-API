@@ -7,6 +7,7 @@ export interface RestContext {
   roles?: string[]
   branchId?: string | null
   requestId?: string | null
+  internalToken?: string | null
 }
 
 export interface RestRequestOptions {
@@ -40,6 +41,7 @@ export class RestClient {
     if (context.roles?.length) headers[HEADERS.roles] = context.roles.join(',')
     if (context.branchId) headers[HEADERS.branchId] = context.branchId
     if (context.requestId) headers[HEADERS.requestId] = context.requestId
+    if (context.internalToken) headers[HEADERS.internalToken] = context.internalToken
 
     return headers
   }

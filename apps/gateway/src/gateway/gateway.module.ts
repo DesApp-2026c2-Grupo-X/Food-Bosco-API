@@ -9,12 +9,14 @@ import { formatGraphQLError } from '../observability/graphql-error-formatter'
 import { RestModule } from '../rest/rest.module'
 import { AuthGraphqlModule } from '../graphql/auth/auth.module'
 import { DeliveryGraphqlModule } from '../graphql/delivery/delivery.module'
+import { CommerceGraphqlModule } from '../graphql/commerce/commerce.module'
 
 @Module({
   imports: [
     RestModule,
     AuthGraphqlModule,
     DeliveryGraphqlModule,
+    CommerceGraphqlModule,
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       imports: [SecurityModule],
