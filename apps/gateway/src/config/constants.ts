@@ -20,4 +20,5 @@ export const HEADERS = {
   roles: 'x-user-roles',
   branchId: 'x-branch-id',
   requestId: 'x-request-id',
+  internalToken: 'x-internal-token',
 } as const

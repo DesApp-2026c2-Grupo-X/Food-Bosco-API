@@ -7,6 +7,7 @@ export const env = {
   port: toNumber(process.env.PORT, 4000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+  internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
   services: {
     auth: process.env.AUTH_SERVICE_URL ?? 'http://localhost:4201',
     commerce: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
