@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module'
 import { DeliveryOrderModule } from './delivery-order/delivery-order.module'
 import { OfferModule } from './offer/offer.module'
 import { RiderModule } from './rider/rider.module'
+import { SeedModule } from './seed/seed.module'
 import { TripModule } from './trip/trip.module'
 
 @Module({
@@ -17,6 +18,7 @@ import { TripModule } from './trip/trip.module'
     DeliveryOrderModule,
     OfferModule,
     TripModule,
+    SeedModule,
   ],
 })
 export class AppModule implements NestModule {

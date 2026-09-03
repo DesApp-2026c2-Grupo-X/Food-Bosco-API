@@ -6,7 +6,7 @@ import { SeedService } from './seed.service'
 const run = async (): Promise<void> => {
   const app = await NestFactory.createApplicationContext(SeedModule)
   try {
-    await app.get(SeedService).seedSuperAdmin()
+    await app.get(SeedService).seed()
   } finally {
     await app.close()
   }
