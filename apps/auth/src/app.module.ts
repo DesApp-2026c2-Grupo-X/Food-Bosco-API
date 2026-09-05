@@ -7,6 +7,7 @@ import { RequestIdMiddleware } from './config/observability/request-id.middlewar
 import { HealthModule } from './health/health.module'
 import { PasswordRecoveryModule } from './password-recovery/password-recovery.module'
 import { RefreshTokenModule } from './refresh-token/refresh-token.module'
+import { SeedModule } from './seed/seed.module'
 import { UserModule } from './user/user.module'
 
 @Module({
@@ -19,6 +20,7 @@ import { UserModule } from './user/user.module'
     RefreshTokenModule,
     PasswordRecoveryModule,
     AddressModule,
+    SeedModule,
   ],
 })
 export class AppModule implements NestModule {

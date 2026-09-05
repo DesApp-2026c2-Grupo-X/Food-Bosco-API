@@ -7,9 +7,11 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { HEADERS, Role } from '../constants'
+import { env } from '../env'
 import { JwtService } from './jwt.service'
 import { ROLES_KEY } from './roles.decorator'
 import { AUTHENTICATED_KEY } from './authenticated.decorator'
+import { INTERNAL_KEY } from './internal.decorator'
 
 type RequestLike = {
   headers?: Record<string, string | string[] | undefined>
@@ -35,8 +37,26 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ])
+    const allowInternal = this.reflector.getAllAndOverride<boolean>(INTERNAL_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ])
 
     const request = context.switchToHttp().getRequest<RequestLike>()
+
+    if (
+      allowInternal &&
+      headerToString(request.headers?.[HEADERS.internalToken]) === env.internalApiToken
+    ) {
+      request.user = {
+        authenticated: false,
+        userId: null,
+        roles: [],
+        branchId: null,
+        internal: true,
+      }
+      return true
+    }
 
     const authorization = headerToString(request.headers?.[HEADERS.authorization])
     const auth = this.jwtService.verify(authorization)

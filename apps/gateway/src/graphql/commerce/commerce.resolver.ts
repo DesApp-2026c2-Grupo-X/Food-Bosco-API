@@ -80,7 +80,7 @@ export class CommerceResolver {
 
   @Query(() => [Category])
   async categories(
-    @Args('activeOnly', { nullable: true }) activeOnly: boolean | null,
+    @Args('activeOnly', { type: () => Boolean, nullable: true }) activeOnly: boolean | null,
     @Args('page', { type: () => PageInput, nullable: true }) page: PageInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<Category[]> {
@@ -136,7 +136,7 @@ export class CommerceResolver {
   @Query(() => [Ingredient])
   @Roles(ROLES.superAdmin)
   async ingredients(
-    @Args('activeOnly', { nullable: true }) activeOnly: boolean | null,
+    @Args('activeOnly', { type: () => Boolean, nullable: true }) activeOnly: boolean | null,
     @Args('page', { type: () => PageInput, nullable: true }) page: PageInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<Ingredient[]> {
@@ -161,7 +161,7 @@ export class CommerceResolver {
   @Query(() => [Promotion])
   @Roles(ROLES.superAdmin)
   async promotions(
-    @Args('activeOnly', { nullable: true }) activeOnly: boolean | null,
+    @Args('activeOnly', { type: () => Boolean, nullable: true }) activeOnly: boolean | null,
     @Args('page', { type: () => PageInput, nullable: true }) page: PageInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<Promotion[]> {

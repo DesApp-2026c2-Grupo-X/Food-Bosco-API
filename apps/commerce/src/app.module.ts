@@ -13,6 +13,7 @@ import { ParameterModule } from './parameter/parameter.module'
 import { ProductModule } from './product/product.module'
 import { PromotionModule } from './promotion/promotion.module'
 import { ReportingModule } from './reporting/reporting.module'
+import { SeedModule } from './seed/seed.module'
 import { StockModule } from './stock/stock.module'
 
 @Module({
@@ -31,6 +32,7 @@ import { StockModule } from './stock/stock.module'
     ReportingModule,
     ParameterModule,
     OrderStateModule,
+    SeedModule,
   ],
 })
 export class AppModule implements NestModule {
