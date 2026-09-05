@@ -66,6 +66,8 @@ export const ERROR_CODES = {
   tripNotFound: 'TRIP_NOT_FOUND',
   orderNotInTrip: 'ORDER_NOT_IN_TRIP',
   invalidTripStatus: 'INVALID_TRIP_STATUS',
+  zoneNotFound: 'ZONE_NOT_FOUND',
+  shiftNotFound: 'SHIFT_NOT_FOUND',
   validationError: 'VALIDATION_ERROR',
   forbidden: 'FORBIDDEN',
   unauthenticated: 'UNAUTHENTICATED',

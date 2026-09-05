@@ -34,6 +34,11 @@ export class PromotionService {
     return serializePromotion(doc)
   }
 
+  async upsertByName(data: CreatePromotionData): Promise<PublicPromotion> {
+    const doc = await this.repository.upsertByName(data)
+    return serializePromotion(doc!)
+  }
+
   async update(id: string, patch: UpdatePromotionData): Promise<PublicPromotion | null> {
     const doc = await this.repository.update(id, patch)
     return doc ? serializePromotion(doc) : null

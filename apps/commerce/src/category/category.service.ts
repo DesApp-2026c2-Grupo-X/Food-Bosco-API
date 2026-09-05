@@ -34,6 +34,11 @@ export class CategoryService {
     return serializeCategory(doc)
   }
 
+  async upsertByName(name: string): Promise<PublicCategory> {
+    const doc = await this.repository.upsertByName(name)
+    return serializeCategory(doc!)
+  }
+
   async update(id: string, patch: UpdateCategoryData): Promise<PublicCategory | null> {
     const doc = await this.repository.update(id, patch)
     return doc ? serializeCategory(doc) : null

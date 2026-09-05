@@ -36,6 +36,16 @@ export class CategoryRepository {
     return this.model.create({ ...data, active: true })
   }
 
+  upsertByName(name: string): Promise<CategoryDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { name },
+        { $setOnInsert: { name, active: true } },
+        { new: true, upsert: true },
+      )
+      .exec()
+  }
+
   async list(query: CategoryListQuery): Promise<{ data: CategoryDocument[]; total: number }> {
     const filter: Record<string, unknown> = {}
     if (query.activeOnly) filter.active = true

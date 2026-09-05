@@ -52,6 +52,16 @@ export class BranchRepository {
     return this.model.create({ ...data, phone: data.phone ?? null, active: true, hours: [] })
   }
 
+  upsertByName(data: CreateBranchData): Promise<BranchDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { name: data.name },
+        { $setOnInsert: { ...data, phone: data.phone ?? null, active: true, hours: [] } },
+        { new: true, upsert: true },
+      )
+      .exec()
+  }
+
   async list(query: BranchListQuery): Promise<{ data: BranchDocument[]; total: number }> {
     const filter: Record<string, unknown> = {}
     if (query.active !== undefined) filter.active = query.active
