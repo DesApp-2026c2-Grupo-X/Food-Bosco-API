@@ -303,6 +303,9 @@ export class Order {
   @Field(() => ID)
   clientId!: string
 
+  @Field(() => ID, { nullable: true })
+  riderId!: string | null
+
   @Field(() => User, { nullable: true })
   client?: User | null
 
@@ -563,6 +566,7 @@ export const mapOrder = (raw: RawRecord): Order => ({
   id: idOf(raw),
   number: asString(raw.number),
   clientId: asString(raw.clientId),
+  riderId: nullableString(raw.riderId),
   branchId: asString(raw.branchId),
   deliveryAddress: {
     text: asString((raw.deliveryAddress as RawRecord | undefined)?.text),

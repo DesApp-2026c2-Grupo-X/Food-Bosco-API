@@ -18,7 +18,7 @@ const rawRider = {
   userId: 'u1',
   firstName: 'Juan',
   lastName: 'Perez',
-  vehicle: 'Moto',
+  vehicle: { type: 'moto', marca: 'Honda' },
   phone: '11223344',
   available: true,
   currentLocation: { latitude: -34.6, longitude: -58.4 },
@@ -132,15 +132,30 @@ describe('DeliveryResolver — mutations', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('updateRiderProfile → PATCH /v1/riders/me', async () => {
-    rest.patch.mockResolvedValue({ ...rawRider, vehicle: 'Bici' })
+    rest.patch.mockResolvedValue({ ...rawRider, phone: '999' })
 
-    const result = await resolver.updateRiderProfile({ vehicle: 'Bici' }, ctx)
+    const result = await resolver.updateRiderProfile({ phone: '999' }, ctx)
 
     expect(rest.patch).toHaveBeenCalledWith('/v1/riders/me', {
-      body: { vehicle: 'Bici' },
+      body: { phone: '999' },
       context: expect.objectContaining({ userId: 'u1' }),
     })
-    expect(result.vehicle).toBe('Bici')
+    expect(result.phone).toBe('999')
+  })
+
+  it('updateRiderVehicle → PATCH /v1/riders/me/vehicle', async () => {
+    rest.patch.mockResolvedValue({
+      ...rawRider,
+      vehicle: { type: 'bici' },
+    })
+
+    const result = await resolver.updateRiderVehicle({ type: 'bici' }, ctx)
+
+    expect(rest.patch).toHaveBeenCalledWith('/v1/riders/me/vehicle', {
+      body: { type: 'bici' },
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
+    expect(result.vehicle?.type).toBe('bici')
   })
 
   it('setRiderAvailability → PATCH /v1/riders/me/availability', async () => {

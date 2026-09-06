@@ -46,6 +46,11 @@ export class TripService {
     return doc ? serializeTrip(doc) : null
   }
 
+  async findActiveOffer(riderId: string): Promise<PublicTrip | null> {
+    const doc = await this.repository.findActiveOfferByRider(riderId, new Date())
+    return doc ? serializeTrip(doc) : null
+  }
+
   async listByRider(riderId: string, limit: number, offset: number): Promise<TripListResponse> {
     const { data, total } = await this.repository.listByRider(riderId, limit, offset)
     return {

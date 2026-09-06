@@ -54,7 +54,7 @@ export class SeedController {
           firstName: rider.firstName,
           lastName: rider.lastName,
           phone: rider.phone,
-          vehicle: rider.vehicle,
+          vehicle: { type: 'moto', brand: 'Honda', model: 'CG Titan', plate: 'HLP 482' },
         },
       })
       deliverySummary = deliveryResult.summary

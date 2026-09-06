@@ -1,7 +1,24 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
-import { HydratedDocument } from 'mongoose'
-import { RIDER_STATUS, RIDER_STATUS_VALUES } from '../config/constants'
-import type { RiderStatus } from '../config/constants'
+import { HydratedDocument, Schema as MongooseSchema } from 'mongoose'
+import { RIDER_STATUS, RIDER_STATUS_VALUES, VEHICLE_TYPE_VALUES } from '../config/constants'
+import type { RiderStatus, VehicleType } from '../config/constants'
+
+export interface Vehicle {
+  type: VehicleType
+  brand?: string
+  model?: string
+  plate?: string
+}
+
+const VehicleSchema = new MongooseSchema(
+  {
+    type: { type: String, enum: VEHICLE_TYPE_VALUES, required: true },
+    brand: { type: String },
+    model: { type: String },
+    plate: { type: String },
+  },
+  { _id: false },
+)
 
 @Schema({ collection: 'riders', timestamps: { createdAt: true, updatedAt: true } })
 export class Rider {
@@ -14,8 +31,8 @@ export class Rider {
   @Prop({ required: true, trim: true })
   lastName!: string
 
-  @Prop({ default: null, type: String, trim: true })
-  vehicle!: string | null
+  @Prop({ type: VehicleSchema, default: null })
+  vehicle!: Vehicle | null
 
   @Prop({ required: true, trim: true })
   phone!: string
@@ -28,6 +45,9 @@ export class Rider {
 
   @Prop({ type: { latitude: Number, longitude: Number }, default: null, _id: false })
   currentLocation!: { latitude: number; longitude: number } | null
+
+  @Prop({ default: null, type: Date })
+  lastSeenAt!: Date | null
 
   createdAt!: Date
   updatedAt!: Date
@@ -42,11 +62,12 @@ export interface PublicRider {
   userId: string
   firstName: string
   lastName: string
-  vehicle: string | null
+  vehicle: Vehicle | null
   phone: string
   available: boolean
   status: RiderStatus
   currentLocation: { latitude: number; longitude: number } | null
+  lastSeenAt: string | null
 }
 
 export const serializeRider = (doc: RiderDocument): PublicRider => ({
@@ -59,4 +80,14 @@ export const serializeRider = (doc: RiderDocument): PublicRider => ({
   available: doc.available,
   status: doc.status,
   currentLocation: doc.currentLocation ?? null,
+  lastSeenAt: doc.lastSeenAt?.toISOString() ?? null,
 })
+
+export const isRiderStale = (
+  rider: PublicRider,
+  staleAfterMs: number,
+  now: Date = new Date(),
+): boolean => {
+  if (!rider.lastSeenAt) return true
+  return now.getTime() - new Date(rider.lastSeenAt).getTime() > staleAfterMs
+}

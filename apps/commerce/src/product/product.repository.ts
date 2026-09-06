@@ -10,6 +10,7 @@ export interface CreateProductData {
   description: string
   price: number
   image?: string
+  available?: boolean
 }
 
 export interface UpdateProductData {
@@ -18,6 +19,7 @@ export interface UpdateProductData {
   description?: string
   price?: number
   image?: string
+  available?: boolean
 }
 
 export interface ProductListQuery {
@@ -84,7 +86,7 @@ export class ProductRepository {
     return this.model.create({
       ...data,
       image: data.image ?? null,
-      available: true,
+      available: data.available ?? true,
       configGroups: [],
       recipe: [],
     })

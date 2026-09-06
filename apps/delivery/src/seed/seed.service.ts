@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { RiderService } from '../rider/rider.service'
+import type { Vehicle } from '../rider/rider.model'
 
 export interface SeedRiderInput {
   userId: string
   firstName: string
   lastName: string
   phone: string
-  vehicle?: string | null
+  vehicle?: Vehicle | null
 }
 
 export interface SeedResult {

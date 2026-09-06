@@ -52,6 +52,14 @@ export class BranchController {
     return this.branchService.findAvailable(Number(lat), Number(lng))
   }
 
+  @Get('available/products')
+  async availableProducts(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+  ): Promise<BranchProductListResponse> {
+    return this.orchestrator.listZoneProducts(Number(lat), Number(lng))
+  }
+
   @Get(':branchId')
   async get(@Param('branchId') branchId: string): Promise<PublicBranch> {
     const branch = await this.branchService.findById(branchId)

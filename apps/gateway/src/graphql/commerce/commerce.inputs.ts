@@ -201,6 +201,12 @@ export class ProductFilterInput {
 
   @Field({ nullable: true })
   available?: boolean
+
+  @Field(() => Float, { nullable: true })
+  lat?: number
+
+  @Field(() => Float, { nullable: true })
+  lng?: number
 }
 
 @InputType()

@@ -7,6 +7,7 @@ import type { PublicDeliveryOrder } from '../delivery-order/delivery-order.model
 import { DeliveryOrderService } from '../delivery-order/delivery-order.service'
 import type { PublicRider } from '../rider/rider.model'
 import { RiderOrchestrator } from '../rider/rider.orchestrator'
+import { RiderService } from '../rider/rider.service'
 import type { PublicTrip } from '../trip/trip.model'
 import { TripService } from '../trip/trip.service'
 import { OfferOrchestrator } from './offer.orchestrator'
@@ -16,11 +17,12 @@ const rider: PublicRider = {
   userId: 'u1',
   firstName: 'J',
   lastName: 'P',
-  vehicle: 'Moto',
+  vehicle: { type: 'moto', brand: 'Honda' },
   phone: '1',
   available: true,
   status: 'free',
   currentLocation: { latitude: 0, longitude: 0 },
+  lastSeenAt: new Date().toISOString(),
 }
 
 const deliveryOrder: PublicDeliveryOrder = {
@@ -64,23 +66,26 @@ const makeOrchestrator = () => {
   const tripService = {
     createOffered: jest.fn(),
     findById: jest.fn(),
+    findActiveOffer: jest.fn(),
     markActive: jest.fn(),
     markCancelled: jest.fn(),
     markOrderPickedUp: jest.fn(),
     markOrderDelivered: jest.fn(),
   }
   const deliveryOrderService = {
-    listAvailable: jest.fn(),
-    reserve: jest.fn(),
+    claimableForRider: jest.fn(),
+    reserve: jest.fn().mockImplementation((orderIds: string[]) => Promise.resolve(orderIds.length)),
     markAssigned: jest.fn(),
-    release: jest.fn(),
+    releaseByTrip: jest.fn(),
     releaseExpired: jest.fn(),
   }
+  const riderService = { listAvailable: jest.fn().mockResolvedValue([]) }
   const commerceClient = { patchOrderStatus: jest.fn() }
   const eventBus = { publish: jest.fn() }
 
   const orchestrator = new OfferOrchestrator(
     riderOrchestrator as unknown as RiderOrchestrator,
+    riderService as unknown as RiderService,
     tripService as unknown as TripService,
     deliveryOrderService as unknown as DeliveryOrderService,
     commerceClient as unknown as CommerceClient,
@@ -90,6 +95,7 @@ const makeOrchestrator = () => {
   return {
     orchestrator,
     riderOrchestrator,
+    riderService,
     tripService,
     deliveryOrderService,
     commerceClient,
@@ -101,6 +107,18 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
   it('rechaza si el repartidor está offline', async () => {
     const { orchestrator, riderOrchestrator } = makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue({ ...rider, available: false })
+
+    await expect(orchestrator.listOffers('u1')).rejects.toMatchObject({
+      code: ERROR_CODES.riderOffline,
+    })
+  })
+
+  it('rechaza si el repartidor no se reportó dentro del umbral (stale)', async () => {
+    const { orchestrator, riderOrchestrator } = makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue({
+      ...rider,
+      lastSeenAt: new Date(Date.now() - env.rider.staleAfterMs - 1_000).toISOString(),
+    })
 
     await expect(orchestrator.listOffers('u1')).rejects.toMatchObject({
       code: ERROR_CODES.riderOffline,
@@ -120,11 +138,94 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
     const { orchestrator, riderOrchestrator, deliveryOrderService } = makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
-    deliveryOrderService.listAvailable.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([])
 
     const result = await orchestrator.listOffers('u1')
 
     expect(result).toEqual({ data: [] })
+  })
+
+  it('reutiliza la oferta vigente del repartidor en lugar de crear una nueva', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    tripService.findActiveOffer.mockResolvedValue(trip)
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result).toEqual({
+      data: [
+        {
+          id: 't1',
+          orderCount: 1,
+          distanceKm: 5,
+          estimatedMinutes: 12,
+          estimatedEarnings: 1500,
+          expiresAt: trip.expiresAt,
+        },
+      ],
+    })
+    expect(tripService.createOffered).not.toHaveBeenCalled()
+    expect(deliveryOrderService.claimableForRider).not.toHaveBeenCalled()
+    expect(deliveryOrderService.reserve).not.toHaveBeenCalled()
+  })
+
+  it('crea una nueva oferta cuando la vigente venció', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    tripService.findActiveOffer.mockResolvedValue(null)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([deliveryOrder])
+    tripService.createOffered.mockResolvedValue(trip)
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(tripService.createOffered).toHaveBeenCalledWith(
+      expect.objectContaining({ riderId: 'u1' }),
+    )
+    expect(result.data).toHaveLength(1)
+  })
+
+  it('hace rollback si la reserva pierde la carrera contra otro rider', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    tripService.findActiveOffer.mockResolvedValue(null)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([deliveryOrder])
+    tripService.createOffered.mockResolvedValue(trip)
+    deliveryOrderService.reserve.mockResolvedValue(0)
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result).toEqual({ data: [] })
+    expect(deliveryOrderService.releaseByTrip).toHaveBeenCalledWith(
+      't1',
+      expect.any(Date),
+      expect.any(Object),
+    )
+    expect(tripService.markCancelled).toHaveBeenCalledWith('t1')
+  })
+
+  it('no ofrece si no es el turno del rider (rotación estricta)', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    tripService.findActiveOffer.mockResolvedValue(null)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([])
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result).toEqual({ data: [] })
+    expect(tripService.createOffered).not.toHaveBeenCalled()
+    expect(deliveryOrderService.claimableForRider).toHaveBeenCalledWith(
+      'u1',
+      expect.any(Date),
+      expect.any(Object),
+    )
   })
 
   it('arma una oferta, crea el viaje y reserva las órdenes', async () => {
@@ -132,7 +233,7 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
       makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
-    deliveryOrderService.listAvailable.mockResolvedValue([deliveryOrder])
+    deliveryOrderService.claimableForRider.mockResolvedValue([deliveryOrder])
     tripService.createOffered.mockResolvedValue(trip)
 
     const result = await orchestrator.listOffers('u1')
@@ -163,7 +264,7 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
       makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
-    deliveryOrderService.listAvailable.mockResolvedValue([deliveryOrder])
+    deliveryOrderService.claimableForRider.mockResolvedValue([deliveryOrder])
     tripService.createOffered.mockImplementation(async (input) => ({
       ...trip,
       id: 't1',
@@ -214,7 +315,7 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
       makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue(['stale-1'])
-    deliveryOrderService.listAvailable.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([])
     tripService.findById.mockResolvedValue({ ...trip, id: 'stale-1', status: 'offered' })
 
     await orchestrator.listOffers('u1')
@@ -227,7 +328,7 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
       makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
-    deliveryOrderService.listAvailable.mockResolvedValue([
+    deliveryOrderService.claimableForRider.mockResolvedValue([
       {
         ...deliveryOrder,
         branchLocation: { latitude: 1, longitude: 1 },
@@ -252,7 +353,7 @@ describe('OfferOrchestrator.acceptOffer (RQ-DLV-05/06)', () => {
     const result = await orchestrator.acceptOffer('u1', 't1')
 
     expect(tripService.markActive).toHaveBeenCalledWith('t1')
-    expect(deliveryOrderService.markAssigned).toHaveBeenCalledWith(['ord-1'])
+    expect(deliveryOrderService.markAssigned).toHaveBeenCalledWith(['ord-1'], 't1')
     expect(riderOrchestrator.setStatus).toHaveBeenCalledWith('u1', RIDER_STATUS.onTrip)
     expect(eventBus.publish).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'trip.accepted', tripId: 't1', orderIds: ['ord-1'] }),
@@ -305,7 +406,11 @@ describe('OfferOrchestrator.rejectOffer (RQ-DLV-05)', () => {
     await orchestrator.rejectOffer('u1', 't1')
 
     expect(tripService.markCancelled).toHaveBeenCalledWith('t1')
-    expect(deliveryOrderService.release).toHaveBeenCalledWith('t1')
+    expect(deliveryOrderService.releaseByTrip).toHaveBeenCalledWith(
+      't1',
+      expect.any(Date),
+      expect.any(Object),
+    )
   })
 
   it('rechaza una oferta de otro repartidor', async () => {

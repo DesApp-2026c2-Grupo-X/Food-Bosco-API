@@ -22,6 +22,15 @@ export const TRIP_STATUS_VALUES: TripStatus[] = [
   TRIP_STATUS.cancelled,
 ]
 
+export const VEHICLE_TYPE = {
+  moto: 'moto',
+  bici: 'bici',
+} as const
+
+export type VehicleType = (typeof VEHICLE_TYPE)[keyof typeof VEHICLE_TYPE]
+
+export const VEHICLE_TYPE_VALUES: VehicleType[] = [VEHICLE_TYPE.moto, VEHICLE_TYPE.bici]
+
 export const RIDER_STATUS = {
   offline: 'offline',
   free: 'free',

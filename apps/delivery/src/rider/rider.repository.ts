@@ -2,18 +2,17 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { RIDER_STATUS, RiderStatus } from '../config/constants'
-import { Rider, RiderDocument } from './rider.model'
+import { Rider, RiderDocument, Vehicle } from './rider.model'
 
 export interface CreateRiderData {
   userId: string
   firstName: string
   lastName: string
-  vehicle: string | null
+  vehicle: Vehicle | null
   phone: string
 }
 
 export interface UpdateRiderProfileData {
-  vehicle?: string | null
   phone?: string
 }
 
@@ -23,6 +22,10 @@ export class RiderRepository {
 
   findByUserId(userId: string): Promise<RiderDocument | null> {
     return this.model.findOne({ userId }).exec()
+  }
+
+  findAllAvailable(): Promise<RiderDocument[]> {
+    return this.model.find({ available: true }).exec()
   }
 
   create(data: CreateRiderData): Promise<RiderDocument> {
@@ -38,14 +41,17 @@ export class RiderRepository {
     return this.model.findOneAndUpdate({ userId }, { $set: patch }, { new: true }).exec()
   }
 
+  updateVehicle(userId: string, vehicle: Vehicle): Promise<RiderDocument | null> {
+    return this.model.findOneAndUpdate({ userId }, { $set: { vehicle } }, { new: true }).exec()
+  }
+
   setAvailability(
     userId: string,
     available: boolean,
     status: RiderStatus,
   ): Promise<RiderDocument | null> {
-    return this.model
-      .findOneAndUpdate({ userId }, { $set: { available, status } }, { new: true })
-      .exec()
+    const patch = available ? { available, status, lastSeenAt: new Date() } : { available, status }
+    return this.model.findOneAndUpdate({ userId }, { $set: patch }, { new: true }).exec()
   }
 
   setLocation(
@@ -53,7 +59,11 @@ export class RiderRepository {
     location: { latitude: number; longitude: number },
   ): Promise<RiderDocument | null> {
     return this.model
-      .findOneAndUpdate({ userId }, { $set: { currentLocation: location } }, { new: true })
+      .findOneAndUpdate(
+        { userId },
+        { $set: { currentLocation: location, lastSeenAt: new Date() } },
+        { new: true },
+      )
       .exec()
   }
 

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -32,4 +33,8 @@ export class UpdateBranchDto {
   @IsString()
   @MaxLength(50)
   phone?: string
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
 }

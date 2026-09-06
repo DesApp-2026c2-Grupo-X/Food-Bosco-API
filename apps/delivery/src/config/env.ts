@@ -14,8 +14,12 @@ export const env = {
   commerceServiceUrl: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
   internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
   brokerUrl: process.env.BROKER_URL ?? '',
+  rider: {
+    staleAfterMs: toNumber(process.env.RIDER_STALE_AFTER_MS, 300_000),
+  },
   offer: {
     ttlSeconds: toNumber(process.env.OFFER_TTL_SECONDS, 30),
+    sameRiderCooldownSeconds: toNumber(process.env.SAME_RIDER_COOLDOWN_SECONDS, 45),
     earningsBase: toNumber(process.env.EARNINGS_BASE, 500),
     earningsPerKm: toNumber(process.env.EARNINGS_PER_KM, 200),
     earningsPerOrder: toNumber(process.env.EARNINGS_PER_ORDER, 300),

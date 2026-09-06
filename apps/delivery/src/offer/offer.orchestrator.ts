@@ -8,9 +8,14 @@ import { EventBus } from '../config/messaging/event-bus'
 import { TRIP_ACCEPTED_EVENT, TRIP_COMPLETED_EVENT } from '../config/messaging/events'
 import type { TripAcceptedEvent, TripCompletedEvent } from '../config/messaging/events'
 import type { PublicDeliveryOrder } from '../delivery-order/delivery-order.model'
-import { DeliveryOrderService } from '../delivery-order/delivery-order.service'
+import {
+  DeliveryOrderService,
+  type RotationContext,
+} from '../delivery-order/delivery-order.service'
+import { isRiderStale } from '../rider/rider.model'
 import type { PublicRider } from '../rider/rider.model'
 import { RiderOrchestrator } from '../rider/rider.orchestrator'
+import { RiderService } from '../rider/rider.service'
 import type { PublicTrip, TripOrder } from '../trip/trip.model'
 import { TripService } from '../trip/trip.service'
 import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
@@ -32,6 +37,7 @@ export interface OfferListResponse {
 export class OfferOrchestrator {
   constructor(
     private readonly riderOrchestrator: RiderOrchestrator,
+    private readonly riderService: RiderService,
     private readonly tripService: TripService,
     private readonly deliveryOrderService: DeliveryOrderService,
     private readonly commerceClient: CommerceClient,
@@ -41,7 +47,7 @@ export class OfferOrchestrator {
   async listOffers(riderId: string): Promise<OfferListResponse> {
     const rider = await this.riderOrchestrator.getProfile(riderId)
 
-    if (!rider.available) {
+    if (!rider.available || isRiderStale(rider, env.rider.staleAfterMs)) {
       throw new DomainException(ERROR_CODES.riderOffline, 'El repartidor está offline', 409)
     }
     if (!rider.currentLocation) {
@@ -55,9 +61,17 @@ export class OfferOrchestrator {
       return { data: [] }
     }
 
-    await this.expireStaleOffers()
+    const now = new Date()
+    const ctx = await this.buildRotationContext(now)
 
-    const available = await this.deliveryOrderService.listAvailable()
+    await this.expireStaleOffers(now, ctx)
+
+    const currentOffer = await this.tripService.findActiveOffer(riderId)
+    if (currentOffer) {
+      return { data: [this.toOfferProjection(currentOffer)] }
+    }
+
+    const available = await this.deliveryOrderService.claimableForRider(riderId, now, ctx)
     if (available.length === 0) {
       return { data: [] }
     }
@@ -82,23 +96,17 @@ export class OfferOrchestrator {
       expiresAt,
     })
 
-    await this.deliveryOrderService.reserve(
-      orders.map((order) => order.orderId),
-      trip.id,
-      expiresAt,
-    )
+    const orderIds = orders.map((order) => order.orderId)
+    const reserved = await this.deliveryOrderService.reserve(orderIds, trip.id, expiresAt)
+
+    if (reserved !== orderIds.length) {
+      await this.deliveryOrderService.releaseByTrip(trip.id, now, ctx)
+      await this.tripService.markCancelled(trip.id)
+      return { data: [] }
+    }
 
     return {
-      data: [
-        {
-          id: trip.id,
-          orderCount: orders.length,
-          distanceKm: trip.distanceKm,
-          estimatedMinutes: trip.estimatedMinutes,
-          estimatedEarnings: trip.estimatedEarnings,
-          expiresAt: expiresAt.toISOString(),
-        },
-      ],
+      data: [this.toOfferProjection(trip)],
     }
   }
 
@@ -106,7 +114,10 @@ export class OfferOrchestrator {
     const trip = await this.requireOfferedTrip(riderId, offerId)
 
     const active = await this.tripService.markActive(trip.id)
-    await this.deliveryOrderService.markAssigned(trip.orders.map((order) => order.orderId))
+    await this.deliveryOrderService.markAssigned(
+      trip.orders.map((order) => order.orderId),
+      trip.id,
+    )
     await this.riderOrchestrator.setStatus(riderId, RIDER_STATUS.onTrip)
     await this.eventBus.publish(this.tripAcceptedEvent(trip))
 
@@ -115,9 +126,11 @@ export class OfferOrchestrator {
 
   async rejectOffer(riderId: string, offerId: string): Promise<void> {
     const trip = await this.requireOfferedTrip(riderId, offerId)
+    const now = new Date()
+    const ctx = await this.buildRotationContext(now)
 
     await this.tripService.markCancelled(trip.id)
-    await this.deliveryOrderService.release(trip.id)
+    await this.deliveryOrderService.releaseByTrip(trip.id, now, ctx)
   }
 
   async markPickup(riderId: string, tripId: string, orderId: string): Promise<PublicTrip> {
@@ -143,15 +156,60 @@ export class OfferOrchestrator {
     return updated
   }
 
-  private async expireStaleOffers(): Promise<void> {
-    const now = new Date()
-    const expiredTripIds = await this.deliveryOrderService.releaseExpired(now)
+  private async expireStaleOffers(now: Date, ctx: RotationContext): Promise<void> {
+    const expiredTripIds = await this.deliveryOrderService.releaseExpired(now, ctx)
 
     for (const tripId of expiredTripIds) {
       const trip = await this.tripService.findById(tripId)
       if (trip && trip.status === TRIP_STATUS.offered) {
         await this.tripService.markCancelled(tripId)
       }
+    }
+  }
+
+  private async buildRotationContext(now: Date): Promise<RotationContext> {
+    const riders = await this.riderService.listAvailable()
+    const activeIds = new Set<string>()
+
+    for (const rider of riders) {
+      if (
+        rider.status === RIDER_STATUS.free &&
+        !isRiderStale(rider, env.rider.staleAfterMs, now) &&
+        rider.currentLocation
+      ) {
+        activeIds.add(rider.userId)
+      }
+    }
+
+    return {
+      isActive: async (riderId) => activeIds.has(riderId),
+      eligibleNear: async (branchLocation) =>
+        riders
+          .filter((rider) => {
+            if (!activeIds.has(rider.userId)) return false
+            if (!rider.currentLocation) return false
+            return (
+              haversineDistanceKm(rider.currentLocation, branchLocation) <=
+              env.offer.maxMatchDistanceKm
+            )
+          })
+          .sort(
+            (a, b) =>
+              haversineDistanceKm(a.currentLocation!, branchLocation) -
+              haversineDistanceKm(b.currentLocation!, branchLocation),
+          )
+          .map((rider) => rider.userId),
+    }
+  }
+
+  private toOfferProjection(trip: PublicTrip): TripOfferProjection {
+    return {
+      id: trip.id,
+      orderCount: trip.orders.length,
+      distanceKm: trip.distanceKm,
+      estimatedMinutes: trip.estimatedMinutes,
+      estimatedEarnings: trip.estimatedEarnings,
+      expiresAt: trip.expiresAt ? trip.expiresAt : new Date().toISOString(),
     }
   }
 

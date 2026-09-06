@@ -31,12 +31,23 @@ export class DeliveryOrder {
   @Prop({ default: null, type: Date })
   reservedUntil!: Date | null
 
+  @Prop({ default: null, type: [String] })
+  rotationRoster!: string[] | null
+
+  @Prop({ default: null, type: Number })
+  rotationIndex!: number | null
+
+  @Prop({ default: null, type: Date })
+  rotationTurnUntil!: Date | null
+
   createdAt!: Date
 }
 
 export type DeliveryOrderDocument = HydratedDocument<DeliveryOrder>
 
 export const DeliveryOrderSchema = SchemaFactory.createForClass(DeliveryOrder)
+
+DeliveryOrderSchema.index({ status: 1, createdAt: 1 })
 
 export interface PublicDeliveryOrder {
   orderId: string

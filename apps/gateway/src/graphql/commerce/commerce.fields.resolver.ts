@@ -1,8 +1,14 @@
 import { Inject } from '@nestjs/common'
 import { Context, Parent, ResolveField, Resolver } from '@nestjs/graphql'
+import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
-import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT } from '../../rest/rest.module'
+import {
+  AUTH_REST_CLIENT,
+  COMMERCE_REST_CLIENT,
+  DELIVERY_REST_CLIENT,
+} from '../../rest/rest.module'
+import { GeoPoint, mapGeoPoint } from '../common/geo-point'
 import { mapUser, User } from '../auth/auth.types'
 import { getCommerceLoaders } from './commerce.dataloaders'
 import {
@@ -96,6 +102,7 @@ export class OrderFieldResolver {
   constructor(
     @Inject(COMMERCE_REST_CLIENT) private readonly commerce: RestClient,
     @Inject(AUTH_REST_CLIENT) private readonly auth: RestClient,
+    @Inject(DELIVERY_REST_CLIENT) private readonly delivery: RestClient,
   ) {}
 
   @ResolveField('client', () => User, { nullable: true })
@@ -112,6 +119,22 @@ export class OrderFieldResolver {
       order.branchId,
     )
     return raw ? mapBranch(raw) : null
+  }
+
+  @ResolveField('riderLocation', () => GeoPoint, { nullable: true })
+  async riderLocation(@Parent() order: Order): Promise<GeoPoint | null> {
+    if (!order.riderId) {
+      return null
+    }
+
+    try {
+      const raw = await this.delivery.get<RawRecord>(`/v1/riders/by-user/${order.riderId}`, {
+        context: { internalToken: env.internalApiToken },
+      })
+      return mapGeoPoint(raw.currentLocation as RawRecord | undefined)
+    } catch {
+      return null
+    }
   }
 }
 
