@@ -13,7 +13,11 @@ const buildDoc = (overrides: Partial<DeliveryOrder> = {}): DeliveryOrderDocument
     status: 'ready',
     tripId: null,
     reservedUntil: null,
+    rotationRoster: null,
+    rotationIndex: null,
+    rotationTurnUntil: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    save: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   }) as unknown as DeliveryOrderDocument
 
@@ -64,18 +68,89 @@ describe('DeliveryOrderService.handleOrderStatusChanged (RQ-DLV-03)', () => {
   )
 })
 
-describe('DeliveryOrderService.listAvailable / reserve / release', () => {
-  it('lista solo las órdenes disponibles serializadas', async () => {
-    const repository = { listReady: jest.fn().mockResolvedValue([buildDoc()]) }
+const activeCtx = () => ({
+  isActive: jest.fn().mockResolvedValue(true),
+  eligibleNear: jest.fn().mockResolvedValue([]),
+})
+
+const ctx = (overrides: Partial<ReturnType<typeof activeCtx>> = {}) => ({
+  ...activeCtx(),
+  ...overrides,
+})
+
+describe('DeliveryOrderService.claimableForRider (rotación)', () => {
+  it('devuelve la orden cuando es el turno del rider', async () => {
+    const repository = {
+      listReadyDocs: jest
+        .fn()
+        .mockResolvedValue([
+          buildDoc({ rotationRoster: ['u2', 'u1'], rotationIndex: 1, status: 'ready' }),
+        ]),
+    }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
-    const result = await service.listAvailable()
+    const result = await service.claimableForRider(
+      'u1',
+      new Date('2026-01-01T00:00:00.000Z'),
+      ctx(),
+    )
 
     expect(result).toHaveLength(1)
     expect(result[0].orderId).toBe('ord-1')
-    expect(result[0].branchId).toBe('b1')
   })
 
+  it('no devuelve la orden cuando no es el turno del rider', async () => {
+    const repository = {
+      listReadyDocs: jest.fn().mockResolvedValue([
+        buildDoc({
+          rotationRoster: ['u1', 'u2'],
+          rotationIndex: 0,
+          rotationTurnUntil: new Date('2026-12-31T00:00:00.000Z'),
+          status: 'ready',
+        }),
+      ]),
+    }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider(
+      'u2',
+      new Date('2026-01-01T00:00:00.000Z'),
+      ctx(),
+    )
+
+    expect(result).toHaveLength(0)
+  })
+
+  it('saltea al instante a un rider del turno que se desconectó', async () => {
+    const repository = {
+      listReadyDocs: jest.fn().mockResolvedValue([
+        buildDoc({
+          rotationRoster: ['u1', 'u2'],
+          rotationIndex: 0,
+          rotationTurnUntil: new Date('2026-12-31T00:00:00.000Z'),
+          status: 'ready',
+        }),
+      ]),
+    }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider(
+      'u2',
+      new Date('2026-01-01T00:00:00.000Z'),
+      ctx({
+        isActive: jest
+          .fn()
+          .mockResolvedValueOnce(false) // u1 se desconectó
+          .mockResolvedValueOnce(true), // u2 sigue activo
+      }),
+    )
+
+    expect(result).toHaveLength(1)
+    expect(result[0].orderId).toBe('ord-1')
+  })
+})
+
+describe('DeliveryOrderService.reserve / markAssigned / release', () => {
   it('reserva un conjunto de órdenes con fecha límite', async () => {
     const repository = { reserve: jest.fn().mockResolvedValue(undefined) }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
@@ -86,16 +161,73 @@ describe('DeliveryOrderService.listAvailable / reserve / release', () => {
     expect(repository.reserve).toHaveBeenCalledWith(['ord-1', 'ord-2'], 't1', until)
   })
 
-  it('releaseExpired deduplica los tripIds liberados', async () => {
-    const repository = {
-      findExpiredReservations: jest.fn().mockResolvedValue(['t1', 't1', 't2']),
-      releaseExpired: jest.fn().mockResolvedValue(undefined),
-    }
+  it('marca las órdenes como asignadas al aceptar', async () => {
+    const repository = { markAssigned: jest.fn().mockResolvedValue(undefined) }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
-    const result = await service.releaseExpired(new Date())
+    await service.markAssigned(['ord-1'], 't1')
 
-    expect(result).toEqual(['t1', 't2'])
-    expect(repository.releaseExpired).toHaveBeenCalled()
+    expect(repository.markAssigned).toHaveBeenCalledWith(['ord-1'], 't1')
+  })
+
+  it('al liberar un viaje avanza la rotación al siguiente rider', async () => {
+    const doc = buildDoc({
+      status: 'reserved',
+      tripId: 't1',
+      reservedUntil: new Date('2026-01-01T00:01:00.000Z'),
+      rotationRoster: ['u1', 'u2'],
+      rotationIndex: 0,
+      rotationTurnUntil: new Date('2026-01-01T00:00:30.000Z'),
+    })
+    const repository = { findReservedDocsByTripId: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await service.releaseByTrip('t1', new Date('2026-01-02T00:00:00.000Z'), ctx())
+
+    expect(doc.status).toBe('ready')
+    expect(doc.tripId).toBeNull()
+    expect(doc.reservedUntil).toBeNull()
+    expect(doc.rotationIndex).toBe(1)
+    expect(doc.save).toHaveBeenCalled()
+  })
+
+  it('releaseExpired libera y devuelve los tripIds vencidos', async () => {
+    const doc = buildDoc({
+      status: 'reserved',
+      tripId: 't1',
+      reservedUntil: new Date('2026-01-01T00:00:00.000Z'),
+      rotationRoster: ['u1', 'u2'],
+      rotationIndex: 0,
+    })
+    const repository = { findExpiredReservedDocs: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.releaseExpired(new Date('2026-01-02T00:00:00.000Z'), ctx())
+
+    expect(result).toEqual(['t1'])
+    expect(doc.rotationIndex).toBe(1)
+    expect(doc.save).toHaveBeenCalled()
+  })
+
+  it('al cerrar la ronda prioriza a los riders nuevos del roster', async () => {
+    const doc = buildDoc({
+      status: 'reserved',
+      tripId: 't1',
+      reservedUntil: new Date('2026-01-01T00:00:00.000Z'),
+      rotationRoster: ['u1', 'u2'],
+      rotationIndex: 1,
+    })
+    const repository = { findReservedDocsByTripId: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await service.releaseByTrip(
+      't1',
+      new Date('2026-01-02T00:00:00.000Z'),
+      ctx({ eligibleNear: jest.fn().mockResolvedValue(['u3', 'u1', 'u2']) }),
+    )
+
+    expect(doc.rotationRoster).toEqual(['u3', 'u1', 'u2'])
+    expect(doc.rotationIndex).toBe(0)
+    expect(doc.status).toBe('ready')
   })
 })

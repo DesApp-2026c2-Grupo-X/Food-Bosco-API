@@ -5,10 +5,12 @@ import { Category, CategoryDocument } from './category.model'
 
 export interface CreateCategoryData {
   name: string
+  active?: boolean
 }
 
 export interface UpdateCategoryData {
   name?: string
+  active?: boolean
 }
 
 export interface CategoryListQuery {
@@ -33,7 +35,7 @@ export class CategoryRepository {
   }
 
   create(data: CreateCategoryData): Promise<CategoryDocument> {
-    return this.model.create({ ...data, active: true })
+    return this.model.create({ ...data, active: data.active ?? true })
   }
 
   async list(query: CategoryListQuery): Promise<{ data: CategoryDocument[]; total: number }> {

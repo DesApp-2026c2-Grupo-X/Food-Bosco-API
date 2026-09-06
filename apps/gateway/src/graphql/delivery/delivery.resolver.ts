@@ -8,7 +8,7 @@ import { AuthGuard } from '../../security/auth.guard'
 import { Roles } from '../../security/roles.decorator'
 import { PageInput } from '../common/page'
 import { toRestContext } from '../common/rest-context'
-import { UpdateRiderProfileInput } from './delivery.inputs'
+import { UpdateRiderProfileInput, UpdateVehicleInput } from './delivery.inputs'
 import { Rider, Trip, TripOffer, mapRider, mapTrip, mapTripOffer } from './delivery.types'
 
 type RawRecord = Record<string, unknown>
@@ -74,6 +74,19 @@ export class DeliveryResolver {
     @Context() ctx: GraphQLContext,
   ): Promise<Rider> {
     const raw = await this.rest.patch<RawRecord>('/v1/riders/me', {
+      body: input,
+      context: toRestContext(ctx),
+    })
+    return mapRider(raw)
+  }
+
+  @Mutation(() => Rider)
+  @Roles(ROLES.rider)
+  async updateRiderVehicle(
+    @Args('input') input: UpdateVehicleInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Rider> {
+    const raw = await this.rest.patch<RawRecord>('/v1/riders/me/vehicle', {
       body: input,
       context: toRestContext(ctx),
     })

@@ -9,7 +9,7 @@ const buildDoc = (overrides: Partial<Rider> = {}): RiderDocument =>
     userId: 'u1',
     firstName: 'Juan',
     lastName: 'Perez',
-    vehicle: 'Moto',
+    vehicle: { type: 'moto', brand: 'Honda' },
     phone: '11223344',
     available: false,
     status: RIDER_STATUS.offline,
@@ -74,12 +74,12 @@ describe('RiderService.findByUserId / create / setStatus', () => {
       userId: 'u1',
       firstName: 'Juan',
       lastName: 'Perez',
-      vehicle: 'Moto',
+      vehicle: { type: 'moto', brand: 'Honda' },
       phone: '11223344',
     })
 
     expect(result.id).toBe('r1')
-    expect(result.vehicle).toBe('Moto')
+    expect(result.vehicle).toEqual({ type: 'moto', brand: 'Honda' })
   })
 
   it('setStatus actualiza y serializa', async () => {

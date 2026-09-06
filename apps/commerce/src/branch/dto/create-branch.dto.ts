@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -28,4 +29,8 @@ export class CreateBranchDto {
   @IsString()
   @MaxLength(50)
   phone?: string
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
 }

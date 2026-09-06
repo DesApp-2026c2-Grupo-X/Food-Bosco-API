@@ -8,6 +8,7 @@ import { RiderOrchestrator } from './rider.orchestrator'
 import { AvailabilityDto } from './dto/availability.dto'
 import { LocationDto } from './dto/location.dto'
 import { UpdateRiderProfileDto } from './dto/update-rider-profile.dto'
+import { UpdateVehicleDto } from './dto/update-vehicle.dto'
 
 @Controller('v1/riders/me')
 @Roles(ROLES.rider)
@@ -25,6 +26,14 @@ export class RiderController {
     @Body() dto: UpdateRiderProfileDto,
   ): Promise<PublicRider> {
     return this.orchestrator.updateProfile(auth.userId ?? '', dto)
+  }
+
+  @Patch('vehicle')
+  updateVehicle(
+    @CurrentUser() auth: AuthContext,
+    @Body() dto: UpdateVehicleDto,
+  ): Promise<PublicRider> {
+    return this.orchestrator.updateVehicle(auth.userId ?? '', dto)
   }
 
   @Patch('availability')

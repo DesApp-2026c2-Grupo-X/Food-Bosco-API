@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { RIDER_STATUS, RiderStatus } from '../config/constants'
-import { PublicRider, serializeRider } from './rider.model'
+import { PublicRider, serializeRider, Vehicle } from './rider.model'
 import { CreateRiderData, RiderRepository, UpdateRiderProfileData } from './rider.repository'
 
 @Injectable()
@@ -12,6 +12,11 @@ export class RiderService {
     return doc ? serializeRider(doc) : null
   }
 
+  async listAvailable(): Promise<PublicRider[]> {
+    const docs = await this.repository.findAllAvailable()
+    return docs.map(serializeRider)
+  }
+
   async create(data: CreateRiderData): Promise<PublicRider> {
     const doc = await this.repository.create(data)
     return serializeRider(doc)
@@ -19,6 +24,11 @@ export class RiderService {
 
   async updateProfile(userId: string, patch: UpdateRiderProfileData): Promise<PublicRider | null> {
     const doc = await this.repository.updateProfile(userId, patch)
+    return doc ? serializeRider(doc) : null
+  }
+
+  async updateVehicle(userId: string, vehicle: Vehicle): Promise<PublicRider | null> {
+    const doc = await this.repository.updateVehicle(userId, vehicle)
     return doc ? serializeRider(doc) : null
   }
 
