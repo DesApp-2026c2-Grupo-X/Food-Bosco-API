@@ -1,0 +1,9 @@
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+
+export class UpdateRiderProfileDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  phone?: string
+}
