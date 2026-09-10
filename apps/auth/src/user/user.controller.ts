@@ -16,6 +16,20 @@ import { UserQueryDto } from './dto/user-query.dto'
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  private async requireEditable(userId: string): Promise<void> {
+    const target = await this.userService.findById(userId)
+    if (!target) {
+      throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)
+    }
+    if (target.role === ROLES.superAdmin) {
+      throw new DomainException(
+        ERROR_CODES.forbidden,
+        'Los admins globales no se pueden editar ni desactivar',
+        403,
+      )
+    }
+  }
+
   @Get()
   @Roles(ROLES.superAdmin)
   list(@Query() query: UserQueryDto): Promise<UserListResponse> {
@@ -60,6 +74,7 @@ export class UserController {
   @Patch(':userId')
   @Roles(ROLES.superAdmin)
   async update(@Param('userId') userId: string, @Body() dto: UpdateUserDto): Promise<PublicUser> {
+    await this.requireEditable(userId)
     const user = await this.userService.update(userId, dto)
     if (!user) {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)
@@ -70,6 +85,7 @@ export class UserController {
   @Patch(':userId/active')
   @Roles(ROLES.superAdmin)
   async setActive(@Param('userId') userId: string, @Body() dto: SetActiveDto): Promise<PublicUser> {
+    await this.requireEditable(userId)
     const user = await this.userService.setActive(userId, dto.active)
     if (!user) {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)

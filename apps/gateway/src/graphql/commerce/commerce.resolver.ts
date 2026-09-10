@@ -109,6 +109,17 @@ export class CommerceResolver {
     @Args('page', { type: () => PageInput, nullable: true }) page: PageInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<Product[]> {
+    if (filter?.lat != null && filter?.lng != null) {
+      const raw = await this.rest.get<{ data: RawRecord[] }>('/v1/branches/available/products', {
+        context: toRestContext(ctx),
+        query: { lat: filter.lat, lng: filter.lng },
+      })
+      return raw.data.map((entry) => ({
+        ...mapProduct(entry),
+        available: Boolean(entry.availableInBranch),
+      }))
+    }
+
     const raw = await this.rest.get<ListRest>('/v1/catalog/products', {
       context: toRestContext(ctx),
       query: {

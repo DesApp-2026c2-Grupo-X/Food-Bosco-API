@@ -6,11 +6,13 @@ import { Ingredient, IngredientDocument } from './ingredient.model'
 export interface CreateIngredientData {
   name: string
   unit: string
+  active?: boolean
 }
 
 export interface UpdateIngredientData {
   name?: string
   unit?: string
+  active?: boolean
 }
 
 export interface IngredientListQuery {
@@ -35,7 +37,7 @@ export class IngredientRepository {
   }
 
   create(data: CreateIngredientData): Promise<IngredientDocument> {
-    return this.model.create({ ...data, active: true })
+    return this.model.create({ ...data, active: data.active ?? true })
   }
 
   upsertByName(data: CreateIngredientData): Promise<IngredientDocument | null> {

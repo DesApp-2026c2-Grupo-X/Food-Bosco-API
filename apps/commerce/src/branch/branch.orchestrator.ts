@@ -31,4 +31,11 @@ export class BranchOrchestrator {
 
     return { data }
   }
+
+  async listZoneProducts(latitude: number, longitude: number): Promise<BranchProductListResponse> {
+    const branches = await this.branchService.findAvailable(latitude, longitude)
+    const nearest = branches[0]
+    if (!nearest) return { data: [] }
+    return this.listProducts(nearest.id)
+  }
 }

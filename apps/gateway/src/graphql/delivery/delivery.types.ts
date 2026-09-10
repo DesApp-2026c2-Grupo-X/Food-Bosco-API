@@ -14,6 +14,21 @@ import {
 import type { RawRecord } from '../common/mappers'
 
 @ObjectType()
+export class Vehicle {
+  @Field(() => String)
+  type!: string
+
+  @Field(() => String, { nullable: true })
+  brand!: string | null
+
+  @Field(() => String, { nullable: true })
+  model!: string | null
+
+  @Field(() => String, { nullable: true })
+  plate!: string | null
+}
+
+@ObjectType()
 export class Rider {
   @Field(() => ID)
   id!: string
@@ -27,8 +42,8 @@ export class Rider {
   @Field(() => String, { nullable: true })
   lastName!: string | null
 
-  @Field(() => String, { nullable: true })
-  vehicle!: string | null
+  @Field(() => Vehicle, { nullable: true })
+  vehicle!: Vehicle | null
 
   @Field(() => String, { nullable: true })
   phone!: string | null
@@ -138,21 +153,31 @@ const mapGeoPoint = (raw: RawRecord | null | undefined): GeoPoint => ({
   longitude: asNumber(raw?.longitude),
 })
 
-const mapTripAddress = (raw: RawRecord | null | undefined): TripAddress => ({
-  text: asString(raw?.text),
-  latitude: asNumber(raw?.latitude),
-  longitude: asNumber(raw?.longitude),
-})
+const mapVehicle = (raw: RawRecord | null | undefined): Vehicle | null => {
+  if (!raw) return null
+  return {
+    type: asString(raw.type),
+    brand: nullableString(raw.brand),
+    model: nullableString(raw.model),
+    plate: nullableString(raw.plate),
+  }
+}
 
 export const mapRider = (raw: RawRecord): Rider => ({
   id: idOf(raw),
   userId: asString(raw.userId),
   firstName: nullableString(raw.firstName),
   lastName: nullableString(raw.lastName),
-  vehicle: nullableString(raw.vehicle),
+  vehicle: mapVehicle(raw.vehicle as RawRecord | null | undefined),
   phone: nullableString(raw.phone),
   available: asBoolean(raw.available),
   currentLocation: raw.currentLocation ? mapGeoPoint(raw.currentLocation as RawRecord) : null,
+})
+
+const mapTripAddress = (raw: RawRecord | null | undefined): TripAddress => ({
+  text: asString(raw?.text),
+  latitude: asNumber(raw?.latitude),
+  longitude: asNumber(raw?.longitude),
 })
 
 export const mapTripOrder = (raw: RawRecord): TripOrder => ({

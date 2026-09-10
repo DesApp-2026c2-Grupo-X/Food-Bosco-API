@@ -63,7 +63,9 @@ export class OrderOrchestrator {
     }
     const branch = branches[0]
 
-    const { items, requirements } = await this.buildOrderItems(cart.items)
+    const availability = await this.branchService.getAvailabilityMap(branch.id)
+
+    const { items, requirements } = await this.buildOrderItems(cart.items, availability)
 
     await this.stockService.validateAvailability(branch.id, requirements)
 
@@ -147,6 +149,7 @@ export class OrderOrchestrator {
 
   private async buildOrderItems(
     cartItems: CartItemData[],
+    availability: Map<string, boolean>,
   ): Promise<{ items: PublicOrder['items']; requirements: IngredientRequirements }> {
     const productIds = cartItems.map((item) => item.productId)
     const products = await this.productService.findByIds(productIds)
@@ -159,6 +162,13 @@ export class OrderOrchestrator {
       const product = productById.get(cartItem.productId)
       if (!product || !product.available) {
         throw new DomainException(ERROR_CODES.productUnavailable, 'Producto no disponible', 400)
+      }
+      if (availability.get(product.id) === false) {
+        throw new DomainException(
+          ERROR_CODES.productUnavailable,
+          'Producto no disponible en esta sucursal',
+          400,
+        )
       }
 
       const options = this.resolveOptions(product, cartItem.optionIds)

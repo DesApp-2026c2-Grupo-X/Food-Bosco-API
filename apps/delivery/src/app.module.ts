@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
+
 import { DatabaseModule } from './config/database/database.module'
 import { SecurityModule } from './config/security/security.module'
 import { RequestIdMiddleware } from './config/observability/request-id.middleware'

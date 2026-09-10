@@ -2,12 +2,18 @@ import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, RiderStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { AuthClient } from '../config/http/auth.client'
-import { PublicRider } from './rider.model'
+import { PublicRider, Vehicle } from './rider.model'
 import { RiderService } from './rider.service'
 
 export interface UpdateRiderProfileInput {
-  vehicle?: string | null
   phone?: string
+}
+
+export interface UpdateVehicleInput {
+  type: Vehicle['type']
+  brand?: string
+  model?: string
+  plate?: string
 }
 
 @Injectable()
@@ -24,6 +30,18 @@ export class RiderOrchestrator {
   async updateProfile(userId: string, patch: UpdateRiderProfileInput): Promise<PublicRider> {
     await this.ensureProfile(userId)
     const rider = await this.riderService.updateProfile(userId, patch)
+    return rider ?? this.notFound()
+  }
+
+  async updateVehicle(userId: string, input: UpdateVehicleInput): Promise<PublicRider> {
+    await this.ensureProfile(userId)
+    const vehicle: Vehicle = {
+      type: input.type,
+      ...(input.brand !== undefined ? { brand: input.brand } : {}),
+      ...(input.model !== undefined ? { model: input.model } : {}),
+      ...(input.plate !== undefined ? { plate: input.plate } : {}),
+    }
+    const rider = await this.riderService.updateVehicle(userId, vehicle)
     return rider ?? this.notFound()
   }
 
@@ -58,7 +76,7 @@ export class RiderOrchestrator {
       userId,
       firstName: user.firstName,
       lastName: user.lastName,
-      vehicle: user.vehicle,
+      vehicle: null,
       phone: user.phone,
     })
   }

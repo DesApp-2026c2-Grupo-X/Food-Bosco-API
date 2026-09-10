@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common'
+
 import { InjectConnection } from '@nestjs/mongoose'
 import { Connection } from 'mongoose'
 import { join } from 'node:path'
+
 import { envString, loadSeedData } from '@repo/seed-utils'
+
 import { RiderService } from '../rider/rider.service'
+import type { Vehicle } from '../rider/rider.model'
 import { ShiftService } from '../shift/shift.service'
 import { ZoneService } from '../zone/zone.service'
 
@@ -30,7 +34,7 @@ interface AuthUserRow {
   firstName?: string
   lastName?: string
   phone?: string
-  vehicle?: string | null
+  vehicle?: Vehicle | null
 }
 
 const DATA_DIR = join(__dirname, 'data')
@@ -40,11 +44,15 @@ export interface SeedRiderInput {
   firstName: string
   lastName: string
   phone: string
-  vehicle?: string | null
+  vehicle?: Vehicle | null
 }
 
 export interface SeedResult {
-  summary: { zones: number; shifts: number; riders: number }
+  summary: {
+    zones: number
+    shifts: number
+    riders: number
+  }
   rider: { id: string; userId: string } | null
 }
 
@@ -55,7 +63,7 @@ export class SeedService {
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
     @InjectConnection() private readonly connection: Connection,
-  ) {}
+  ) { }
 
   async seed(): Promise<SeedResult> {
     const zones = await this.seedZones()
@@ -63,7 +71,11 @@ export class SeedService {
     const rider = await this.seedRiderProfileFromAuth()
 
     return {
-      summary: { zones, shifts, riders: rider ? 1 : 0 },
+      summary: {
+        zones,
+        shifts,
+        riders: rider ? 1 : 0,
+      },
       rider,
     }
   }
@@ -74,6 +86,7 @@ export class SeedService {
 
     for (const zone of zones) {
       const existing = await this.zoneService.findByName(zone.name)
+
       if (!existing) {
         await this.zoneService.create(zone)
         created += 1
@@ -90,6 +103,7 @@ export class SeedService {
 
     for (const shift of shifts) {
       const existing = await this.shiftService.findByName(shift.name)
+
       if (!existing) {
         await this.shiftService.create(shift)
         created += 1
@@ -102,10 +116,18 @@ export class SeedService {
 
   async seedRiderProfile(input: SeedRiderInput): Promise<SeedResult> {
     const existing = await this.riderService.findByUserId(input.userId)
+
     if (existing) {
       return {
-        summary: { zones: 0, shifts: 0, riders: 1 },
-        rider: { id: existing.id, userId: existing.userId },
+        summary: {
+          zones: 0,
+          shifts: 0,
+          riders: 1,
+        },
+        rider: {
+          id: existing.id,
+          userId: existing.userId,
+        },
       }
     }
 
@@ -117,20 +139,44 @@ export class SeedService {
       vehicle: input.vehicle ?? null,
     })
 
-    Logger.log(`rider creado: ${input.firstName} ${input.lastName}`, 'Seed')
+    Logger.log(
+      `rider creado: ${input.firstName} ${input.lastName}`,
+      'Seed',
+    )
+
     return {
-      summary: { zones: 0, shifts: 0, riders: 1 },
-      rider: { id: created.id, userId: created.userId },
+      summary: {
+        zones: 0,
+        shifts: 0,
+        riders: 1,
+      },
+      rider: {
+        id: created.id,
+        userId: created.userId,
+      },
     }
   }
 
-  private async seedRiderProfileFromAuth(): Promise<{ id: string; userId: string } | null> {
-    const email = envString('SEED_RIDER_EMAIL', this.loadData().rider.email)
+  private async seedRiderProfileFromAuth(): Promise<{
+    id: string
+    userId: string
+  } | null> {
+    const email = envString(
+      'SEED_RIDER_EMAIL',
+      this.loadData().rider.email,
+    )
+
     const collection = this.connection.db?.collection('users')
-    const user = (await collection?.findOne({ email })) as AuthUserRow | null | undefined
+
+    const user = (await collection?.findOne({
+      email,
+    })) as AuthUserRow | null | undefined
 
     if (!user?._id) {
-      Logger.warn(`usuario rider no encontrado en auth (${email}); perfil omitido`, 'Seed')
+      Logger.warn(
+        `usuario rider no encontrado en auth (${email}); perfil omitido`,
+        'Seed',
+      )
       return null
     }
 
@@ -146,6 +192,8 @@ export class SeedService {
   }
 
   private loadData(): DeliverySeedData {
-    return loadSeedData<DeliverySeedData>('delivery', { baseDir: DATA_DIR })
+    return loadSeedData<DeliverySeedData>('delivery', {
+      baseDir: DATA_DIR,
+    })
   }
 }

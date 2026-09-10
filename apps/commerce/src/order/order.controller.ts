@@ -116,6 +116,9 @@ export class OrderController {
     if (auth.roles.includes(ROLES.branchAdmin) && auth.branchId === order.branchId) {
       return
     }
+    if (auth.roles.includes(ROLES.rider) && order.riderId && order.riderId === auth.userId) {
+      return
+    }
     if (auth.userId === order.clientId) {
       return
     }

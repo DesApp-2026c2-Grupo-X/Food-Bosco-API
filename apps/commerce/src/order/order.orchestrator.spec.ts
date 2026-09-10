@@ -79,7 +79,11 @@ const makeOrchestrator = () => {
   const cartService = { findActiveByClient: jest.fn(), confirm: jest.fn() }
   const cartOrchestrator = { replaceItems: jest.fn() }
   const productService = { findByIds: jest.fn(), findById: jest.fn() }
-  const branchService = { findAvailable: jest.fn(), findById: jest.fn() }
+  const branchService = {
+    findAvailable: jest.fn(),
+    findById: jest.fn(),
+    getAvailabilityMap: jest.fn(),
+  }
   const stockService = { validateAvailability: jest.fn(), discount: jest.fn() }
   const parameterService = { getValue: jest.fn() }
   const eventBus = { publish: jest.fn() }
@@ -119,6 +123,7 @@ describe('OrderOrchestrator.create (RQ-ORD-01..10)', () => {
       total: 200,
     })
     mocks.branchService.findAvailable.mockResolvedValue([branch()])
+    mocks.branchService.getAvailabilityMap.mockResolvedValue(new Map())
     mocks.productService.findByIds.mockResolvedValue([product()])
     mocks.parameterService.getValue.mockImplementation((key: string) =>
       key === 'BASE_PREP_MIN' ? 15 : 25,
@@ -138,6 +143,27 @@ describe('OrderOrchestrator.create (RQ-ORD-01..10)', () => {
     )
     expect(mocks.cartService.confirm).toHaveBeenCalledWith('cart1')
     expect(result.id).toBe('o1')
+  })
+
+  it('rechaza si un producto está desactivado en la sucursal (availableInBranch)', async () => {
+    const mocks = makeOrchestrator()
+    mocks.cartService.findActiveByClient.mockResolvedValue({
+      id: 'cart1',
+      clientId: 'c1',
+      status: 'active',
+      items: [cartItem()],
+      total: 200,
+    })
+    mocks.branchService.findAvailable.mockResolvedValue([branch()])
+    mocks.branchService.getAvailabilityMap.mockResolvedValue(new Map([['p1', false]]))
+    mocks.productService.findByIds.mockResolvedValue([product()])
+
+    await expect(
+      mocks.orchestrator.create('c1', {
+        addressId: 'a1',
+        deliveryAddress: { text: 'Av 1', latitude: 0, longitude: 0 },
+      }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.productUnavailable })
   })
 
   it('rechaza si no hay sucursal disponible (RQ-ORD-04)', async () => {

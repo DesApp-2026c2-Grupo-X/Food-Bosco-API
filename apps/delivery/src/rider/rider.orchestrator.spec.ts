@@ -9,11 +9,12 @@ const rider: PublicRider = {
   userId: 'u1',
   firstName: 'Juan',
   lastName: 'Perez',
-  vehicle: 'Moto',
+  vehicle: { type: 'moto', brand: 'Honda' },
   phone: '11223344',
   available: false,
   status: 'offline',
   currentLocation: null,
+  lastSeenAt: null,
 }
 
 const makeOrchestrator = () => {
@@ -66,7 +67,7 @@ describe('RiderOrchestrator.getProfile (onboarding, RQ-DLV-11)', () => {
       userId: 'u1',
       firstName: 'Juan',
       lastName: 'Perez',
-      vehicle: 'Moto',
+      vehicle: null,
       phone: '11223344',
     })
     expect(result.userId).toBe('u1')

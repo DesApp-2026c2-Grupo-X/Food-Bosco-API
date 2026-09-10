@@ -29,6 +29,9 @@ export class DeliveryOrderRepository {
             status: DELIVERY_ORDER_STATUS.ready,
             tripId: null,
             reservedUntil: null,
+            rotationRoster: null,
+            rotationIndex: null,
+            rotationTurnUntil: null,
           },
         },
         { new: true, upsert: true },
@@ -40,50 +43,36 @@ export class DeliveryOrderRepository {
     return this.model.deleteOne({ orderId }).exec()
   }
 
-  listReady(): Promise<DeliveryOrderDocument[]> {
+  listReadyDocs(): Promise<DeliveryOrderDocument[]> {
     return this.model.find({ status: DELIVERY_ORDER_STATUS.ready }).sort({ createdAt: 1 }).exec()
   }
 
-  reserve(orderIds: string[], tripId: string, reservedUntil: Date): Promise<unknown> {
+  findReservedDocsByTripId(tripId: string): Promise<DeliveryOrderDocument[]> {
+    return this.model.find({ tripId, status: DELIVERY_ORDER_STATUS.reserved }).exec()
+  }
+
+  findExpiredReservedDocs(now: Date): Promise<DeliveryOrderDocument[]> {
     return this.model
+      .find({ status: DELIVERY_ORDER_STATUS.reserved, reservedUntil: { $lt: now } })
+      .exec()
+  }
+
+  async reserve(orderIds: string[], tripId: string, reservedUntil: Date): Promise<number> {
+    const result = await this.model
       .updateMany(
         { orderId: { $in: orderIds }, status: DELIVERY_ORDER_STATUS.ready },
         { $set: { status: DELIVERY_ORDER_STATUS.reserved, tripId, reservedUntil } },
       )
       .exec()
+
+    return result.matchedCount
   }
 
-  markAssigned(orderIds: string[]): Promise<unknown> {
+  markAssigned(orderIds: string[], tripId: string): Promise<unknown> {
     return this.model
       .updateMany(
-        { orderId: { $in: orderIds }, status: DELIVERY_ORDER_STATUS.reserved },
+        { orderId: { $in: orderIds }, tripId, status: DELIVERY_ORDER_STATUS.reserved },
         { $set: { status: DELIVERY_ORDER_STATUS.assigned, reservedUntil: null } },
-      )
-      .exec()
-  }
-
-  releaseByTripId(tripId: string): Promise<unknown> {
-    return this.model
-      .updateMany(
-        { tripId, status: DELIVERY_ORDER_STATUS.reserved },
-        { $set: { status: DELIVERY_ORDER_STATUS.ready, tripId: null, reservedUntil: null } },
-      )
-      .exec()
-  }
-
-  async findExpiredReservations(now: Date): Promise<string[]> {
-    const docs = await this.model
-      .find({ status: DELIVERY_ORDER_STATUS.reserved, reservedUntil: { $lt: now } })
-      .exec()
-
-    return docs.map((doc) => doc.tripId).filter((tripId): tripId is string => tripId !== null)
-  }
-
-  releaseExpired(now: Date): Promise<unknown> {
-    return this.model
-      .updateMany(
-        { status: DELIVERY_ORDER_STATUS.reserved, reservedUntil: { $lt: now } },
-        { $set: { status: DELIVERY_ORDER_STATUS.ready, tripId: null, reservedUntil: null } },
       )
       .exec()
   }

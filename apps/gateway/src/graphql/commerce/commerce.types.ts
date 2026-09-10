@@ -65,21 +65,6 @@ export class ConfigGroup {
 }
 
 @ObjectType()
-export class RecipeItem {
-  @Field(() => ID)
-  id!: string
-
-  @Field(() => ID)
-  ingredientId!: string
-
-  @Field(() => Ingredient, { nullable: true })
-  ingredient?: Ingredient | null
-
-  @Field(() => Float)
-  quantity!: number
-}
-
-@ObjectType()
 export class Ingredient {
   @Field(() => ID)
   id!: string
@@ -92,6 +77,21 @@ export class Ingredient {
 
   @Field()
   active!: boolean
+}
+
+@ObjectType()
+export class RecipeItem {
+  @Field(() => ID)
+  id!: string
+
+  @Field(() => ID)
+  ingredientId!: string
+
+  @Field(() => Ingredient, { nullable: true })
+  ingredient?: Ingredient | null
+
+  @Field(() => Float)
+  quantity!: number
 }
 
 @ObjectType()
@@ -302,6 +302,9 @@ export class Order {
 
   @Field(() => ID)
   clientId!: string
+
+  @Field(() => ID, { nullable: true })
+  riderId!: string | null
 
   @Field(() => User, { nullable: true })
   client?: User | null
@@ -563,6 +566,7 @@ export const mapOrder = (raw: RawRecord): Order => ({
   id: idOf(raw),
   number: asString(raw.number),
   clientId: asString(raw.clientId),
+  riderId: nullableString(raw.riderId),
   branchId: asString(raw.branchId),
   deliveryAddress: {
     text: asString((raw.deliveryAddress as RawRecord | undefined)?.text),

@@ -1,9 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common'
+
 import { join } from 'node:path'
+
 import { isDuplicateKeyError, loadSeedData } from '@repo/seed-utils'
+
 import { ERROR_CODES, Role } from '../config/constants'
+
 import { DomainException } from '../config/exceptions/domain.exception'
+
 import { env } from '../config/env'
+
 import { UserService, type PublicUser } from '../user/user.service'
 
 interface SeedUser {
@@ -13,6 +19,7 @@ interface SeedUser {
   firstName: string
   lastName: string
   phone: string
+  branchId?: string | null
   vehicle?: string | null
 }
 
@@ -46,7 +53,7 @@ export interface SeedResult {
 
 @Injectable()
 export class SeedService {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   async seed(branchId?: string): Promise<SeedResult> {
     const users: PublicUser[] = []
@@ -55,8 +62,12 @@ export class SeedService {
       if (seed.key === 'branchAdmin' && !branchId) continue
 
       const password = PASSWORDS[seed.key]
+
       if (!password) {
-        Logger.warn(`usuario de seed sin contraseña configurada: ${seed.key}`, 'Seed')
+        Logger.warn(
+          `usuario de seed sin contraseña configurada: ${seed.key}`,
+          'Seed',
+        )
         continue
       }
 
@@ -99,17 +110,23 @@ export class SeedService {
     vehicle?: string | null
   }): Promise<PublicUser> {
     const existing = await this.userService.findByEmail(input.email)
+
     if (existing) {
       return existing
     }
 
     try {
       const created = await this.userService.createUser(input)
+
       Logger.log(`usuario creado: ${created.email} (${created.role})`, 'Seed')
+
       return created
     } catch (error: unknown) {
       const race = isDuplicateKeyError(error)
-      const alreadyTaken = error instanceof DomainException && error.code === ERROR_CODES.emailTaken
+      const alreadyTaken =
+        error instanceof DomainException &&
+        error.code === ERROR_CODES.emailTaken
+
       if (!race && !alreadyTaken) throw error
 
       return (await this.userService.findByEmail(input.email))!

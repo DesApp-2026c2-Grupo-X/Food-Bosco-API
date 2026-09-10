@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
 
 export class UpdateIngredientDto {
   @IsOptional()
@@ -12,4 +12,8 @@ export class UpdateIngredientDto {
   @IsNotEmpty()
   @MaxLength(50)
   unit?: string
+
+  @IsOptional()
+  @IsBoolean()
+  active?: boolean
 }

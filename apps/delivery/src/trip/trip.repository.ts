@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { TripStatus } from '../config/constants'
+import { TRIP_STATUS, TripStatus } from '../config/constants'
 import { Trip, TripDocument, TripOrder } from './trip.model'
 
 export interface CreateTripData {
@@ -28,6 +28,13 @@ export class TripRepository {
 
   findByIdForRider(id: string, riderId: string): Promise<TripDocument | null> {
     return this.model.findOne({ _id: id, riderId }).exec()
+  }
+
+  findActiveOfferByRider(riderId: string, now: Date): Promise<TripDocument | null> {
+    return this.model
+      .findOne({ riderId, status: TRIP_STATUS.offered, expiresAt: { $gt: now } })
+      .sort({ createdAt: 1 })
+      .exec()
   }
 
   async listByRider(

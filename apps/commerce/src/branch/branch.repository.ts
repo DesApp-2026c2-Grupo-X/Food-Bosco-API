@@ -13,6 +13,7 @@ export interface CreateBranchData {
   latitude: number
   longitude: number
   phone?: string
+  active?: boolean
 }
 
 export interface UpdateBranchData {
@@ -21,6 +22,7 @@ export interface UpdateBranchData {
   latitude?: number
   longitude?: number
   phone?: string
+  active?: boolean
 }
 
 export interface BranchListQuery {
@@ -49,7 +51,12 @@ export class BranchRepository {
   }
 
   create(data: CreateBranchData): Promise<BranchDocument> {
-    return this.model.create({ ...data, phone: data.phone ?? null, active: true, hours: [] })
+    return this.model.create({
+      ...data,
+      phone: data.phone ?? null,
+      active: data.active ?? true,
+      hours: [],
+    })
   }
 
   upsertByName(data: CreateBranchData): Promise<BranchDocument | null> {
