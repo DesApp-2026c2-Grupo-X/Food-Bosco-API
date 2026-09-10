@@ -30,6 +30,16 @@ export class OrderStateRepository {
     return this.model.create({ ...data, active: true })
   }
 
+  upsertByCode(data: CreateOrderStateData): Promise<OrderStateDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { code: data.code },
+        { $setOnInsert: { ...data, active: true } },
+        { new: true, upsert: true },
+      )
+      .exec()
+  }
+
   update(code: string, patch: UpdateOrderStateData): Promise<OrderStateDocument | null> {
     return this.model.findOneAndUpdate({ code }, { $set: patch }, { new: true }).exec()
   }

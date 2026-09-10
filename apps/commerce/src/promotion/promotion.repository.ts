@@ -35,6 +35,16 @@ export class PromotionRepository {
     return this.model.create({ ...data, active: true })
   }
 
+  upsertByName(data: CreatePromotionData): Promise<PromotionDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { name: data.name },
+        { $setOnInsert: { ...data, active: true } },
+        { new: true, upsert: true },
+      )
+      .exec()
+  }
+
   async list(query: PromotionListQuery): Promise<{ data: PromotionDocument[]; total: number }> {
     const filter: Record<string, unknown> = {}
     if (query.activeOnly) filter.active = true

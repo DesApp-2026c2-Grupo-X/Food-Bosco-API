@@ -15,7 +15,7 @@
     "PASSWORD_RECOVERY_EXPIRES_IN",
     "INTERNAL_API_TOKEN",
     "BROKER_URL",
-    "SEED_SUPER_ADMIN_EMAIL",
+    "SEED_ENV",
     "SEED_SUPER_ADMIN_PASSWORD",
     "SEED_SUPER_ADMIN_FIRST_NAME",
     "SEED_SUPER_ADMIN_LAST_NAME",
@@ -51,20 +51,31 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "dev": {
       "cache": false,
       "persistent": true
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": [
+        "^lint"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "test": {
+      "dependsOn": [
+        "^build"
+      ],
       "outputs": []
     },
     "format": {

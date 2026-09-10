@@ -76,7 +76,7 @@ export class Product {
   @Prop({ required: true, index: true })
   categoryId!: string
 
-  @Prop({ required: true, trim: true })
+  @Prop({ required: true, unique: true, index: true, trim: true })
   name!: string
 
   @Prop({ required: true, trim: true })

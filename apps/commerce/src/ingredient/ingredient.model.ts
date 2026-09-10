@@ -3,7 +3,7 @@ import { HydratedDocument } from 'mongoose'
 
 @Schema({ collection: 'ingredients', timestamps: { createdAt: true, updatedAt: true } })
 export class Ingredient {
-  @Prop({ required: true, trim: true })
+  @Prop({ required: true, unique: true, index: true, trim: true })
   name!: string
 
   @Prop({ required: true, trim: true })

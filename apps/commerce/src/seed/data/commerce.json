@@ -1,0 +1,397 @@
+{
+  "categories": ["Hamburguesas", "Pizzas", "Acompañamientos", "Bebidas", "Postres"],
+  "ingredients": [
+    { "name": "Pan de hamburguesa", "unit": "un" },
+    { "name": "Medallón de carne", "unit": "un" },
+    { "name": "Feta de queso", "unit": "un" },
+    { "name": "Lechuga", "unit": "un" },
+    { "name": "Tomate", "unit": "un" },
+    { "name": "Masa de pizza", "unit": "un" },
+    { "name": "Muzzarella", "unit": "g" },
+    { "name": "Salsa de tomate", "unit": "g" },
+    { "name": "Papa", "unit": "kg" },
+    { "name": "Bebida cola", "unit": "botella" },
+    { "name": "Helado", "unit": "un" },
+    { "name": "Leche", "unit": "l" }
+  ],
+  "hours": {
+    "weekday": { "opening": "09:00", "closing": "23:00" },
+    "saturday": { "opening": "10:00", "closing": "23:00" },
+    "sunday": { "opening": "10:00", "closing": "22:00" }
+  },
+  "branches": [
+    {
+      "name": "Centro",
+      "addressText": "Av. Vergara 1200, Hurlingham",
+      "latitude": -34.589,
+      "longitude": -58.636,
+      "phone": "11 5555 1111"
+    },
+    {
+      "name": "Norte",
+      "addressText": "Calle 25 de Mayo 450, Villa Tesei",
+      "latitude": -34.586,
+      "longitude": -58.63,
+      "phone": "11 5555 2222"
+    },
+    {
+      "name": "Oeste",
+      "addressText": "Av. Roca 600, Morón",
+      "latitude": -34.651,
+      "longitude": -58.621,
+      "phone": "11 5555 3333"
+    }
+  ],
+  "products": [
+    {
+      "category": "Hamburguesas",
+      "name": "Hamburguesa Clásica",
+      "description": "Carne 120g, cheddar, lechuga, tomate y salsa de la casa.",
+      "price": 6500,
+      "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Simple", "extraPrice": 0 },
+            { "name": "Doble", "extraPrice": 1500 },
+            { "name": "Triple", "extraPrice": 2500 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 3,
+          "options": [
+            { "name": "Queso extra", "extraPrice": 800 },
+            { "name": "Bacon", "extraPrice": 900 },
+            { "name": "Huevo", "extraPrice": 500 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Pan de hamburguesa", "quantity": 1 },
+        { "ingredient": "Medallón de carne", "quantity": 1 },
+        { "ingredient": "Feta de queso", "quantity": 1 },
+        { "ingredient": "Lechuga", "quantity": 1 },
+        { "ingredient": "Tomate", "quantity": 1 }
+      ]
+    },
+    {
+      "category": "Hamburguesas",
+      "name": "Doble Cheddar",
+      "description": "Doble carne, doble cheddar y cebolla caramelizada.",
+      "price": 8900,
+      "image": "https://images.unsplash.com/photo-1571091718767-18b5b1457add?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Simple", "extraPrice": 0 },
+            { "name": "Doble", "extraPrice": 1200 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 2,
+          "options": [
+            { "name": "Bacon", "extraPrice": 900 },
+            { "name": "Jalapeños", "extraPrice": 600 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Pan de hamburguesa", "quantity": 1 },
+        { "ingredient": "Medallón de carne", "quantity": 2 },
+        { "ingredient": "Feta de queso", "quantity": 2 }
+      ]
+    },
+    {
+      "category": "Pizzas",
+      "name": "Pizza Mozzarella",
+      "description": "Muzzarella, tomate, aceite de oliva y orégano.",
+      "price": 7800,
+      "image": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Grande", "extraPrice": 0 },
+            { "name": "Familiar", "extraPrice": 2500 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 2,
+          "options": [
+            { "name": "Jamón", "extraPrice": 1200 },
+            { "name": "Aceitunas", "extraPrice": 700 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Masa de pizza", "quantity": 1 },
+        { "ingredient": "Muzzarella", "quantity": 150 },
+        { "ingredient": "Salsa de tomate", "quantity": 80 }
+      ]
+    },
+    {
+      "category": "Pizzas",
+      "name": "Pizza Napolitana",
+      "description": "Muzzarella, tomate, ajo y albahaca fresca.",
+      "price": 8200,
+      "image": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Grande", "extraPrice": 0 },
+            { "name": "Familiar", "extraPrice": 2500 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 1,
+          "options": [{ "name": "Queso extra", "extraPrice": 1000 }]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Masa de pizza", "quantity": 1 },
+        { "ingredient": "Muzzarella", "quantity": 150 },
+        { "ingredient": "Salsa de tomate", "quantity": 80 },
+        { "ingredient": "Tomate", "quantity": 1 }
+      ]
+    },
+    {
+      "category": "Acompañamientos",
+      "name": "Papas Fritas",
+      "description": "Papas crocantes con sal de la casa.",
+      "price": 3200,
+      "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Chico", "extraPrice": 0 },
+            { "name": "Grande", "extraPrice": 900 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 2,
+          "options": [
+            { "name": "Cheddar", "extraPrice": 900 },
+            { "name": "Bacon", "extraPrice": 800 }
+          ]
+        }
+      ],
+      "recipe": [{ "ingredient": "Papa", "quantity": 0.4 }]
+    },
+    {
+      "category": "Acompañamientos",
+      "name": "Pollo Crocante",
+      "description": "Bocaditos de pollo rebozados con salsa de la casa.",
+      "price": 5600,
+      "image": "https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Porción",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "6 unidades", "extraPrice": 0 },
+            { "name": "10 unidades", "extraPrice": 1400 }
+          ]
+        }
+      ],
+      "recipe": [{ "ingredient": "Papa", "quantity": 0.3 }]
+    },
+    {
+      "category": "Acompañamientos",
+      "name": "Ensalada Fresh",
+      "description": "Mix de hojas, tomate, zanahoria y aderezo cítrico.",
+      "price": 4800,
+      "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 2,
+          "options": [
+            { "name": "Pollo", "extraPrice": 1600 },
+            { "name": "Queso", "extraPrice": 700 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Lechuga", "quantity": 1 },
+        { "ingredient": "Tomate", "quantity": 1 }
+      ]
+    },
+    {
+      "category": "Bebidas",
+      "name": "Gaseosa",
+      "description": "Línea regular, bien fría.",
+      "price": 1900,
+      "image": "https://images.unsplash.com/photo-1554866585-cd94860890b7?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "500ml", "extraPrice": 0 },
+            { "name": "1L", "extraPrice": 600 }
+          ]
+        }
+      ],
+      "recipe": [{ "ingredient": "Bebida cola", "quantity": 1 }]
+    },
+    {
+      "category": "Bebidas",
+      "name": "Café",
+      "description": "Café de especialidad, con opción a leche.",
+      "price": 2100,
+      "image": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 2,
+          "options": [
+            { "name": "Leche", "extraPrice": 200 },
+            { "name": "Azúcar", "extraPrice": 0 }
+          ]
+        }
+      ],
+      "recipe": [{ "ingredient": "Leche", "quantity": 0.3 }]
+    },
+    {
+      "category": "Postres",
+      "name": "Helado",
+      "description": "Dos bochas a elección con salsa de chocolate.",
+      "price": 3400,
+      "image": "https://images.unsplash.com/photo-1560008581-09826d1de69e?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "1 bocha", "extraPrice": 0 },
+            { "name": "2 bochas", "extraPrice": 700 },
+            { "name": "3 bochas", "extraPrice": 1300 }
+          ]
+        }
+      ],
+      "recipe": [{ "ingredient": "Helado", "quantity": 2 }]
+    },
+    {
+      "category": "Postres",
+      "name": "Milkshake",
+      "description": "Cremoso, con crema batida y cereza.",
+      "price": 3900,
+      "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Chico", "extraPrice": 0 },
+            { "name": "Grande", "extraPrice": 800 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Helado", "quantity": 2 },
+        { "ingredient": "Leche", "quantity": 0.25 }
+      ]
+    },
+    {
+      "category": "Postres",
+      "name": "Donas",
+      "description": "Media docena surtida.",
+      "price": 3600,
+      "image": "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Cantidad",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Media docena", "extraPrice": 0 },
+            { "name": "Docena", "extraPrice": 3200 }
+          ]
+        }
+      ],
+      "recipe": []
+    }
+  ],
+  "promotions": [
+    { "name": "Promo invierno", "description": "Promoción de temporada." },
+    { "name": "Promo especial", "description": "Promoción de fin de semana." }
+  ],
+  "orderStates": [
+    { "code": "pending", "name": "Pendiente", "order": 0 },
+    { "code": "confirmed", "name": "Confirmado", "order": 1 },
+    { "code": "preparing", "name": "En preparación", "order": 2 },
+    { "code": "ready_for_delivery", "name": "Listo para entregar", "order": 3 },
+    { "code": "on_the_way", "name": "En camino", "order": 4 },
+    { "code": "delivered", "name": "Entregado", "order": 5 },
+    { "code": "cancelled", "name": "Cancelado", "order": 6 }
+  ],
+  "parameters": [
+    { "key": "MAX_DISTANCE_KM", "unit": "km" },
+    { "key": "BASE_PREP_MIN", "unit": "min" },
+    { "key": "AVG_SPEED_KMH", "unit": "km/h" }
+  ]
+}

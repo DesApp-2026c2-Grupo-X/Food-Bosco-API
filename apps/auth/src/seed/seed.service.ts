@@ -1,17 +1,39 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { ROLES, Role } from '../config/constants'
+
+import { join } from 'node:path'
+
+import { isDuplicateKeyError, loadSeedData } from '@repo/seed-utils'
+
+import { ERROR_CODES, Role } from '../config/constants'
+
+import { DomainException } from '../config/exceptions/domain.exception'
+
 import { env } from '../config/env'
+
 import { UserService, type PublicUser } from '../user/user.service'
 
 interface SeedUser {
+  key: string
   email: string
-  password: string
   role: Role
   firstName: string
   lastName: string
   phone: string
   branchId?: string | null
   vehicle?: string | null
+}
+
+interface AuthSeedData {
+  users: SeedUser[]
+}
+
+const DATA_DIR = join(__dirname, 'data')
+
+const PASSWORDS: Record<string, string> = {
+  superAdmin: env.seed.superAdminPassword,
+  customer: env.seed.customerPassword,
+  branchAdmin: env.seed.branchAdminPassword,
+  rider: env.seed.riderPassword,
 }
 
 export interface SeedUserSummary {
@@ -31,55 +53,34 @@ export interface SeedResult {
 
 @Injectable()
 export class SeedService {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   async seed(branchId?: string): Promise<SeedResult> {
     const users: PublicUser[] = []
 
-    users.push(
-      await this.ensureUser({
-        email: env.seed.superAdminEmail,
-        password: env.seed.superAdminPassword,
-        role: ROLES.superAdmin,
-        firstName: env.seed.superAdminFirstName,
-        lastName: env.seed.superAdminLastName,
-        phone: env.seed.superAdminPhone,
-      }),
-    )
+    for (const seed of this.loadData().users) {
+      if (seed.key === 'branchAdmin' && !branchId) continue
 
-    users.push(
-      await this.ensureUser({
-        email: env.seed.customerEmail,
-        password: env.seed.customerPassword,
-        role: ROLES.customer,
-        firstName: env.seed.customerFirstName,
-        lastName: env.seed.customerLastName,
-        phone: env.seed.customerPhone,
-      }),
-    )
+      const password = PASSWORDS[seed.key]
 
-    users.push(
-      await this.ensureUser({
-        email: env.seed.riderEmail,
-        password: env.seed.riderPassword,
-        role: ROLES.rider,
-        firstName: env.seed.riderFirstName,
-        lastName: env.seed.riderLastName,
-        phone: env.seed.riderPhone,
-        vehicle: env.seed.riderVehicle,
-      }),
-    )
+      if (!password) {
+        Logger.warn(
+          `usuario de seed sin contraseña configurada: ${seed.key}`,
+          'Seed',
+        )
+        continue
+      }
 
-    if (branchId) {
       users.push(
         await this.ensureUser({
-          email: env.seed.branchAdminEmail,
-          password: env.seed.branchAdminPassword,
-          role: ROLES.branchAdmin,
-          firstName: env.seed.branchAdminFirstName,
-          lastName: env.seed.branchAdminLastName,
-          phone: env.seed.branchAdminPhone,
-          branchId,
+          email: seed.email,
+          password,
+          role: seed.role,
+          firstName: seed.firstName,
+          lastName: seed.lastName,
+          phone: seed.phone,
+          branchId: seed.key === 'branchAdmin' ? branchId : null,
+          vehicle: seed.vehicle ?? null,
         }),
       )
     }
@@ -98,24 +99,41 @@ export class SeedService {
     }
   }
 
-  private async ensureUser(input: SeedUser): Promise<PublicUser> {
+  private async ensureUser(input: {
+    email: string
+    password: string
+    role: Role
+    firstName: string
+    lastName: string
+    phone: string
+    branchId?: string | null
+    vehicle?: string | null
+  }): Promise<PublicUser> {
     const existing = await this.userService.findByEmail(input.email)
+
     if (existing) {
       return existing
     }
 
-    const created = await this.userService.createUser({
-      email: input.email,
-      password: input.password,
-      role: input.role,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      phone: input.phone,
-      branchId: input.branchId ?? null,
-      vehicle: input.vehicle ?? null,
-    })
+    try {
+      const created = await this.userService.createUser(input)
 
-    Logger.log(`usuario creado: ${created.email} (${created.role})`, 'Seed')
-    return created
+      Logger.log(`usuario creado: ${created.email} (${created.role})`, 'Seed')
+
+      return created
+    } catch (error: unknown) {
+      const race = isDuplicateKeyError(error)
+      const alreadyTaken =
+        error instanceof DomainException &&
+        error.code === ERROR_CODES.emailTaken
+
+      if (!race && !alreadyTaken) throw error
+
+      return (await this.userService.findByEmail(input.email))!
+    }
+  }
+
+  private loadData(): AuthSeedData {
+    return loadSeedData<AuthSeedData>('auth', { baseDir: DATA_DIR })
   }
 }
