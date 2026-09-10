@@ -65,21 +65,6 @@ export class ConfigGroup {
 }
 
 @ObjectType()
-export class RecipeItem {
-  @Field(() => ID)
-  id!: string
-
-  @Field(() => ID)
-  ingredientId!: string
-
-  @Field(() => Ingredient, { nullable: true })
-  ingredient?: Ingredient | null
-
-  @Field(() => Float)
-  quantity!: number
-}
-
-@ObjectType()
 export class Ingredient {
   @Field(() => ID)
   id!: string
@@ -92,6 +77,21 @@ export class Ingredient {
 
   @Field()
   active!: boolean
+}
+
+@ObjectType()
+export class RecipeItem {
+  @Field(() => ID)
+  id!: string
+
+  @Field(() => ID)
+  ingredientId!: string
+
+  @Field(() => Ingredient, { nullable: true })
+  ingredient?: Ingredient | null
+
+  @Field(() => Float)
+  quantity!: number
 }
 
 @ObjectType()
