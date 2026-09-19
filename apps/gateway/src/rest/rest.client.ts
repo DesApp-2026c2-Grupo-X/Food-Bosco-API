@@ -1,5 +1,6 @@
+import { HttpException } from '@nestjs/common'
 import { GraphQLError } from 'graphql'
-import { HEADERS } from '../config/constants'
+import { ERROR_CODES, HEADERS } from '../config/constants'
 
 export interface RestContext {
   authorization?: string | null
@@ -10,10 +11,17 @@ export interface RestContext {
   internalToken?: string | null
 }
 
+export type RestQuery = Record<string, string | number | boolean | null | undefined>
+
 export interface RestRequestOptions {
   context?: RestContext
-  query?: Record<string, string | number | boolean | null | undefined>
+  query?: RestQuery
   body?: unknown
+}
+
+export interface RestMultipartOptions {
+  context?: RestContext
+  query?: RestQuery
 }
 
 export interface RestErrorBody {
@@ -46,7 +54,7 @@ export class RestClient {
     return headers
   }
 
-  private buildUrl(path: string, query?: RestRequestOptions['query']): string {
+  private buildUrl(path: string, query?: RestQuery): string {
     const url = new URL(`${this.baseUrl}${path}`)
 
     for (const [key, value] of Object.entries(query ?? {})) {
@@ -68,6 +76,24 @@ export class RestClient {
     return new GraphQLError(`${this.serviceName} devolvió HTTP ${status}`, {
       extensions: { code: 'INTERNAL_SERVER_ERROR', httpStatus: status, path },
     })
+  }
+
+  private toHttpError(path: string, status: number, body: unknown): HttpException {
+    if (isErrorBody(body) && body.code) {
+      return new HttpException(
+        {
+          code: body.code,
+          message: body.message ?? `${this.serviceName} devolvió HTTP ${status}`,
+          path: body.path ?? path,
+        },
+        status,
+      )
+    }
+
+    return new HttpException(
+      { code: ERROR_CODES.internal, message: `${this.serviceName} devolvió HTTP ${status}`, path },
+      status,
+    )
   }
 
   async request<T>(method: HttpMethod, path: string, options: RestRequestOptions = {}): Promise<T> {
@@ -97,6 +123,27 @@ export class RestClient {
 
   post<T>(path: string, options?: RestRequestOptions): Promise<T> {
     return this.request<T>('POST', path, options)
+  }
+
+  async postMultipart<T>(
+    path: string,
+    form: FormData,
+    options: RestMultipartOptions = {},
+  ): Promise<T> {
+    const { context = {}, query } = options
+
+    const response = await fetch(this.buildUrl(path, query), {
+      method: 'POST',
+      headers: this.buildHeaders(context),
+      body: form,
+    })
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => null)
+      throw this.toHttpError(path, response.status, errorBody)
+    }
+
+    return (await response.json()) as T
   }
 
   patch<T>(path: string, options?: RestRequestOptions): Promise<T> {

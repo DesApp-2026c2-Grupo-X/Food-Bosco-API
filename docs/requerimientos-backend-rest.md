@@ -173,6 +173,7 @@ El gateway es el **único dueño del esquema GraphQL** y el punto de entrada de 
 | RQ-GW-11 | El gateway deberá exponer `GET /health` y `GET /graphql` (sandbox) en entornos de desarrollo.                                                                               |
 | RQ-GW-12 | El gateway no deberá contener lógica de negocio de ningún dominio: solo enruta, autentica, valida y traduce a REST.                                                         |
 | RQ-GW-13 | El gateway deberá configurar los endpoints base (URL) de los servicios por variables de entorno y validar su conectividad vía `GET /health`.                                |
+| RQ-GW-14 | El gateway deberá exponer `POST /v1/uploads` (`multipart/form-data`, campo `file`) para que los frontends suban la imagen de un producto; el gateway la reenvía a Commerce (`POST /v1/catalog/uploads`) propagando el JWT del usuario. |
 
 ### Ejemplo de resolución (antes "federado", ahora "por resolvers")
 
@@ -1068,6 +1069,14 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | PATCH  | `/v1/catalog/products/{productId}`           | `super_admin` | Modificar producto                                              |
 | PATCH  | `/v1/catalog/products/{productId}/available` | `super_admin` | Cambiar disponibilidad global del producto                      |
 
+### Imágenes de producto
+
+| Método | Ruta                  | Acceso        | Operación                                                                                      |
+| ------ | --------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| POST   | `/v1/catalog/uploads` | `super_admin` | Subir una imagen de producto (`multipart/form-data`, campo `file`) y devolver su URL pública.  |
+
+> El archivo se sube a **Cloudinary** (carpeta configurable) y el API devuelve su `secure_url`. Formatos permitidos: `jpg`, `png`, `webp` y `gif`; tamaño máximo configurable por variable de entorno. Esa URL es la que se persiste en el campo `image` del producto.
+
 ### Configuraciones de producto (grupos y opciones)
 
 | Método | Ruta                                                                           | Acceso        | Operación                             |
@@ -1129,6 +1138,7 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | RQ-CAT-14 | El API REST deberá exponer `GET /v1/catalog/products/{id}`, `GET /v1/catalog/categories/{id}` e `GET /v1/catalog/ingredients/{id}` para que el gateway resuelva los campos correspondientes. |
 | RQ-CAT-15 | Un admin de sucursal (`branch_admin`) deberá poder pausar/reactivar productos en **su** sucursal, sin editar la definición global del producto.                                              |
 | RQ-CAT-16 | La disponibilidad por sucursal deberá registrarse en `branchProductAvailability` (`branchId`, `productId`, `available`); el catálogo público combina el `available` global con este flag.    |
+| RQ-CAT-17 | Un admin global deberá poder subir la imagen de un producto como **archivo** (`multipart/form-data`, un solo archivo jpg/png/webp/gif, con tamaño máximo configurable); el archivo se almacena en **Cloudinary** y la URL devuelta (`secure_url`) se guarda en el campo `image` del producto. |
 
 ## 7.2 Branch
 
