@@ -19,6 +19,11 @@ import { ProductModule } from '../src/product/product.module'
 import { PromotionModule } from '../src/promotion/promotion.module'
 import { ReportingModule } from '../src/reporting/reporting.module'
 import { StockModule } from '../src/stock/stock.module'
+import { UploadModule } from '../src/upload/upload.module'
+import { UploadRepository } from '../src/upload/upload.repository'
+
+const CLOUDINARY_URL =
+  'https://res.cloudinary.com/demo/image/upload/v1/fastfood/products/burger.png'
 
 const superToken = jwt.sign({ userId: 'admin-1', roles: ['super_admin'] }, env.jwtSecret)
 const customerToken = jwt.sign({ userId: 'cust-1', roles: ['customer'] }, env.jwtSecret)
@@ -55,8 +60,12 @@ describe('Commerce Service (e2e)', () => {
         ReportingModule,
         ParameterModule,
         OrderStateModule,
+        UploadModule,
       ],
-    }).compile()
+    })
+      .overrideProvider(UploadRepository)
+      .useValue({ upload: jest.fn().mockResolvedValue({ url: CLOUDINARY_URL }) })
+      .compile()
 
     app = moduleFixture.createNestApplication()
     app.useGlobalPipes(
@@ -270,6 +279,67 @@ describe('Commerce Service (e2e)', () => {
         .expect(403)
 
       expect(res.body.code).toBe('FORBIDDEN')
+    })
+  })
+
+  describe('upload de imágenes de producto (RQ-CAT-04)', () => {
+    it('super_admin sube una imagen y devuelve la URL de Cloudinary', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/catalog/uploads')
+        .set(...auth(superToken))
+        .attach('file', Buffer.from('fake-image'), {
+          filename: 'burger.png',
+          contentType: 'image/png',
+        })
+        .expect(201)
+
+      expect(res.body).toEqual({ url: CLOUDINARY_URL })
+    })
+
+    it('rechaza un formato no permitido (415)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/catalog/uploads')
+        .set(...auth(superToken))
+        .attach('file', Buffer.from('%PDF-1.7'), {
+          filename: 'doc.pdf',
+          contentType: 'application/pdf',
+        })
+        .expect(415)
+
+      expect(res.body.code).toBe('INVALID_IMAGE_TYPE')
+    })
+
+    it('rechaza una imagen que supera el tamaño máximo (413)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/catalog/uploads')
+        .set(...auth(superToken))
+        .attach('file', Buffer.alloc(env.uploads.maxSizeBytes + 1), {
+          filename: 'grande.png',
+          contentType: 'image/png',
+        })
+        .expect(413)
+
+      expect(res.body.code).toBe('PAYLOAD_TOO_LARGE')
+    })
+
+    it('rechaza una subida sin archivo (400)', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/catalog/uploads')
+        .set(...auth(superToken))
+        .expect(400)
+
+      expect(res.body.code).toBe('IMAGE_REQUIRED')
+    })
+
+    it('rechaza a un usuario que no es super_admin (403)', async () => {
+      await request(app.getHttpServer())
+        .post('/v1/catalog/uploads')
+        .set(...auth(customerToken))
+        .attach('file', Buffer.from('fake-image'), {
+          filename: 'burger.png',
+          contentType: 'image/png',
+        })
+        .expect(403)
     })
   })
 })

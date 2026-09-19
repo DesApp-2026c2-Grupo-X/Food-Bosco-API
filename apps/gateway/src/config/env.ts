@@ -19,4 +19,7 @@ export const env = {
     ttlMs: toNumber(process.env.THROTTLE_TTL_MS, 60_000),
     limit: toNumber(process.env.THROTTLE_LIMIT, 100),
   },
+  uploads: {
+    maxSizeBytes: toNumber(process.env.UPLOAD_MAX_SIZE_BYTES, 5 * 1024 * 1024),
+  },
 }
