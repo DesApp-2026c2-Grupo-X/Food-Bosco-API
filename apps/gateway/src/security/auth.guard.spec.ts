@@ -62,3 +62,106 @@ describe('AuthGuard.canActivate', () => {
     expect(() => guard.canActivate(buildContext(false, []))).toThrow(UnauthorizedException)
   })
 })
+
+describe('AuthGuard.canActivate — tabla de casos', () => {
+  type Case = {
+    name: string
+    metadata: Metadata
+    authenticated: boolean
+    roles: Role[]
+    expected: 'ok' | '401' | '403'
+  }
+
+  const cases: Case[] = [
+    {
+      name: 'público sin metadata',
+      metadata: {},
+      authenticated: false,
+      roles: [],
+      expected: 'ok',
+    },
+    {
+      name: 'Roles([]) equivale a público',
+      metadata: { roles: [] },
+      authenticated: false,
+      roles: [],
+      expected: 'ok',
+    },
+    {
+      name: 'Authenticated() con token válido de cualquier rol',
+      metadata: { authenticated: true },
+      authenticated: true,
+      roles: ['rider'],
+      expected: 'ok',
+    },
+    {
+      name: 'Authenticated() sin token',
+      metadata: { authenticated: true },
+      authenticated: false,
+      roles: [],
+      expected: '401',
+    },
+    {
+      name: 'Roles(super_admin) con super_admin',
+      metadata: { roles: ['super_admin'] },
+      authenticated: true,
+      roles: ['super_admin'],
+      expected: 'ok',
+    },
+    {
+      name: 'Roles(branch_admin, super_admin) con super_admin',
+      metadata: { roles: ['branch_admin', 'super_admin'] },
+      authenticated: true,
+      roles: ['super_admin'],
+      expected: 'ok',
+    },
+    {
+      name: 'Roles(branch_admin, super_admin) con rider',
+      metadata: { roles: ['branch_admin', 'super_admin'] },
+      authenticated: true,
+      roles: ['rider'],
+      expected: '403',
+    },
+    {
+      name: 'Roles(customer) sin token',
+      metadata: { roles: ['customer'] },
+      authenticated: false,
+      roles: [],
+      expected: '401',
+    },
+    {
+      name: 'Roles(customer) autenticado sin roles',
+      metadata: { roles: ['customer'] },
+      authenticated: true,
+      roles: [],
+      expected: '403',
+    },
+    {
+      name: 'Authenticated + Roles con rol correcto',
+      metadata: { authenticated: true, roles: ['customer'] },
+      authenticated: true,
+      roles: ['customer'],
+      expected: 'ok',
+    },
+    {
+      name: 'Authenticated + Roles con rol incorrecto',
+      metadata: { authenticated: true, roles: ['customer'] },
+      authenticated: true,
+      roles: ['rider'],
+      expected: '403',
+    },
+  ]
+
+  it.each(cases)('$name → $expected', ({ metadata, authenticated, roles, expected }) => {
+    const guard = makeGuard(metadata)
+    const context = buildContext(authenticated, roles)
+
+    if (expected === 'ok') {
+      expect(guard.canActivate(context)).toBe(true)
+    } else if (expected === '401') {
+      expect(() => guard.canActivate(context)).toThrow(UnauthorizedException)
+    } else {
+      expect(() => guard.canActivate(context)).toThrow(ForbiddenException)
+    }
+  })
+})

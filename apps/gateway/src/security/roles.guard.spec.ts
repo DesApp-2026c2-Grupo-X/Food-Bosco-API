@@ -61,6 +61,24 @@ describe('RolesGuard.canActivate', () => {
       expected: 'ok',
     },
     {
+      name: 'super_admin requiere super_admin → permite',
+      requiredRoles: ['super_admin'],
+      token: sign({ userId: 'u1', roles: ['super_admin'] }),
+      expected: 'ok',
+    },
+    {
+      name: 'varios roles requeridos, coincide super_admin → permite',
+      requiredRoles: ['branch_admin', 'super_admin'],
+      token: sign({ userId: 'u1', roles: ['super_admin'] }),
+      expected: 'ok',
+    },
+    {
+      name: 'token con varios roles, uno coincide → permite',
+      requiredRoles: ['rider'],
+      token: sign({ userId: 'u1', roles: ['customer', 'rider'] }),
+      expected: 'ok',
+    },
+    {
       name: 'sin token → 401',
       requiredRoles: ['customer'],
       token: undefined,
@@ -73,9 +91,27 @@ describe('RolesGuard.canActivate', () => {
       expected: 'unauthorized',
     },
     {
+      name: 'token malformado → 401',
+      requiredRoles: ['customer'],
+      token: 'no-es-un-jwt',
+      expected: 'unauthorized',
+    },
+    {
+      name: 'firma ajena → 401',
+      requiredRoles: ['customer'],
+      token: jwt.sign({ userId: 'u1', roles: ['customer'] }, 'otro-secreto'),
+      expected: 'unauthorized',
+    },
+    {
       name: 'token válido sin el rol requerido → 403',
       requiredRoles: ['super_admin'],
       token: sign({ userId: 'u1', roles: ['customer'] }),
+      expected: 'forbidden',
+    },
+    {
+      name: 'token válido sin ningún rol → 403',
+      requiredRoles: ['customer'],
+      token: sign({ userId: 'u1', roles: [] }),
       expected: 'forbidden',
     },
   ]

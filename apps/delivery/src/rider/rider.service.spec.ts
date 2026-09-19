@@ -94,3 +94,78 @@ describe('RiderService.findByUserId / create / setStatus', () => {
     expect(result?.status).toBe(RIDER_STATUS.onTrip)
   })
 })
+
+describe('RiderService.findByUserId (RQ-DLV-11)', () => {
+  it('serializa el documento y no filtra campos internos', async () => {
+    const repository = { findByUserId: jest.fn().mockResolvedValue(buildDoc()) }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    const result = await service.findByUserId('u1')
+
+    expect(repository.findByUserId).toHaveBeenCalledWith('u1')
+    expect(result?.id).toBe('r1')
+    expect(result).not.toHaveProperty('_id')
+    expect(result).not.toHaveProperty('createdAt')
+  })
+})
+
+describe('RiderService.listAvailable', () => {
+  it('serializa todos los riders devueltos', async () => {
+    const repository = {
+      findAllAvailable: jest.fn().mockResolvedValue([buildDoc(), buildDoc({ userId: 'u2' })]),
+    }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    const result = await service.listAvailable()
+
+    expect(repository.findAllAvailable).toHaveBeenCalledTimes(1)
+    expect(result).toHaveLength(2)
+    expect(result[0].userId).toBe('u1')
+    expect(result[1].userId).toBe('u2')
+  })
+
+  it('devuelve arreglo vacío si no hay riders disponibles', async () => {
+    const repository = { findAllAvailable: jest.fn().mockResolvedValue([]) }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    await expect(service.listAvailable()).resolves.toEqual([])
+  })
+})
+
+describe('RiderService.updateProfile / updateVehicle (RQ-DLV-11)', () => {
+  it('updateProfile serializa el documento actualizado', async () => {
+    const repository = { updateProfile: jest.fn().mockResolvedValue(buildDoc({ phone: '999' })) }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    const result = await service.updateProfile('u1', { phone: '999' })
+
+    expect(repository.updateProfile).toHaveBeenCalledWith('u1', { phone: '999' })
+    expect(result?.phone).toBe('999')
+  })
+
+  it('updateProfile devuelve null si el rider no existe', async () => {
+    const repository = { updateProfile: jest.fn().mockResolvedValue(null) }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    await expect(service.updateProfile('u1', { phone: '999' })).resolves.toBeNull()
+  })
+
+  it('updateVehicle delega el vehículo y lo serializa', async () => {
+    const repository = {
+      updateVehicle: jest.fn().mockResolvedValue(buildDoc({ vehicle: { type: 'bici' } })),
+    }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    const result = await service.updateVehicle('u1', { type: 'bici' })
+
+    expect(repository.updateVehicle).toHaveBeenCalledWith('u1', { type: 'bici' })
+    expect(result?.vehicle).toEqual({ type: 'bici' })
+  })
+
+  it('updateVehicle devuelve null si el rider no existe', async () => {
+    const repository = { updateVehicle: jest.fn().mockResolvedValue(null) }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    await expect(service.updateVehicle('u1', { type: 'moto' })).resolves.toBeNull()
+  })
+})

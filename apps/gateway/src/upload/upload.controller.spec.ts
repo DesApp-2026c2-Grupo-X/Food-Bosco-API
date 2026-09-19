@@ -90,3 +90,76 @@ describe('UploadController.uploadImage', () => {
     expect(error).toBe(commerceError)
   })
 })
+
+describe('UploadController.uploadImage — contexto y errores de Commerce', () => {
+  it('propaga el contexto exacto con requestId null cuando falta', async () => {
+    const { postMultipart, verify, controller } = setup()
+
+    await controller.uploadImage(buildRequest(), buildFile())
+
+    expect(verify).toHaveBeenCalledWith(AUTH)
+    const [, , options] = postMultipart.mock.calls[0] as [
+      string,
+      FormData,
+      { context: Record<string, unknown> },
+    ]
+    expect(options.context).toEqual({
+      authorization: AUTH,
+      userId: 'admin-1',
+      roles: ['super_admin'],
+      branchId: null,
+      requestId: null,
+    })
+  })
+
+  it('toma el primer valor cuando los headers llegan como array', async () => {
+    const { postMultipart, controller } = setup()
+    const request = {
+      headers: { authorization: [AUTH], 'x-request-id': ['rid-a', 'rid-b'] },
+    } as unknown as Request
+
+    await controller.uploadImage(request, buildFile())
+
+    const [, , options] = postMultipart.mock.calls[0] as [
+      string,
+      FormData,
+      { context: Record<string, unknown> },
+    ]
+    expect(options.context).toMatchObject({ authorization: AUTH, requestId: 'rid-a' })
+  })
+
+  it('construye el Blob con el mimetype y nombre del archivo subido', async () => {
+    const { postMultipart, controller } = setup()
+    const file = buildFile({
+      originalname: 'pizza.webp',
+      mimetype: 'image/webp',
+      buffer: Buffer.from('xyz'),
+    })
+
+    await controller.uploadImage(buildRequest(), file)
+
+    const form = postMultipart.mock.calls[0][1] as FormData
+    const blob = form.get('file') as Blob & { name?: string }
+    expect(blob.type).toBe('image/webp')
+    expect(blob.size).toBe(3)
+    expect(blob.name).toBe('pizza.webp')
+  })
+
+  it.each([
+    { code: 'IMAGE_REQUIRED', status: 400, message: 'Se requiere una imagen' },
+    { code: 'INVALID_IMAGE_TYPE', status: 415, message: 'Formato de imagen no permitido' },
+    { code: 'PAYLOAD_TOO_LARGE', status: 413, message: 'Archivo demasiado grande' },
+  ])('propaga sin alterar el error $code de Commerce', async ({ code, status, message }) => {
+    const { postMultipart, controller } = setup()
+    const commerceError = new HttpException({ code, message }, status)
+    postMultipart.mockRejectedValueOnce(commerceError)
+
+    const error = await controller
+      .uploadImage(buildRequest(), buildFile())
+      .catch((thrown) => thrown)
+
+    expect(error).toBe(commerceError)
+    expect((error as HttpException).getStatus()).toBe(status)
+    expect((error as HttpException).getResponse()).toMatchObject({ code, message })
+  })
+})
