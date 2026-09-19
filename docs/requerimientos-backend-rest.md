@@ -158,21 +158,21 @@ flowchart TB
 
 El gateway es el **único dueño del esquema GraphQL** y el punto de entrada de los cinco frontends. No contiene reglas de negocio: cada resolver se limita a traducir la operación GraphQL en una o más llamadas **REST** a los servicios y a componer la respuesta.
 
-| ID       | Requerimiento                                                                                                                                                               |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RQ-GW-01 | El gateway deberá exponer un único endpoint GraphQL (`/graphql`) para todos los frontends.                                                                                  |
-| RQ-GW-02 | El gateway deberá poseer y servir su propio **esquema GraphQL** (single schema, sin subgraphs ni supergraph federado).                                                      |
-| RQ-GW-03 | El gateway deberá implementar **resolvers** que invoquen endpoints REST de los 3 servicios a través de clientes HTTP generados desde los contratos OpenAPI.                 |
-| RQ-GW-04 | El gateway deberá validar la firma, la expiración y los roles del JWT en cada request antes de resolver.                                                                    |
-| RQ-GW-05 | El gateway deberá inyectar en el contexto GraphQL el `userId`, los `roles` y la `branchId` (si aplica) del usuario autenticado.                                             |
-| RQ-GW-06 | El gateway deberá rechazar requests sin token válido en los campos/consultas protegidos, con un error de autenticación estandarizado.                                       |
-| RQ-GW-07 | El gateway deberá propagar los errores de cada servicio REST (código, mensaje y `path`) en un formato único (`errors[]` con `code`, `message`, `path`).                     |
-| RQ-GW-08 | El gateway deberá resolver campos que crucen servicios (ej. `Order.client` contra Auth Service; `Order.branch` contra Commerce Service) mediante llamadas REST adicionales. |
-| RQ-GW-09 | El gateway deberá usar **DataLoader** para agrupar y deduplicar llamadas REST por lote y evitar el problema N+1.                                                            |
-| RQ-GW-10 | El gateway deberá aplicar _rate limiting_ por cliente/token.                                                                                                                |
-| RQ-GW-11 | El gateway deberá exponer `GET /health` y `GET /graphql` (sandbox) en entornos de desarrollo.                                                                               |
-| RQ-GW-12 | El gateway no deberá contener lógica de negocio de ningún dominio: solo enruta, autentica, valida y traduce a REST.                                                         |
-| RQ-GW-13 | El gateway deberá configurar los endpoints base (URL) de los servicios por variables de entorno y validar su conectividad vía `GET /health`.                                |
+| ID       | Requerimiento                                                                                                                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-GW-01 | El gateway deberá exponer un único endpoint GraphQL (`/graphql`) para todos los frontends.                                                                                                                                             |
+| RQ-GW-02 | El gateway deberá poseer y servir su propio **esquema GraphQL** (single schema, sin subgraphs ni supergraph federado).                                                                                                                 |
+| RQ-GW-03 | El gateway deberá implementar **resolvers** que invoquen endpoints REST de los 3 servicios a través de clientes HTTP generados desde los contratos OpenAPI.                                                                            |
+| RQ-GW-04 | El gateway deberá validar la firma, la expiración y los roles del JWT en cada request antes de resolver.                                                                                                                               |
+| RQ-GW-05 | El gateway deberá inyectar en el contexto GraphQL el `userId`, los `roles` y la `branchId` (si aplica) del usuario autenticado.                                                                                                        |
+| RQ-GW-06 | El gateway deberá rechazar requests sin token válido en los campos/consultas protegidos, con un error de autenticación estandarizado.                                                                                                  |
+| RQ-GW-07 | El gateway deberá propagar los errores de cada servicio REST (código, mensaje y `path`) en un formato único (`errors[]` con `code`, `message`, `path`).                                                                                |
+| RQ-GW-08 | El gateway deberá resolver campos que crucen servicios (ej. `Order.client` contra Auth Service; `Order.branch` contra Commerce Service) mediante llamadas REST adicionales.                                                            |
+| RQ-GW-09 | El gateway deberá usar **DataLoader** para agrupar y deduplicar llamadas REST por lote y evitar el problema N+1.                                                                                                                       |
+| RQ-GW-10 | El gateway deberá aplicar _rate limiting_ por cliente/token.                                                                                                                                                                           |
+| RQ-GW-11 | El gateway deberá exponer `GET /health` y `GET /graphql` (sandbox) en entornos de desarrollo.                                                                                                                                          |
+| RQ-GW-12 | El gateway no deberá contener lógica de negocio de ningún dominio: solo enruta, autentica, valida y traduce a REST.                                                                                                                    |
+| RQ-GW-13 | El gateway deberá configurar los endpoints base (URL) de los servicios por variables de entorno y validar su conectividad vía `GET /health`.                                                                                           |
 | RQ-GW-14 | El gateway deberá exponer `POST /v1/uploads` (`multipart/form-data`, campo `file`) para que los frontends suban la imagen de un producto; el gateway la reenvía a Commerce (`POST /v1/catalog/uploads`) propagando el JWT del usuario. |
 
 ### Ejemplo de resolución (antes "federado", ahora "por resolvers")
@@ -1071,9 +1071,9 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 
 ### Imágenes de producto
 
-| Método | Ruta                  | Acceso        | Operación                                                                                      |
-| ------ | --------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
-| POST   | `/v1/catalog/uploads` | `super_admin` | Subir una imagen de producto (`multipart/form-data`, campo `file`) y devolver su URL pública.  |
+| Método | Ruta                  | Acceso        | Operación                                                                                     |
+| ------ | --------------------- | ------------- | --------------------------------------------------------------------------------------------- |
+| POST   | `/v1/catalog/uploads` | `super_admin` | Subir una imagen de producto (`multipart/form-data`, campo `file`) y devolver su URL pública. |
 
 > El archivo se sube a **Cloudinary** (carpeta configurable) y el API devuelve su `secure_url`. Formatos permitidos: `jpg`, `png`, `webp` y `gif`; tamaño máximo configurable por variable de entorno. Esa URL es la que se persiste en el campo `image` del producto.
 
@@ -1120,24 +1120,24 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 
 ### Requerimientos — Catalog
 
-| ID        | Requerimiento                                                                                                                                                                                |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RQ-CAT-01 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar categorías.                                                                                                    |
-| RQ-CAT-02 | Una categoría deberá tener nombre y estado (activa/inactiva).                                                                                                                                |
-| RQ-CAT-03 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar productos.                                                                                                     |
-| RQ-CAT-04 | Un producto deberá tener nombre, descripción, categoría, precio, imagen (opcional) y disponibilidad.                                                                                         |
-| RQ-CAT-05 | El catálogo público deberá devolver únicamente categorías activas y productos disponibles (globalmente activos **y no pausados** en la sucursal correspondiente).                            |
-| RQ-CAT-06 | Un producto deberá poder tener configuraciones especiales (tamaño, sabor, adicionales, eliminaciones).                                                                                       |
-| RQ-CAT-07 | Cada configuración deberá indicar si es obligatoria, el tipo de selección (única/múltiple), mín/máx y sus opciones.                                                                          |
-| RQ-CAT-08 | Cada opción de configuración deberá poder modificar el precio (variación `+$`).                                                                                                              |
-| RQ-CAT-09 | Un admin global deberá poder mantener el catálogo de ingredientes (nombre y unidad).                                                                                                         |
-| RQ-CAT-10 | Un ingrediente usado en recetas activas no deberá eliminarse, solo desactivarse.                                                                                                             |
-| RQ-CAT-11 | Un admin global deberá poder definir la receta de un producto (ingrediente + cantidad).                                                                                                      |
-| RQ-CAT-12 | La cantidad de un ingrediente en una receta deberá poder variar según la opción seleccionada (ej. "Doble" = 2 medallones).                                                                   |
-| RQ-CAT-13 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar promociones como información general (sin motor de descuentos).                                                |
-| RQ-CAT-14 | El API REST deberá exponer `GET /v1/catalog/products/{id}`, `GET /v1/catalog/categories/{id}` e `GET /v1/catalog/ingredients/{id}` para que el gateway resuelva los campos correspondientes. |
-| RQ-CAT-15 | Un admin de sucursal (`branch_admin`) deberá poder pausar/reactivar productos en **su** sucursal, sin editar la definición global del producto.                                              |
-| RQ-CAT-16 | La disponibilidad por sucursal deberá registrarse en `branchProductAvailability` (`branchId`, `productId`, `available`); el catálogo público combina el `available` global con este flag.    |
+| ID        | Requerimiento                                                                                                                                                                                                                                                                                 |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-CAT-01 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar categorías.                                                                                                                                                                                                     |
+| RQ-CAT-02 | Una categoría deberá tener nombre y estado (activa/inactiva).                                                                                                                                                                                                                                 |
+| RQ-CAT-03 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar productos.                                                                                                                                                                                                      |
+| RQ-CAT-04 | Un producto deberá tener nombre, descripción, categoría, precio, imagen (opcional) y disponibilidad.                                                                                                                                                                                          |
+| RQ-CAT-05 | El catálogo público deberá devolver únicamente categorías activas y productos disponibles (globalmente activos **y no pausados** en la sucursal correspondiente).                                                                                                                             |
+| RQ-CAT-06 | Un producto deberá poder tener configuraciones especiales (tamaño, sabor, adicionales, eliminaciones).                                                                                                                                                                                        |
+| RQ-CAT-07 | Cada configuración deberá indicar si es obligatoria, el tipo de selección (única/múltiple), mín/máx y sus opciones.                                                                                                                                                                           |
+| RQ-CAT-08 | Cada opción de configuración deberá poder modificar el precio (variación `+$`).                                                                                                                                                                                                               |
+| RQ-CAT-09 | Un admin global deberá poder mantener el catálogo de ingredientes (nombre y unidad).                                                                                                                                                                                                          |
+| RQ-CAT-10 | Un ingrediente usado en recetas activas no deberá eliminarse, solo desactivarse.                                                                                                                                                                                                              |
+| RQ-CAT-11 | Un admin global deberá poder definir la receta de un producto (ingrediente + cantidad).                                                                                                                                                                                                       |
+| RQ-CAT-12 | La cantidad de un ingrediente en una receta deberá poder variar según la opción seleccionada (ej. "Doble" = 2 medallones).                                                                                                                                                                    |
+| RQ-CAT-13 | Un admin global deberá poder crear, consultar, modificar y activar/desactivar promociones como información general (sin motor de descuentos).                                                                                                                                                 |
+| RQ-CAT-14 | El API REST deberá exponer `GET /v1/catalog/products/{id}`, `GET /v1/catalog/categories/{id}` e `GET /v1/catalog/ingredients/{id}` para que el gateway resuelva los campos correspondientes.                                                                                                  |
+| RQ-CAT-15 | Un admin de sucursal (`branch_admin`) deberá poder pausar/reactivar productos en **su** sucursal, sin editar la definición global del producto.                                                                                                                                               |
+| RQ-CAT-16 | La disponibilidad por sucursal deberá registrarse en `branchProductAvailability` (`branchId`, `productId`, `available`); el catálogo público combina el `available` global con este flag.                                                                                                     |
 | RQ-CAT-17 | Un admin global deberá poder subir la imagen de un producto como **archivo** (`multipart/form-data`, un solo archivo jpg/png/webp/gif, con tamaño máximo configurable); el archivo se almacena en **Cloudinary** y la URL devuelta (`secure_url`) se guarda en el campo `image` del producto. |
 
 ## 7.2 Branch
