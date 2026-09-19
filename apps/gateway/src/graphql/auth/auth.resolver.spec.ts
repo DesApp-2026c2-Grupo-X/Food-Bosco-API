@@ -357,3 +357,111 @@ describe('AuthResolver — direcciones (customer)', () => {
     expect(result).toBe(true)
   })
 })
+
+describe('AuthResolver — propagación exacta de contexto y errores', () => {
+  const rest = { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() }
+  const resolver = new AuthResolver(rest as unknown as RestClient)
+
+  const expectedContext = {
+    authorization: 'Bearer xyz',
+    userId: 'u1',
+    roles: ['customer'],
+    branchId: null,
+    requestId: 'rid-1',
+  }
+
+  beforeEach(() => jest.clearAllMocks())
+
+  it('me propaga el contexto de identidad exacto (RQ-GW-05/RQ-SEC-03)', async () => {
+    rest.get.mockResolvedValue(rawUser)
+
+    await resolver.me(ctx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/me', { context: expectedContext })
+  })
+
+  it('users combina contexto exacto y filtros mapeados', async () => {
+    rest.get.mockResolvedValue({ data: [], meta: { total: 0, limit: 20, offset: 0 } })
+
+    await resolver.users({ role: Role.RIDER, active: false, search: 'ana' }, { limit: 20, offset: 40 }, ctx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/users', {
+      context: expectedContext,
+      query: { role: 'rider', active: false, search: 'ana', limit: 20, offset: 40 },
+    })
+  })
+
+  type AuthenticatedOp = {
+    name: string
+    method: 'get' | 'post' | 'patch' | 'delete'
+    invoke: () => Promise<unknown>
+  }
+
+  const authenticatedOps: AuthenticatedOp[] = [
+    { name: 'logout', method: 'post', invoke: () => resolver.logout(ctx) },
+    { name: 'me', method: 'get', invoke: () => resolver.me(ctx) },
+    {
+      name: 'updateProfile',
+      method: 'patch',
+      invoke: () => resolver.updateProfile({ firstName: 'A', lastName: 'B', phone: '1' }, ctx),
+    },
+    { name: 'users', method: 'get', invoke: () => resolver.users(null, null, ctx) },
+    { name: 'user', method: 'get', invoke: () => resolver.user('u9', ctx) },
+    {
+      name: 'createStaff',
+      method: 'post',
+      invoke: () =>
+        resolver.createStaff(
+          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', branchId: 'b1' },
+          ctx,
+        ),
+    },
+    {
+      name: 'createAdmin',
+      method: 'post',
+      invoke: () =>
+        resolver.createAdmin(
+          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p' },
+          ctx,
+        ),
+    },
+    {
+      name: 'createRider',
+      method: 'post',
+      invoke: () =>
+        resolver.createRider(
+          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', vehicle: 'moto' },
+          ctx,
+        ),
+    },
+    { name: 'updateUser', method: 'patch', invoke: () => resolver.updateUser('u9', { phone: '2' }, ctx) },
+    { name: 'setUserActive', method: 'patch', invoke: () => resolver.setUserActive('u9', false, ctx) },
+    { name: 'myAddresses', method: 'get', invoke: () => resolver.myAddresses(ctx) },
+    { name: 'address', method: 'get', invoke: () => resolver.address('a1', ctx) },
+    {
+      name: 'createAddress',
+      method: 'post',
+      invoke: () =>
+        resolver.createAddress(
+          { label: 'Casa', text: 'Av 1', latitude: 0, longitude: 0 },
+          ctx,
+        ),
+    },
+    {
+      name: 'updateAddress',
+      method: 'patch',
+      invoke: () => resolver.updateAddress('a1', { label: 'Trabajo' }, ctx),
+    },
+    { name: 'deleteAddress', method: 'delete', invoke: () => resolver.deleteAddress('a1', ctx) },
+  ]
+
+  it.each(authenticatedOps)(
+    '$name propaga el error del servicio tal cual',
+    async ({ method, invoke }) => {
+      const failure = new Error('auth service down')
+      rest[method].mockRejectedValueOnce(failure)
+
+      await expect(invoke()).rejects.toBe(failure)
+    },
+  )
+})

@@ -46,4 +46,32 @@ describe('formatGraphQLError', () => {
 
     expect(result.path).toEqual(['order', 0, 'branch'])
   })
+
+  it('no filtra stack ni propiedades internas del error', () => {
+    const result = formatGraphQLError(
+      { message: 'boom', extensions: { code: 'FORBIDDEN' } },
+      new Error('boom'),
+    )
+
+    expect(Object.keys(result).sort()).toEqual(['extensions', 'message', 'path'])
+    expect(result).not.toHaveProperty('stack')
+  })
+
+  it('ignora un code no-string en extensions y usa el del GraphQLError', () => {
+    const result = formatGraphQLError(
+      { message: 'boom', extensions: { code: 500 } },
+      new GraphQLError('boom', { extensions: { code: 'CUSTOM' } }),
+    )
+
+    expect(result.extensions?.code).toBe('CUSTOM')
+  })
+
+  it('sin code válido en ninguno de los dos → INTERNAL_SERVER_ERROR', () => {
+    const result = formatGraphQLError(
+      { message: 'x', extensions: { code: 1 } },
+      new Error('x'),
+    )
+
+    expect(result.extensions?.code).toBe(ERROR_CODES.internal)
+  })
 })

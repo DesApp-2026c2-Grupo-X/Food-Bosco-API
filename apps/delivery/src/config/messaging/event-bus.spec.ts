@@ -45,3 +45,48 @@ describe('EventBus (transporte en proceso)', () => {
     await expect(bus.close()).resolves.toBeUndefined()
   })
 })
+
+describe('EventBus (delegación al transporte)', () => {
+  const makeBus = () => {
+    const transport = {
+      publish: jest.fn().mockResolvedValue(undefined),
+      subscribe: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    }
+    const bus = new EventBus(transport)
+    return { bus, transport }
+  }
+
+  it('publish delega el evento en el transporte', async () => {
+    const { bus, transport } = makeBus()
+
+    await bus.publish(orderEvent())
+
+    expect(transport.publish).toHaveBeenCalledWith(orderEvent())
+  })
+
+  it('subscribe delega tipo y handler en el transporte', async () => {
+    const { bus, transport } = makeBus()
+    const handler = (): void => undefined
+
+    await bus.subscribe('trip.accepted', handler)
+
+    expect(transport.subscribe).toHaveBeenCalledWith('trip.accepted', handler)
+  })
+
+  it('close delega en el transporte', async () => {
+    const { bus, transport } = makeBus()
+
+    await bus.close()
+
+    expect(transport.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('onModuleDestroy cierra el transporte', async () => {
+    const { bus, transport } = makeBus()
+
+    await bus.onModuleDestroy()
+
+    expect(transport.close).toHaveBeenCalledTimes(1)
+  })
+})
