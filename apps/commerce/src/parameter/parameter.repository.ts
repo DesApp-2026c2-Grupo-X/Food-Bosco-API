@@ -25,6 +25,12 @@ export class ParameterRepository {
     return this.model.create(data)
   }
 
+  upsertByKey(data: CreateParameterData): Promise<ParameterDocument | null> {
+    return this.model
+      .findOneAndUpdate({ key: data.key }, { $setOnInsert: data }, { new: true, upsert: true })
+      .exec()
+  }
+
   update(key: string, value: number): Promise<ParameterDocument | null> {
     return this.model
       .findOneAndUpdate({ key }, { $set: { value } }, { new: true, upsert: true })

@@ -34,6 +34,11 @@ export class IngredientService {
     return serializeIngredient(doc)
   }
 
+  async upsertByName(data: CreateIngredientData): Promise<PublicIngredient> {
+    const doc = await this.repository.upsertByName(data)
+    return serializeIngredient(doc!)
+  }
+
   async update(id: string, patch: UpdateIngredientData): Promise<PublicIngredient | null> {
     const doc = await this.repository.update(id, patch)
     return doc ? serializeIngredient(doc) : null

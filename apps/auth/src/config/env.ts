@@ -35,26 +35,35 @@ export const env = {
   commerceServiceUrl: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
   internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
   seed: {
-    superAdminEmail: process.env.SEED_SUPER_ADMIN_EMAIL ?? 'admin@foodbosco.local',
     superAdminPassword: process.env.SEED_SUPER_ADMIN_PASSWORD ?? 'Admin123!',
     superAdminFirstName: process.env.SEED_SUPER_ADMIN_FIRST_NAME ?? 'Super',
     superAdminLastName: process.env.SEED_SUPER_ADMIN_LAST_NAME ?? 'Admin',
     superAdminPhone: process.env.SEED_SUPER_ADMIN_PHONE ?? '0000000000',
+
     customerEmail: process.env.SEED_CUSTOMER_EMAIL ?? 'cliente@foodbosco.local',
     customerPassword: process.env.SEED_CUSTOMER_PASSWORD ?? 'Cliente123!',
     customerFirstName: process.env.SEED_CUSTOMER_FIRST_NAME ?? 'Cliente',
     customerLastName: process.env.SEED_CUSTOMER_LAST_NAME ?? 'Demo',
     customerPhone: process.env.SEED_CUSTOMER_PHONE ?? '1111111111',
-    branchAdminEmail: process.env.SEED_BRANCH_ADMIN_EMAIL ?? 'sucursal@foodbosco.local',
-    branchAdminPassword: process.env.SEED_BRANCH_ADMIN_PASSWORD ?? 'Sucursal123!',
-    branchAdminFirstName: process.env.SEED_BRANCH_ADMIN_FIRST_NAME ?? 'Julián',
-    branchAdminLastName: process.env.SEED_BRANCH_ADMIN_LAST_NAME ?? 'Sosa',
-    branchAdminPhone: process.env.SEED_BRANCH_ADMIN_PHONE ?? '2222222222',
+
+    branchAdminEmail:
+      process.env.SEED_BRANCH_ADMIN_EMAIL ?? 'sucursal@foodbosco.local',
+    branchAdminPassword:
+      process.env.SEED_BRANCH_ADMIN_PASSWORD ?? 'Sucursal123!',
+    branchAdminFirstName:
+      process.env.SEED_BRANCH_ADMIN_FIRST_NAME ?? 'Julián',
+    branchAdminLastName:
+      process.env.SEED_BRANCH_ADMIN_LAST_NAME ?? 'Sosa',
+    branchAdminPhone:
+      process.env.SEED_BRANCH_ADMIN_PHONE ?? '2222222222',
+
     riderEmail: process.env.SEED_RIDER_EMAIL ?? 'repartidor@foodbosco.local',
-    riderPassword: process.env.SEED_RIDER_PASSWORD ?? 'Repartidor123!',
+    riderPassword:
+      process.env.SEED_RIDER_PASSWORD ?? 'Repartidor123!',
     riderFirstName: process.env.SEED_RIDER_FIRST_NAME ?? 'Marcos',
     riderLastName: process.env.SEED_RIDER_LAST_NAME ?? 'Peralta',
     riderPhone: process.env.SEED_RIDER_PHONE ?? '3333333333',
-    riderVehicle: process.env.SEED_RIDER_VEHICLE ?? 'Moto Honda CG Titan',
+    riderVehicle:
+      process.env.SEED_RIDER_VEHICLE ?? 'Moto Honda CG Titan',
   },
 }
