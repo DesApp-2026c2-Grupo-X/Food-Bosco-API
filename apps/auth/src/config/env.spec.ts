@@ -11,8 +11,14 @@ const MANAGED_KEYS = [
   'JWT_ACCESS_EXPIRES_IN',
   'JWT_REFRESH_EXPIRES_IN',
   'PASSWORD_RECOVERY_EXPIRES_IN',
+  'PASSWORD_RECOVERY_MIN_INTERVAL',
   'COMMERCE_SERVICE_URL',
   'INTERNAL_API_TOKEN',
+  'EMAIL_PROVIDER',
+  'EMAIL_FROM',
+  'RESEND_API_KEY',
+  'FRONTEND_URL',
+  'PASSWORD_RESET_PATH',
   'SEED_SUPER_ADMIN_EMAIL',
   'SEED_CUSTOMER_EMAIL',
 ] as const
@@ -109,6 +115,16 @@ describe('env — duraciones (durationToMs)', () => {
   })
 
   it.each([
+    { name: '30s', value: '30s', expected: 30_000 },
+    { name: '2m', value: '2m', expected: 120_000 },
+    { name: 'inválido cae a 0', value: 'nope', expected: 0 },
+  ])('PASSWORD_RECOVERY_MIN_INTERVAL $name → $expected ms', async ({ value, expected }) => {
+    const env = await loadEnv({ PASSWORD_RECOVERY_MIN_INTERVAL: value })
+
+    expect(env.passwordRecoveryMinIntervalMs).toBe(expected)
+  })
+
+  it.each([
     { name: 'refreshTokenTtlMs', pick: (env: Env) => env.refreshTokenTtlMs, expected: 604_800_000 },
     {
       name: 'passwordRecoveryTtlMs',
@@ -189,5 +205,41 @@ describe('env — valores por defecto y override', () => {
 
     expect(env.seed.superAdminEmail).toBe('root@test.local')
     expect(env.seed.customerEmail).toBe('cliente@foodbosco.local')
+  })
+})
+
+describe('env — configuración de email', () => {
+  it('usa el proveedor "log" por defecto (sin envíos reales)', async () => {
+    const env = await loadEnv()
+
+    expect(env.email.provider).toBe('log')
+    expect(env.email.resendApiKey).toBe('')
+    expect(env.email.from).toBe('Food Bosco <no-reply@foodbosco.local>')
+    expect(env.email.frontendUrl).toBe('http://localhost:3000')
+    expect(env.email.passwordResetPath).toBe('/reset-password')
+  })
+
+  it('usa 60s como intervalo mínimo por defecto', async () => {
+    const env = await loadEnv()
+
+    expect(env.passwordRecoveryMinIntervalMs).toBe(60_000)
+  })
+
+  it('respeta la configuración provista por entorno', async () => {
+    const env = await loadEnv({
+      EMAIL_PROVIDER: 'resend',
+      EMAIL_FROM: 'No Reply <no-reply@foodbosco.com>',
+      RESEND_API_KEY: 'sk_test',
+      FRONTEND_URL: 'https://app.foodbosco.com',
+      PASSWORD_RESET_PATH: '/auth/reset',
+      PASSWORD_RECOVERY_MIN_INTERVAL: '30s',
+    })
+
+    expect(env.email.provider).toBe('resend')
+    expect(env.email.from).toBe('No Reply <no-reply@foodbosco.com>')
+    expect(env.email.resendApiKey).toBe('sk_test')
+    expect(env.email.frontendUrl).toBe('https://app.foodbosco.com')
+    expect(env.email.passwordResetPath).toBe('/auth/reset')
+    expect(env.passwordRecoveryMinIntervalMs).toBe(30_000)
   })
 })

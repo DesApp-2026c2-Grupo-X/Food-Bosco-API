@@ -32,8 +32,16 @@ export const env = {
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
   refreshTokenTtlMs: durationToMs(process.env.JWT_REFRESH_EXPIRES_IN ?? '7d'),
   passwordRecoveryTtlMs: durationToMs(process.env.PASSWORD_RECOVERY_EXPIRES_IN ?? '1h'),
+  passwordRecoveryMinIntervalMs: durationToMs(process.env.PASSWORD_RECOVERY_MIN_INTERVAL ?? '60s'),
   commerceServiceUrl: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
   internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
+  email: {
+    provider: process.env.EMAIL_PROVIDER ?? 'log',
+    from: process.env.EMAIL_FROM ?? 'Food Bosco <no-reply@foodbosco.local>',
+    resendApiKey: process.env.RESEND_API_KEY ?? '',
+    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
+    passwordResetPath: process.env.PASSWORD_RESET_PATH ?? '/reset-password',
+  },
   seed: {
     superAdminEmail: process.env.SEED_SUPER_ADMIN_EMAIL ?? 'admin@foodbosco.local',
     superAdminPassword: process.env.SEED_SUPER_ADMIN_PASSWORD ?? 'Admin123!',

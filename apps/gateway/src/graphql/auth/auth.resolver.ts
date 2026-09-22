@@ -1,5 +1,6 @@
 import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Throttle } from '@nestjs/throttler'
 import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
@@ -69,12 +70,14 @@ export class AuthResolver {
   }
 
   @Mutation(() => Boolean)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async requestPasswordRecovery(@Args('email') email: string): Promise<boolean> {
     await this.rest.post('/v1/auth/password-recovery', { body: { email } })
     return true
   }
 
   @Mutation(() => Boolean)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async resetPassword(
     @Args('token') token: string,
     @Args('newPassword') newPassword: string,

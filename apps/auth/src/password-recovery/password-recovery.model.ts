@@ -21,3 +21,7 @@ export class PasswordRecovery {
 export type PasswordRecoveryDocument = HydratedDocument<PasswordRecovery>
 
 export const PasswordRecoverySchema = SchemaFactory.createForClass(PasswordRecovery)
+
+PasswordRecoverySchema.index({ tokenHash: 1 }, { unique: true })
+PasswordRecoverySchema.index({ userId: 1, used: 1 })
+PasswordRecoverySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })

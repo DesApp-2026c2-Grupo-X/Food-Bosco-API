@@ -9,7 +9,14 @@ import { PasswordRecoveryRepository } from './password-recovery.repository'
 export class PasswordRecoveryService {
   constructor(private readonly repository: PasswordRecoveryRepository) {}
 
-  async create(userId: string): Promise<string> {
+  async create(userId: string): Promise<string | null> {
+    const active = await this.repository.findLatestActiveByUser(userId)
+    if (active && Date.now() - active.createdAt.getTime() < env.passwordRecoveryMinIntervalMs) {
+      return null
+    }
+
+    await this.repository.invalidateActiveByUser(userId)
+
     const raw = randomToken()
     const tokenHash = sha256(raw)
     await this.repository.create({

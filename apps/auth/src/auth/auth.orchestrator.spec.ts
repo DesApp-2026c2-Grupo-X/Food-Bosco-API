@@ -1,6 +1,7 @@
 import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { JwtService } from '../config/security/jwt.service'
+import { EmailService } from '../email/email.service'
 import { PasswordRecoveryService } from '../password-recovery/password-recovery.service'
 import { RefreshTokenService } from '../refresh-token/refresh-token.service'
 import { PublicUser, UserService } from '../user/user.service'
@@ -44,15 +45,26 @@ const makeOrchestrator = () => {
   const jwtService = {
     signAccessToken: jest.fn().mockReturnValue('access-token'),
   }
+  const emailService = {
+    sendPasswordRecovery: jest.fn(),
+  }
 
   const orchestrator = new AuthOrchestrator(
     userService as unknown as UserService,
     refreshTokenService as unknown as RefreshTokenService,
     passwordRecoveryService as unknown as PasswordRecoveryService,
     jwtService as unknown as JwtService,
+    emailService as unknown as EmailService,
   )
 
-  return { orchestrator, userService, refreshTokenService, passwordRecoveryService, jwtService }
+  return {
+    orchestrator,
+    userService,
+    refreshTokenService,
+    passwordRecoveryService,
+    jwtService,
+    emailService,
+  }
 }
 
 const credentials = { email: 'cliente@example.com', password: 'secreto123' }
@@ -330,6 +342,52 @@ describe('AuthOrchestrator.requestPasswordRecovery (RQ-AUTH-09)', () => {
     expect(userService.findByEmail).toHaveBeenCalledWith('cliente@example.com')
     expect(passwordRecoveryService.create).toHaveBeenCalledWith('u1')
   })
+
+  it('envía el correo con el token crudo cuando se generó uno nuevo', async () => {
+    const { orchestrator, userService, passwordRecoveryService, emailService } = makeOrchestrator()
+    userService.findByEmail.mockResolvedValue(publicUser)
+    passwordRecoveryService.create.mockResolvedValue('token-crudo')
+
+    await orchestrator.requestPasswordRecovery('cliente@example.com')
+
+    expect(emailService.sendPasswordRecovery).toHaveBeenCalledWith({
+      to: publicUser.email,
+      firstName: publicUser.firstName,
+      token: 'token-crudo',
+    })
+  })
+
+  it('no envía correo cuando el servicio aplica el intervalo mínimo (token null)', async () => {
+    const { orchestrator, userService, passwordRecoveryService, emailService } = makeOrchestrator()
+    userService.findByEmail.mockResolvedValue(publicUser)
+    passwordRecoveryService.create.mockResolvedValue(null)
+
+    await expect(
+      orchestrator.requestPasswordRecovery('cliente@example.com'),
+    ).resolves.toBeUndefined()
+
+    expect(emailService.sendPasswordRecovery).not.toHaveBeenCalled()
+  })
+
+  it('no envía correo si el correo no está registrado', async () => {
+    const { orchestrator, userService, emailService } = makeOrchestrator()
+    userService.findByEmail.mockResolvedValue(null)
+
+    await orchestrator.requestPasswordRecovery('nadie@example.com')
+
+    expect(emailService.sendPasswordRecovery).not.toHaveBeenCalled()
+  })
+
+  it('absorbe el error del proveedor de correo y responde neutral', async () => {
+    const { orchestrator, userService, passwordRecoveryService, emailService } = makeOrchestrator()
+    userService.findByEmail.mockResolvedValue(publicUser)
+    passwordRecoveryService.create.mockResolvedValue('token-crudo')
+    emailService.sendPasswordRecovery.mockRejectedValue(new Error('proveedor caído'))
+
+    await expect(
+      orchestrator.requestPasswordRecovery('cliente@example.com'),
+    ).resolves.toBeUndefined()
+  })
 })
 
 describe('AuthOrchestrator.resetPassword (RQ-AUTH-10, RQ-SEC-08)', () => {
@@ -357,23 +415,22 @@ describe('AuthOrchestrator.resetPassword (RQ-AUTH-10, RQ-SEC-08)', () => {
     expect(order(userService.setPassword)).toBeLessThan(order(refreshTokenService.revokeAll))
   })
 
-  it.each([
-    { name: 'token inexistente' },
-    { name: 'token expirado' },
-    { name: 'token ya usado' },
-  ])('rechaza $name con INVALID_OR_EXPIRED_TOKEN 400 sin cambiar la contraseña', async () => {
-    const { orchestrator, userService, passwordRecoveryService, refreshTokenService } =
-      makeOrchestrator()
-    passwordRecoveryService.consume.mockRejectedValue(invalidOrExpiredTokenError())
+  it.each([{ name: 'token inexistente' }, { name: 'token expirado' }, { name: 'token ya usado' }])(
+    'rechaza $name con INVALID_OR_EXPIRED_TOKEN 400 sin cambiar la contraseña',
+    async () => {
+      const { orchestrator, userService, passwordRecoveryService, refreshTokenService } =
+        makeOrchestrator()
+      passwordRecoveryService.consume.mockRejectedValue(invalidOrExpiredTokenError())
 
-    await expect(
-      orchestrator.resetPassword('token-crudo', 'nueva-clave-123'),
-    ).rejects.toMatchObject({
-      code: ERROR_CODES.invalidOrExpiredToken,
-      message: 'Token inválido o expirado',
-      status: 400,
-    })
-    expect(userService.setPassword).not.toHaveBeenCalled()
-    expect(refreshTokenService.revokeAll).not.toHaveBeenCalled()
-  })
+      await expect(
+        orchestrator.resetPassword('token-crudo', 'nueva-clave-123'),
+      ).rejects.toMatchObject({
+        code: ERROR_CODES.invalidOrExpiredToken,
+        message: 'Token inválido o expirado',
+        status: 400,
+      })
+      expect(userService.setPassword).not.toHaveBeenCalled()
+      expect(refreshTokenService.revokeAll).not.toHaveBeenCalled()
+    },
+  )
 })
