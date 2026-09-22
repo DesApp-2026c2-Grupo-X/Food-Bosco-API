@@ -83,6 +83,7 @@ export class AuthOrchestrator {
         to: user.email,
         firstName: user.firstName,
         token,
+        role: user.role,
       })
     } catch {
       this.logger.warn(`No se pudo enviar el correo de recuperación a ${user.email}`)

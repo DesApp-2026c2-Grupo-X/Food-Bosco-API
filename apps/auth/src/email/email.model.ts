@@ -1,3 +1,5 @@
+import type { Role } from '../config/constants'
+
 export interface EmailMessage {
   to: string
   subject: string
@@ -16,6 +18,7 @@ export interface PasswordRecoveryEmailData {
   to: string
   firstName: string
   token: string
+  role: Role
 }
 
 export const EMAIL_PROVIDER = 'EMAIL_PROVIDER'

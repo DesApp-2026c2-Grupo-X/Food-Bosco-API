@@ -17,7 +17,10 @@ const MANAGED_KEYS = [
   'EMAIL_PROVIDER',
   'EMAIL_FROM',
   'RESEND_API_KEY',
-  'FRONTEND_URL',
+  'STORE_URL',
+  'ADMIN_URL',
+  'BRANCH_URL',
+  'RIDER_URL',
   'PASSWORD_RESET_PATH',
   'SEED_SUPER_ADMIN_EMAIL',
   'SEED_CUSTOMER_EMAIL',
@@ -215,7 +218,12 @@ describe('env — configuración de email', () => {
     expect(env.email.provider).toBe('log')
     expect(env.email.resendApiKey).toBe('')
     expect(env.email.from).toBe('Food Bosco <no-reply@foodbosco.local>')
-    expect(env.email.frontendUrl).toBe('http://localhost:3000')
+    expect(env.email.frontendUrls).toEqual({
+      customer: 'http://localhost:5173',
+      super_admin: 'http://localhost:5174',
+      branch_admin: 'http://localhost:5175',
+      rider: 'http://localhost:5176',
+    })
     expect(env.email.passwordResetPath).toBe('/reset-password')
   })
 
@@ -230,7 +238,10 @@ describe('env — configuración de email', () => {
       EMAIL_PROVIDER: 'resend',
       EMAIL_FROM: 'No Reply <no-reply@foodbosco.com>',
       RESEND_API_KEY: 'sk_test',
-      FRONTEND_URL: 'https://app.foodbosco.com',
+      STORE_URL: 'https://foodbosco.com',
+      ADMIN_URL: 'https://admin.foodbosco.com',
+      BRANCH_URL: 'https://sucursal.foodbosco.com',
+      RIDER_URL: 'https://rider.foodbosco.com',
       PASSWORD_RESET_PATH: '/auth/reset',
       PASSWORD_RECOVERY_MIN_INTERVAL: '30s',
     })
@@ -238,7 +249,12 @@ describe('env — configuración de email', () => {
     expect(env.email.provider).toBe('resend')
     expect(env.email.from).toBe('No Reply <no-reply@foodbosco.com>')
     expect(env.email.resendApiKey).toBe('sk_test')
-    expect(env.email.frontendUrl).toBe('https://app.foodbosco.com')
+    expect(env.email.frontendUrls).toEqual({
+      customer: 'https://foodbosco.com',
+      super_admin: 'https://admin.foodbosco.com',
+      branch_admin: 'https://sucursal.foodbosco.com',
+      rider: 'https://rider.foodbosco.com',
+    })
     expect(env.email.passwordResetPath).toBe('/auth/reset')
     expect(env.passwordRecoveryMinIntervalMs).toBe(30_000)
   })

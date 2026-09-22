@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
-import { ERROR_CODES } from '../config/constants'
+import { ERROR_CODES, type Role } from '../config/constants'
 import { env } from '../config/env'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { EMAIL_PROVIDER, type EmailProvider, type PasswordRecoveryEmailData } from './email.model'
@@ -11,11 +11,16 @@ export class EmailService {
 
   constructor(@Inject(EMAIL_PROVIDER) private readonly provider: EmailProvider) {}
 
-  async sendPasswordRecovery({ to, firstName, token }: PasswordRecoveryEmailData): Promise<void> {
+  async sendPasswordRecovery({
+    to,
+    firstName,
+    token,
+    role,
+  }: PasswordRecoveryEmailData): Promise<void> {
     const message = buildPasswordRecoveryEmail({
       to,
       firstName,
-      resetUrl: this.buildPasswordResetUrl(token),
+      resetUrl: this.buildPasswordResetUrl(token, role),
       expiresInMinutes: Math.max(1, Math.round(env.passwordRecoveryTtlMs / 60_000)),
     })
 
@@ -31,8 +36,8 @@ export class EmailService {
     }
   }
 
-  buildPasswordResetUrl(token: string): string {
-    const base = env.email.frontendUrl.replace(/\/+$/, '')
+  buildPasswordResetUrl(token: string, role: Role): string {
+    const base = env.email.frontendUrls[role].replace(/\/+$/, '')
     const path = env.email.passwordResetPath.startsWith('/')
       ? env.email.passwordResetPath
       : `/${env.email.passwordResetPath}`

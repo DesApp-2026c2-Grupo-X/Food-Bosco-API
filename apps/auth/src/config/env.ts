@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import type { Role } from './constants'
 
 const toNumber = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value)
@@ -39,8 +40,13 @@ export const env = {
     provider: process.env.EMAIL_PROVIDER ?? 'log',
     from: process.env.EMAIL_FROM ?? 'Food Bosco <no-reply@foodbosco.local>',
     resendApiKey: process.env.RESEND_API_KEY ?? '',
-    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     passwordResetPath: process.env.PASSWORD_RESET_PATH ?? '/reset-password',
+    frontendUrls: {
+      customer: process.env.STORE_URL ?? 'http://localhost:5173',
+      super_admin: process.env.ADMIN_URL ?? 'http://localhost:5174',
+      branch_admin: process.env.BRANCH_URL ?? 'http://localhost:5175',
+      rider: process.env.RIDER_URL ?? 'http://localhost:5176',
+    } satisfies Record<Role, string>,
   },
   seed: {
     superAdminEmail: process.env.SEED_SUPER_ADMIN_EMAIL ?? 'admin@foodbosco.local',

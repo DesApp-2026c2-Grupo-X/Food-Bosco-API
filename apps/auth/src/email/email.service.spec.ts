@@ -1,4 +1,4 @@
-import { ERROR_CODES } from '../config/constants'
+import { ERROR_CODES, ROLES } from '../config/constants'
 import { env } from '../config/env'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { EmailService } from './email.service'
@@ -11,21 +11,34 @@ const makeService = () => {
 }
 
 describe('EmailService.buildPasswordResetUrl', () => {
-  it('construye la URL a partir de la configuración del backend', () => {
+  it('construye la URL del store a partir de la configuración del backend', () => {
     const { service } = makeService()
 
-    const url = service.buildPasswordResetUrl('token-crudo')
+    const url = service.buildPasswordResetUrl('token-crudo', ROLES.customer)
 
-    expect(url).toBe(`${env.email.frontendUrl}/reset-password?token=token-crudo`)
+    expect(url).toBe(`${env.email.frontendUrls.customer}/reset-password?token=token-crudo`)
+  })
+
+  it.each([
+    { role: ROLES.customer, base: env.email.frontendUrls.customer },
+    { role: ROLES.superAdmin, base: env.email.frontendUrls.super_admin },
+    { role: ROLES.branchAdmin, base: env.email.frontendUrls.branch_admin },
+    { role: ROLES.rider, base: env.email.frontendUrls.rider },
+  ])('resuelve la base del frontend según el rol $role', ({ role, base }) => {
+    const { service } = makeService()
+
+    const url = service.buildPasswordResetUrl('t', role)
+
+    expect(url).toBe(`${base}/reset-password?token=t`)
   })
 
   it('codifica el token para que no rompa la query string', () => {
     const { service } = makeService()
 
-    const url = service.buildPasswordResetUrl('a b/c+d?e')
+    const url = service.buildPasswordResetUrl('a b/c+d?e', ROLES.customer)
 
     expect(url).toBe(
-      `${env.email.frontendUrl}/reset-password?token=${encodeURIComponent('a b/c+d?e')}`,
+      `${env.email.frontendUrls.customer}/reset-password?token=${encodeURIComponent('a b/c+d?e')}`,
     )
   })
 })
@@ -38,20 +51,46 @@ describe('EmailService.sendPasswordRecovery', () => {
       to: 'cliente@example.com',
       firstName: 'Juan',
       token: 'token-crudo',
+      role: ROLES.customer,
     })
 
     expect(send).toHaveBeenCalledTimes(1)
     const message = send.mock.calls[0][0]
     expect(message.to).toBe('cliente@example.com')
     expect(message.subject).toContain('contraseña')
-    expect(message.html).toContain(`${env.email.frontendUrl}/reset-password?token=token-crudo`)
-    expect(message.text).toContain(`${env.email.frontendUrl}/reset-password?token=token-crudo`)
+    expect(message.html).toContain(
+      `${env.email.frontendUrls.customer}/reset-password?token=token-crudo`,
+    )
+    expect(message.text).toContain(
+      `${env.email.frontendUrls.customer}/reset-password?token=token-crudo`,
+    )
+  })
+
+  it('envía el enlace al frontend que corresponde al rol', async () => {
+    const { send, service } = makeService()
+
+    await service.sendPasswordRecovery({
+      to: 'admin@example.com',
+      firstName: 'Ada',
+      token: 'token-admin',
+      role: ROLES.superAdmin,
+    })
+
+    const message = send.mock.calls[0][0]
+    expect(message.text).toContain(
+      `${env.email.frontendUrls.super_admin}/reset-password?token=token-admin`,
+    )
   })
 
   it('incluye el nombre del usuario en el cuerpo del correo', async () => {
     const { send, service } = makeService()
 
-    await service.sendPasswordRecovery({ to: 'a@b.com', firstName: 'Ana', token: 't' })
+    await service.sendPasswordRecovery({
+      to: 'a@b.com',
+      firstName: 'Ana',
+      token: 't',
+      role: ROLES.customer,
+    })
 
     const message = send.mock.calls[0][0]
     expect(message.html).toContain('Ana')
@@ -61,7 +100,12 @@ describe('EmailService.sendPasswordRecovery', () => {
   it('no expone el token crudo en el asunto', async () => {
     const { send, service } = makeService()
 
-    await service.sendPasswordRecovery({ to: 'a@b.com', firstName: 'Ana', token: 'token-secreto' })
+    await service.sendPasswordRecovery({
+      to: 'a@b.com',
+      firstName: 'Ana',
+      token: 'token-secreto',
+      role: ROLES.customer,
+    })
 
     const message = send.mock.calls[0][0]
     expect(message.subject).not.toContain('token-secreto')
@@ -72,7 +116,12 @@ describe('EmailService.sendPasswordRecovery', () => {
     const service = new EmailService({ send } as unknown as EmailProvider)
 
     await expect(
-      service.sendPasswordRecovery({ to: 'a@b.com', firstName: 'Ana', token: 't' }),
+      service.sendPasswordRecovery({
+        to: 'a@b.com',
+        firstName: 'Ana',
+        token: 't',
+        role: ROLES.customer,
+      }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.emailSendFailed,
       message: 'No se pudo enviar el correo de recuperación',
@@ -85,7 +134,12 @@ describe('EmailService.sendPasswordRecovery', () => {
     const service = new EmailService({ send } as unknown as EmailProvider)
 
     await expect(
-      service.sendPasswordRecovery({ to: 'a@b.com', firstName: 'Ana', token: 't' }),
+      service.sendPasswordRecovery({
+        to: 'a@b.com',
+        firstName: 'Ana',
+        token: 't',
+        role: ROLES.customer,
+      }),
     ).rejects.toBeInstanceOf(DomainException)
   })
 })

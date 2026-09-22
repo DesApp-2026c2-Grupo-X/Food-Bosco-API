@@ -354,6 +354,7 @@ describe('AuthOrchestrator.requestPasswordRecovery (RQ-AUTH-09)', () => {
       to: publicUser.email,
       firstName: publicUser.firstName,
       token: 'token-crudo',
+      role: publicUser.role,
     })
   })
 
