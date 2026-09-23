@@ -12,6 +12,8 @@ const handlers: Record<string, Handler> = {
   'POST /v1/auth/login': () => ({ accessToken: 'at-login', refreshToken: 'rt-login' }),
   'POST /v1/auth/register': () => ({ accessToken: 'at-register', refreshToken: 'rt-register' }),
   'POST /v1/auth/register-rider': () => ({ accessToken: 'at-rider', refreshToken: 'rt-rider' }),
+  'POST /v1/auth/password-recovery': () => ({ ok: true }),
+  'POST /v1/auth/reset-password': () => ({ ok: true }),
   'GET /v1/me': () => ({
     id: 'u1',
     email: 'cliente@example.com',
@@ -194,5 +196,25 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
       .expect(200)
 
     expect(res.body.data.myAddresses).toEqual([{ id: 'a1', label: 'Casa' }])
+  })
+
+  it('expone requestPasswordRecovery sin requerir sesión', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/graphql')
+      .send(gql('mutation { requestPasswordRecovery(email: "a@b.com") }'))
+      .expect(200)
+
+    expect(res.body.errors).toBeUndefined()
+    expect(res.body.data.requestPasswordRecovery).toBe(true)
+  })
+
+  it('expone resetPassword sin requerir sesión', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/graphql')
+      .send(gql('mutation { resetPassword(token: "t", newPassword: "nueva-clave") }'))
+      .expect(200)
+
+    expect(res.body.errors).toBeUndefined()
+    expect(res.body.data.resetPassword).toBe(true)
   })
 })

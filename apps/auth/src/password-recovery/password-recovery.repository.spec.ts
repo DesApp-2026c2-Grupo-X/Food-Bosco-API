@@ -10,6 +10,15 @@ const chainable = <T>(result: T): Chainable<T> => ({
   exec: jest.fn().mockResolvedValue(result),
 })
 
+const sortedChainable = <T>(result: T) => {
+  const chain = {
+    sort: jest.fn(),
+    exec: jest.fn().mockResolvedValue(result),
+  }
+  chain.sort.mockReturnValue(chain)
+  return chain
+}
+
 const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): PasswordRecoveryDocument =>
   ({
     userId: 'u1',
@@ -24,6 +33,7 @@ const makeRepository = () => {
     create: jest.fn(),
     findOne: jest.fn(),
     updateOne: jest.fn(),
+    updateMany: jest.fn(),
   }
   return {
     model,
@@ -115,5 +125,50 @@ describe('PasswordRecoveryRepository.markUsedByHash (RQ-SEC-08)', () => {
 
     expect(model.updateOne).toHaveBeenCalledTimes(1)
     expect(model.updateOne).toHaveBeenCalledWith({ tokenHash }, { $set: { used: true } })
+  })
+})
+
+describe('PasswordRecoveryRepository.findLatestActiveByUser (anti-abuso)', () => {
+  it('busca el token activo más reciente del usuario', async () => {
+    const { model, repository } = makeRepository()
+    const chain = sortedChainable(buildDoc())
+    model.findOne.mockReturnValue(chain)
+
+    const result = await repository.findLatestActiveByUser('u1')
+
+    expect(model.findOne).toHaveBeenCalledWith({ userId: 'u1', used: false })
+    expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 })
+    expect(chain.exec).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ userId: 'u1' })
+  })
+
+  it('devuelve null cuando el usuario no tiene tokens activos', async () => {
+    const { model, repository } = makeRepository()
+    model.findOne.mockReturnValue(sortedChainable(null))
+
+    await expect(repository.findLatestActiveByUser('u1')).resolves.toBeNull()
+  })
+})
+
+describe('PasswordRecoveryRepository.invalidateActiveByUser (RQ-SEC-08)', () => {
+  it('marca used=true en todos los tokens activos del usuario', async () => {
+    const { model, repository } = makeRepository()
+    model.updateMany.mockReturnValue(chainable({ acknowledged: true }))
+
+    await repository.invalidateActiveByUser('u1')
+
+    expect(model.updateMany).toHaveBeenCalledWith(
+      { userId: 'u1', used: false },
+      { $set: { used: true } },
+    )
+  })
+
+  it('propaga el error de persistencia', async () => {
+    const { model, repository } = makeRepository()
+    model.updateMany.mockReturnValue({
+      exec: jest.fn().mockRejectedValue(new Error('write failed')),
+    })
+
+    await expect(repository.invalidateActiveByUser('u1')).rejects.toThrow('write failed')
   })
 })

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { JwtService } from '../config/security/jwt.service'
+import { EmailService } from '../email/email.service'
 import { PasswordRecoveryService } from '../password-recovery/password-recovery.service'
 import { RefreshTokenService } from '../refresh-token/refresh-token.service'
 import { CreateUserInput, PublicUser, UserService } from '../user/user.service'
@@ -16,11 +17,14 @@ export interface AuthTokensResponse {
 
 @Injectable()
 export class AuthOrchestrator {
+  private readonly logger = new Logger(AuthOrchestrator.name)
+
   constructor(
     private readonly userService: UserService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly passwordRecoveryService: PasswordRecoveryService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(input: RegisterDto): Promise<AuthTokensResponse> {
@@ -65,8 +69,24 @@ export class AuthOrchestrator {
 
   async requestPasswordRecovery(email: string): Promise<void> {
     const user = await this.userService.findByEmail(email)
-    if (user) {
-      await this.passwordRecoveryService.create(user.id)
+    if (!user) {
+      return
+    }
+
+    const token = await this.passwordRecoveryService.create(user.id)
+    if (!token) {
+      return
+    }
+
+    try {
+      await this.emailService.sendPasswordRecovery({
+        to: user.email,
+        firstName: user.firstName,
+        token,
+        role: user.role,
+      })
+    } catch {
+      this.logger.warn(`No se pudo enviar el correo de recuperación a ${user.email}`)
     }
   }
 

@@ -10,6 +10,7 @@ interface StoredRecoveryToken {
   tokenHash: string
   expiresAt: Date
   used: boolean
+  createdAt: Date
 }
 
 const buildDoc = (overrides: Record<string, unknown> = {}) =>
@@ -18,6 +19,7 @@ const buildDoc = (overrides: Record<string, unknown> = {}) =>
     tokenHash: 'hash-x',
     expiresAt: new Date(Date.now() + 60_000),
     used: false,
+    createdAt: new Date(Date.now() - env.passwordRecoveryMinIntervalMs - 1_000),
     ...overrides,
   }) as never
 
@@ -32,8 +34,8 @@ const expectInvalidOrExpired = async (promise: Promise<unknown>): Promise<void> 
 const makeInMemoryRepository = () => {
   const store: StoredRecoveryToken[] = []
   const repository = {
-    create: jest.fn(async (data: Omit<StoredRecoveryToken, 'used'>) => {
-      const doc: StoredRecoveryToken = { ...data, used: false }
+    create: jest.fn(async (data: Omit<StoredRecoveryToken, 'used' | 'createdAt'>) => {
+      const doc: StoredRecoveryToken = { ...data, used: false, createdAt: new Date() }
       store.push(doc)
       return doc as never
     }),
@@ -41,6 +43,19 @@ const makeInMemoryRepository = () => {
       async (tokenHash: string) =>
         (store.find((doc) => doc.tokenHash === tokenHash) as never) ?? null,
     ),
+    findLatestActiveByUser: jest.fn(async (userId: string) => {
+      const active = store
+        .filter((doc) => doc.userId === userId && !doc.used)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      return (active[0] as never) ?? null
+    }),
+    invalidateActiveByUser: jest.fn(async (userId: string) => {
+      store
+        .filter((doc) => doc.userId === userId && !doc.used)
+        .forEach((doc) => {
+          doc.used = true
+        })
+    }),
     markUsedByHash: jest.fn(async (tokenHash: string) => {
       store
         .filter((doc) => doc.tokenHash === tokenHash)
@@ -52,22 +67,28 @@ const makeInMemoryRepository = () => {
   return { store, repository }
 }
 
+const makeCreateRepository = () => ({
+  create: jest.fn().mockResolvedValue(buildDoc()),
+  findLatestActiveByUser: jest.fn().mockResolvedValue(null),
+  invalidateActiveByUser: jest.fn().mockResolvedValue(undefined),
+})
+
 describe('PasswordRecoveryService.create (RQ-AUTH-10, RQ-SEC-08)', () => {
   it('persiste el hash y devuelve el token crudo con expiración', async () => {
-    const repository = { create: jest.fn().mockResolvedValue(buildDoc()) }
+    const repository = makeCreateRepository()
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
 
     const raw = await service.create('u1')
 
     const data = repository.create.mock.calls[0][0]
     expect(data.userId).toBe('u1')
-    expect(data.tokenHash).toBe(sha256(raw))
+    expect(data.tokenHash).toBe(sha256(raw as string))
     expect(data.tokenHash).not.toBe(raw)
     expect(data.expiresAt.getTime()).toBeGreaterThan(Date.now())
   })
 
   it('calcula expiresAt como ahora + passwordRecoveryTtlMs', async () => {
-    const repository = { create: jest.fn().mockResolvedValue(buildDoc()) }
+    const repository = makeCreateRepository()
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
 
     const before = Date.now()
@@ -84,7 +105,8 @@ describe('PasswordRecoveryService.create (RQ-AUTH-10, RQ-SEC-08)', () => {
     { name: 'otro usuario', userId: 'u2' },
     { name: 'usuario desconocido', userId: 'u-otro' },
   ])('asocia el token a $name', async ({ userId }) => {
-    const repository = { create: jest.fn().mockResolvedValue(buildDoc({ userId })) }
+    const repository = makeCreateRepository()
+    repository.create.mockResolvedValue(buildDoc({ userId }))
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
 
     await service.create(userId)
@@ -92,15 +114,55 @@ describe('PasswordRecoveryService.create (RQ-AUTH-10, RQ-SEC-08)', () => {
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ userId }))
   })
 
+  it('invalida los tokens activos anteriores antes de crear el nuevo', async () => {
+    const repository = makeCreateRepository()
+    const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
+
+    await service.create('u1')
+
+    expect(repository.invalidateActiveByUser).toHaveBeenCalledWith('u1')
+    expect(repository.invalidateActiveByUser.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.create.mock.invocationCallOrder[0],
+    )
+  })
+
   it('genera un token crudo distinto en cada solicitud', async () => {
-    const repository = { create: jest.fn().mockResolvedValue(buildDoc()) }
+    const repository = makeCreateRepository()
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
 
     const first = await service.create('u1')
     const second = await service.create('u1')
 
     expect(first).not.toBe(second)
-    expect(sha256(first)).not.toBe(sha256(second))
+    expect(sha256(first as string)).not.toBe(sha256(second as string))
+  })
+
+  it('aplica el intervalo mínimo: no crea token ni invalida si hay uno reciente', async () => {
+    const repository = makeCreateRepository()
+    repository.findLatestActiveByUser.mockResolvedValue(
+      buildDoc({ createdAt: new Date(Date.now() - 1_000) }),
+    )
+    const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
+
+    const raw = await service.create('u1')
+
+    expect(raw).toBeNull()
+    expect(repository.create).not.toHaveBeenCalled()
+    expect(repository.invalidateActiveByUser).not.toHaveBeenCalled()
+  })
+
+  it('permite un nuevo token cuando el activo superó el intervalo mínimo', async () => {
+    const repository = makeCreateRepository()
+    repository.findLatestActiveByUser.mockResolvedValue(
+      buildDoc({ createdAt: new Date(Date.now() - env.passwordRecoveryMinIntervalMs - 1_000) }),
+    )
+    const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
+
+    const raw = await service.create('u1')
+
+    expect(typeof raw).toBe('string')
+    expect(repository.create).toHaveBeenCalledTimes(1)
+    expect(repository.invalidateActiveByUser).toHaveBeenCalledWith('u1')
   })
 })
 
@@ -153,7 +215,7 @@ describe('PasswordRecoveryService.consume (RQ-AUTH-10, RQ-SEC-08)', () => {
   it('un token válido es de un solo uso (con repositorio real)', async () => {
     const { repository } = makeInMemoryRepository()
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
-    const raw = await service.create('u1')
+    const raw = (await service.create('u1')) as string
 
     const userId = await service.consume(raw)
 
@@ -161,13 +223,14 @@ describe('PasswordRecoveryService.consume (RQ-AUTH-10, RQ-SEC-08)', () => {
     await expectInvalidOrExpired(service.consume(raw))
   })
 
-  it('cada token generado se consume de forma independiente', async () => {
-    const { repository } = makeInMemoryRepository()
+  it('al generar un token nuevo invalida el anterior (con repositorio real)', async () => {
+    const { store, repository } = makeInMemoryRepository()
     const service = new PasswordRecoveryService(repository as unknown as PasswordRecoveryRepository)
-    const first = await service.create('u1')
-    const second = await service.create('u1')
+    const first = (await service.create('u1')) as string
+    store[0].createdAt = new Date(Date.now() - env.passwordRecoveryMinIntervalMs - 1_000)
+    const second = (await service.create('u1')) as string
 
-    await service.consume(first)
+    await expectInvalidOrExpired(service.consume(first))
 
     await expect(service.consume(second)).resolves.toBe('u1')
   })
