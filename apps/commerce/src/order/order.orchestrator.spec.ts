@@ -430,8 +430,9 @@ describe('OrderOrchestrator.create — cálculo, snapshot y sucursal (RQ-ORD-03/
     const mocks = makeOrchestrator()
     mocks.cartService.findActiveByClient.mockResolvedValue(activeCart)
 
-    await expect(mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })).rejects
-      .toMatchObject({ code: ERROR_CODES.cartNotFound, status: 400 })
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.cartNotFound, status: 400 })
     expect(mocks.branchService.findAvailable).not.toHaveBeenCalled()
   })
 })
@@ -537,8 +538,9 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
       Object.assign(new Error('Stock insuficiente'), { code: ERROR_CODES.insufficientStock }),
     )
 
-    await expect(mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })).rejects
-      .toMatchObject({ code: ERROR_CODES.insufficientStock })
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.insufficientStock })
     expect(mocks.orderService.create).not.toHaveBeenCalled()
     expect(mocks.cartService.confirm).not.toHaveBeenCalled()
   })
@@ -549,8 +551,9 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     primeCreate(mocks)
     mocks.orderService.create.mockRejectedValue(new Error('fallo de persistencia'))
 
-    await expect(mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })).rejects
-      .toThrow('fallo de persistencia')
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toThrow('fallo de persistencia')
     expect(mocks.cartService.confirm).not.toHaveBeenCalled()
   })
 
@@ -563,8 +566,9 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     primeCreate(mocks)
     mocks.productService.findByIds.mockResolvedValue(products)
 
-    await expect(mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })).rejects
-      .toMatchObject({ code: ERROR_CODES.productUnavailable, status: 400 })
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.productUnavailable, status: 400 })
     expect(mocks.stockService.validateAvailability).not.toHaveBeenCalled()
     expect(mocks.orderService.create).not.toHaveBeenCalled()
   })
@@ -574,12 +578,18 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     { name: 'opción pausada', optionIds: ['opt2'] },
   ])('$name → configuración no disponible', async ({ optionIds }) => {
     const mocks = makeOrchestrator()
-    mocks.cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem({ optionIds })] }))
+    mocks.cartService.findActiveByClient.mockResolvedValue(
+      cart({ items: [cartItem({ optionIds })] }),
+    )
     primeCreate(mocks)
     mocks.productService.findByIds.mockResolvedValue([optionProduct()])
 
-    await expect(mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })).rejects
-      .toMatchObject({ code: ERROR_CODES.productUnavailable, message: 'Configuración no disponible' })
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.productUnavailable,
+      message: 'Configuración no disponible',
+    })
     expect(mocks.orderService.create).not.toHaveBeenCalled()
   })
 })
@@ -624,7 +634,10 @@ describe('OrderOrchestrator.changeStatus — descuento, evento e idempotencia (R
   ])('$name → descuento de stock = $expectedDiscount', async ({ status, expectedDiscount }) => {
     const mocks = makeOrchestrator()
     mocks.orderService.findById.mockResolvedValue(order({ status: ORDER_STATUS.confirmed }))
-    mocks.orderService.applyTransition.mockResolvedValue({ order: order({ status }), changed: true })
+    mocks.orderService.applyTransition.mockResolvedValue({
+      order: order({ status }),
+      changed: true,
+    })
     mocks.productService.findByIds.mockResolvedValue([product()])
     mocks.branchService.findById.mockResolvedValue(branch())
 
@@ -732,7 +745,11 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
       order({
         clientId: 'c1',
         items: [
-          orderItem('p1', { quantity: 2, observations: 'sin sal', options: [{ optionId: 'opt1', name: 'Doble', extraPrice: 50 }] }),
+          orderItem('p1', {
+            quantity: 2,
+            observations: 'sin sal',
+            options: [{ optionId: 'opt1', name: 'Doble', extraPrice: 50 }],
+          }),
           orderItem('p2'),
           orderItem('missing'),
         ],

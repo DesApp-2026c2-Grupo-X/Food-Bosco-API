@@ -277,7 +277,11 @@ describe('DeliveryOrderService.claimableForRider: inicialización y límites de 
     const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
-    const result = await service.claimableForRider('u1', now, ctx({ eligibleNear: jest.fn().mockResolvedValue(['u1', 'u2']) }))
+    const result = await service.claimableForRider(
+      'u1',
+      now,
+      ctx({ eligibleNear: jest.fn().mockResolvedValue(['u1', 'u2']) }),
+    )
 
     expect(result).toHaveLength(1)
     expect(doc.rotationRoster).toEqual(['u1', 'u2'])
@@ -290,7 +294,11 @@ describe('DeliveryOrderService.claimableForRider: inicialización y límites de 
     const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
-    const result = await service.claimableForRider('u1', now, ctx({ eligibleNear: jest.fn().mockResolvedValue([]) }))
+    const result = await service.claimableForRider(
+      'u1',
+      now,
+      ctx({ eligibleNear: jest.fn().mockResolvedValue([]) }),
+    )
 
     expect(result).toHaveLength(0)
     expect(doc.rotationRoster).toBeNull()
@@ -332,7 +340,10 @@ describe('DeliveryOrderService.claimableForRider: inicialización y límites de 
     const result = await service.claimableForRider(
       'u3',
       now,
-      ctx({ isActive: jest.fn().mockResolvedValue(false), eligibleNear: jest.fn().mockResolvedValue([]) }),
+      ctx({
+        isActive: jest.fn().mockResolvedValue(false),
+        eligibleNear: jest.fn().mockResolvedValue([]),
+      }),
     )
 
     expect(result).toHaveLength(0)

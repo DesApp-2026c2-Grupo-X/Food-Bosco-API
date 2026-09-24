@@ -70,25 +70,38 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
 
   describe('fallback cuando el servicio no envía code', () => {
     const cases: Array<{ name: string; query: string; role: string; service: string }> = [
-      { name: 'Commerce', query: 'query { order(id: "o1") { id } }', role: 'customer', service: 'commerce' },
+      {
+        name: 'Commerce',
+        query: 'query { order(id: "o1") { id } }',
+        role: 'customer',
+        service: 'commerce',
+      },
       { name: 'Auth', query: 'query { me { id } }', role: 'customer', service: 'auth' },
-      { name: 'Delivery', query: 'query { riderProfile { id } }', role: 'rider', service: 'delivery' },
+      {
+        name: 'Delivery',
+        query: 'query { riderProfile { id } }',
+        role: 'rider',
+        service: 'delivery',
+      },
     ]
 
-    it.each(cases)('$name sin body de error → INTERNAL_SERVER_ERROR', async ({ query, role, service }) => {
-      failure = { status: 500, body: { message: 'sin code' } }
-      const token = signToken({ userId: 'u1', roles: [role] })
+    it.each(cases)(
+      '$name sin body de error → INTERNAL_SERVER_ERROR',
+      async ({ query, role, service }) => {
+        failure = { status: 500, body: { message: 'sin code' } }
+        const token = signToken({ userId: 'u1', roles: [role] })
 
-      const res = await request(app.getHttpServer())
-        .post('/graphql')
-        .set('Authorization', `Bearer ${token}`)
-        .send(gql(query))
-        .expect(200)
+        const res = await request(app.getHttpServer())
+          .post('/graphql')
+          .set('Authorization', `Bearer ${token}`)
+          .send(gql(query))
+          .expect(200)
 
-      const body = res.body as GraphQLBody
-      expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
-      expect(body.errors?.[0].message).toBe(`${service} devolvió HTTP 500`)
-    })
+        const body = res.body as GraphQLBody
+        expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
+        expect(body.errors?.[0].message).toBe(`${service} devolvió HTTP 500`)
+      },
+    )
   })
 
   it('propaga el code y message de un 409 leído por el mismo cliente GraphQL', async () => {

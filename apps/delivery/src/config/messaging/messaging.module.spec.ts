@@ -6,8 +6,7 @@ import { InProcessTransport } from './in-process.transport'
 import { MessagingModule } from './messaging.module'
 import { RabbitTransport } from './rabbit.transport'
 
-const transportOf = (bus: EventBus): unknown =>
-  (bus as unknown as { transport: unknown }).transport
+const transportOf = (bus: EventBus): unknown => (bus as unknown as { transport: unknown }).transport
 
 const event: OrderStatusChangedEvent = {
   type: 'order.status_changed',

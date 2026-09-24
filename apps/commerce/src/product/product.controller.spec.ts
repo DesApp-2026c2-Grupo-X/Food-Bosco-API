@@ -78,9 +78,21 @@ const makeController = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
 
 describe('ProductController.list — visibilidad por rol (RQ-CAT-05)', () => {
   it.each([
-    { name: 'público anónimo sólo ve disponibles', roles: [] as AuthContext['roles'], expected: true },
-    { name: 'branch_admin no es admin global, sólo ve disponibles', roles: [ROLES.branchAdmin] as AuthContext['roles'], expected: true },
-    { name: 'super_admin ve todos por defecto', roles: [ROLES.superAdmin] as AuthContext['roles'], expected: undefined },
+    {
+      name: 'público anónimo sólo ve disponibles',
+      roles: [] as AuthContext['roles'],
+      expected: true,
+    },
+    {
+      name: 'branch_admin no es admin global, sólo ve disponibles',
+      roles: [ROLES.branchAdmin] as AuthContext['roles'],
+      expected: true,
+    },
+    {
+      name: 'super_admin ve todos por defecto',
+      roles: [ROLES.superAdmin] as AuthContext['roles'],
+      expected: undefined,
+    },
   ])('$name', async ({ roles, expected }) => {
     const { service, controller } = makeController()
 
@@ -108,7 +120,12 @@ describe('ProductController.list — visibilidad por rol (RQ-CAT-05)', () => {
   it('propaga los filtros explícitos', async () => {
     const { service, controller } = makeController()
 
-    await controller.list(auth([ROLES.superAdmin]), { categoryId: 'cat1', search: 'bur', limit: 5, offset: 10 })
+    await controller.list(auth([ROLES.superAdmin]), {
+      categoryId: 'cat1',
+      search: 'bur',
+      limit: 5,
+      offset: 10,
+    })
 
     expect(service.list).toHaveBeenCalledWith({
       categoryId: 'cat1',
@@ -148,31 +165,41 @@ describe('ProductController.get / update / setAvailable — PRODUCT_NOT_FOUND', 
     {
       name: 'update',
       run: (controller: ProductController) => controller.update('missing', { price: 1 }),
-      overrides: { findById: jest.fn().mockResolvedValue(buildProduct()), update: jest.fn().mockResolvedValue(null) },
+      overrides: {
+        findById: jest.fn().mockResolvedValue(buildProduct()),
+        update: jest.fn().mockResolvedValue(null),
+      },
     },
     {
       name: 'setAvailable',
-      run: (controller: ProductController) => controller.setAvailable('missing', { available: false }),
-      overrides: { findById: jest.fn().mockResolvedValue(buildProduct()), setAvailable: jest.fn().mockResolvedValue(null) },
+      run: (controller: ProductController) =>
+        controller.setAvailable('missing', { available: false }),
+      overrides: {
+        findById: jest.fn().mockResolvedValue(buildProduct()),
+        setAvailable: jest.fn().mockResolvedValue(null),
+      },
     },
-  ] as Array<{ name: string; run: (controller: ProductController) => Promise<unknown>; overrides: Partial<Record<string, jest.Mock>> }>)(
-    'lanza PRODUCT_NOT_FOUND 404 en $name',
-    async ({ run, overrides }) => {
-      const { controller } = makeController(overrides)
+  ] as Array<{
+    name: string
+    run: (controller: ProductController) => Promise<unknown>
+    overrides: Partial<Record<string, jest.Mock>>
+  }>)('lanza PRODUCT_NOT_FOUND 404 en $name', async ({ run, overrides }) => {
+    const { controller } = makeController(overrides)
 
-      await expect(run(controller)).rejects.toMatchObject({
-        code: ERROR_CODES.productNotFound,
-        message: 'Producto no encontrado',
-        status: 404,
-      })
-    },
-  )
+    await expect(run(controller)).rejects.toMatchObject({
+      code: ERROR_CODES.productNotFound,
+      message: 'Producto no encontrado',
+      status: 404,
+    })
+  })
 })
 
 describe('ProductController — configuraciones (RQ-CAT-06/07)', () => {
   it('lista las configuraciones del producto existente', async () => {
     const group = buildGroup()
-    const { controller } = makeController({ findById: jest.fn().mockResolvedValue(buildProduct({ configGroups: [group] })) })
+    const { controller } = makeController({
+      findById: jest.fn().mockResolvedValue(buildProduct({ configGroups: [group] })),
+    })
 
     await expect(controller.listConfigurations('p1')).resolves.toEqual([group])
   })
@@ -205,7 +232,11 @@ describe('ProductController — configuraciones (RQ-CAT-06/07)', () => {
     })
 
     await expect(
-      controller.createConfigGroup('p1', { name: 'X', type: CONFIG_GROUP_TYPE.single, required: true }),
+      controller.createConfigGroup('p1', {
+        name: 'X',
+        type: CONFIG_GROUP_TYPE.single,
+        required: true,
+      }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.productNotFound,
       message: 'Producto no encontrado',
@@ -216,7 +247,8 @@ describe('ProductController — configuraciones (RQ-CAT-06/07)', () => {
   it.each([
     {
       name: 'updateConfigGroup',
-      run: (controller: ProductController) => controller.updateConfigGroup('p1', 'missing', { name: 'X' }),
+      run: (controller: ProductController) =>
+        controller.updateConfigGroup('p1', 'missing', { name: 'X' }),
       overrides: { updateConfigGroup: jest.fn().mockResolvedValue(null) },
       code: ERROR_CODES.configGroupNotFound,
       message: 'Grupo no encontrado',
@@ -230,7 +262,8 @@ describe('ProductController — configuraciones (RQ-CAT-06/07)', () => {
     },
     {
       name: 'createConfigOption',
-      run: (controller: ProductController) => controller.createConfigOption('p1', 'missing', { name: 'X', extraPrice: 1 }),
+      run: (controller: ProductController) =>
+        controller.createConfigOption('p1', 'missing', { name: 'X', extraPrice: 1 }),
       overrides: { addConfigOption: jest.fn().mockResolvedValue(null) },
       code: ERROR_CODES.configGroupNotFound,
       message: 'Grupo no encontrado',
@@ -242,7 +275,10 @@ describe('ProductController — configuraciones (RQ-CAT-06/07)', () => {
     code: string
     message: string
   }>)('lanza $code 404 en $name', async ({ run, overrides, code, message }) => {
-    const { controller } = makeController({ findById: jest.fn().mockResolvedValue(buildProduct()), ...overrides })
+    const { controller } = makeController({
+      findById: jest.fn().mockResolvedValue(buildProduct()),
+      ...overrides,
+    })
 
     await expect(run(controller)).rejects.toMatchObject({ code, message, status: 404 })
   })
@@ -288,14 +324,19 @@ describe('ProductController — opciones (RQ-CAT-08)', () => {
       updateConfigOption: jest.fn().mockResolvedValue(option),
     })
 
-    await expect(controller.updateConfigOption('p1', 'g1', 'opt1', { available: false })).resolves.toBe(option)
-    expect(service.updateConfigOption).toHaveBeenCalledWith('p1', 'g1', 'opt1', { available: false })
+    await expect(
+      controller.updateConfigOption('p1', 'g1', 'opt1', { available: false }),
+    ).resolves.toBe(option)
+    expect(service.updateConfigOption).toHaveBeenCalledWith('p1', 'g1', 'opt1', {
+      available: false,
+    })
   })
 
   it.each([
     {
       name: 'updateConfigOption',
-      run: (controller: ProductController) => controller.updateConfigOption('p1', 'g1', 'missing', { name: 'X' }),
+      run: (controller: ProductController) =>
+        controller.updateConfigOption('p1', 'g1', 'missing', { name: 'X' }),
       overrides: { updateConfigOption: jest.fn().mockResolvedValue(null) },
     },
     {
@@ -303,18 +344,22 @@ describe('ProductController — opciones (RQ-CAT-08)', () => {
       run: (controller: ProductController) => controller.removeConfigOption('p1', 'g1', 'missing'),
       overrides: { removeConfigOption: jest.fn().mockResolvedValue(false) },
     },
-  ] as Array<{ name: string; run: (controller: ProductController) => Promise<unknown>; overrides: Partial<Record<string, jest.Mock>> }>)(
-    'lanza CONFIG_OPTION_NOT_FOUND 404 en $name',
-    async ({ run, overrides }) => {
-      const { controller } = makeController({ findById: jest.fn().mockResolvedValue(buildProduct()), ...overrides })
+  ] as Array<{
+    name: string
+    run: (controller: ProductController) => Promise<unknown>
+    overrides: Partial<Record<string, jest.Mock>>
+  }>)('lanza CONFIG_OPTION_NOT_FOUND 404 en $name', async ({ run, overrides }) => {
+    const { controller } = makeController({
+      findById: jest.fn().mockResolvedValue(buildProduct()),
+      ...overrides,
+    })
 
-      await expect(run(controller)).rejects.toMatchObject({
-        code: ERROR_CODES.configOptionNotFound,
-        message: 'Opción no encontrada',
-        status: 404,
-      })
-    },
-  )
+    await expect(run(controller)).rejects.toMatchObject({
+      code: ERROR_CODES.configOptionNotFound,
+      message: 'Opción no encontrada',
+      status: 404,
+    })
+  })
 
   it('elimina la opción y devuelve { ok: true }', async () => {
     const { controller } = makeController({
@@ -356,14 +401,16 @@ describe('ProductController — receta (RQ-CAT-11/12)', () => {
     },
     {
       name: 'addRecipeItem',
-      run: (controller: ProductController) => controller.addRecipeItem('p1', { ingredientId: 'ing1', quantity: 1 }),
+      run: (controller: ProductController) =>
+        controller.addRecipeItem('p1', { ingredientId: 'ing1', quantity: 1 }),
       overrides: { addRecipeItem: jest.fn().mockResolvedValue(null) },
       code: ERROR_CODES.productNotFound,
       message: 'Producto no encontrado',
     },
     {
       name: 'updateRecipeItem',
-      run: (controller: ProductController) => controller.updateRecipeItem('p1', 'missing', { ingredientId: 'ing1', quantity: 1 }),
+      run: (controller: ProductController) =>
+        controller.updateRecipeItem('p1', 'missing', { ingredientId: 'ing1', quantity: 1 }),
       overrides: { updateRecipeItem: jest.fn().mockResolvedValue(null) },
       code: ERROR_CODES.recipeItemNotFound,
       message: 'Ítem de receta no encontrado',
@@ -382,7 +429,10 @@ describe('ProductController — receta (RQ-CAT-11/12)', () => {
     code: string
     message: string
   }>)('lanza $code 404 en $name', async ({ run, overrides, code, message }) => {
-    const { controller } = makeController({ findById: jest.fn().mockResolvedValue(buildProduct()), ...overrides })
+    const { controller } = makeController({
+      findById: jest.fn().mockResolvedValue(buildProduct()),
+      ...overrides,
+    })
 
     await expect(run(controller)).rejects.toMatchObject({ code, message, status: 404 })
   })
@@ -403,7 +453,10 @@ describe('ProductController — receta (RQ-CAT-11/12)', () => {
 
 describe('ProductController — requireProduct en subrutas', () => {
   it.each([
-    { name: 'configuraciones', run: (controller: ProductController) => controller.listConfigurations('missing') },
+    {
+      name: 'configuraciones',
+      run: (controller: ProductController) => controller.listConfigurations('missing'),
+    },
     { name: 'receta', run: (controller: ProductController) => controller.getRecipe('missing') },
     {
       name: 'setReceta',
@@ -414,7 +467,10 @@ describe('ProductController — requireProduct en subrutas', () => {
     async ({ run }) => {
       const { controller } = makeController({ findById: jest.fn().mockResolvedValue(null) })
 
-      await expect(run(controller)).rejects.toMatchObject({ code: ERROR_CODES.productNotFound, status: 404 })
+      await expect(run(controller)).rejects.toMatchObject({
+        code: ERROR_CODES.productNotFound,
+        status: 404,
+      })
     },
   )
 })

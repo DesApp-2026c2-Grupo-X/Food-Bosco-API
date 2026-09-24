@@ -6,7 +6,9 @@ import { PromotionService } from './promotion.service'
 const emptyList: PromotionListResponse = { data: [], meta: { total: 0, limit: 20, offset: 0 } }
 
 const makeController = (
-  overrides: Partial<Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>> = {},
+  overrides: Partial<
+    Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>
+  > = {},
 ) => {
   const service = {
     list: jest.fn().mockResolvedValue(emptyList),

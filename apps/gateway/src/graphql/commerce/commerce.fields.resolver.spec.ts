@@ -23,8 +23,11 @@ const asRecipeItem = (ingredientId: string): RecipeItem =>
   ({ ingredientId }) as unknown as RecipeItem
 const asCartItem = (productId: string, optionIds: string[]): CartItem =>
   ({ productId, optionIds }) as unknown as CartItem
-const asOrder = (fields: { clientId?: string; branchId?: string; riderId?: string | null }): Order =>
-  fields as unknown as Order
+const asOrder = (fields: {
+  clientId?: string
+  branchId?: string
+  riderId?: string | null
+}): Order => fields as unknown as Order
 const asBranchStock = (ingredientId: string): BranchStock =>
   ({ ingredientId }) as unknown as BranchStock
 
@@ -238,11 +241,7 @@ describe('OrderFieldResolver.client', () => {
     const commerce = makeRest()
     const auth = makeRest()
     const delivery = makeRest()
-    const resolver = new OrderFieldResolver(
-      asClient(commerce),
-      asClient(auth),
-      asClient(delivery),
-    )
+    const resolver = new OrderFieldResolver(asClient(commerce), asClient(auth), asClient(delivery))
     return { auth, resolver }
   }
 
@@ -296,11 +295,7 @@ describe('OrderFieldResolver.branch', () => {
     const commerce = makeRest()
     const auth = makeRest()
     const delivery = makeRest()
-    const resolver = new OrderFieldResolver(
-      asClient(commerce),
-      asClient(auth),
-      asClient(delivery),
-    )
+    const resolver = new OrderFieldResolver(asClient(commerce), asClient(auth), asClient(delivery))
     return { commerce, resolver }
   }
 
@@ -328,11 +323,7 @@ describe('OrderFieldResolver.riderLocation', () => {
     const commerce = makeRest()
     const auth = makeRest()
     const delivery = makeRest()
-    const resolver = new OrderFieldResolver(
-      asClient(commerce),
-      asClient(auth),
-      asClient(delivery),
-    )
+    const resolver = new OrderFieldResolver(asClient(commerce), asClient(auth), asClient(delivery))
     return { delivery, resolver }
   }
 

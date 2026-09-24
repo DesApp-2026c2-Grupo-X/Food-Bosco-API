@@ -163,8 +163,14 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
     mainProductId = await createProduct('Hamburguesa principal', category.body.id as string)
     branchProductId = await createProduct('Hamburguesa de sucursal', category.body.id as string)
     lowStockProductId = await createProduct('Hamburguesa escasa', category.body.id as string)
-    repeatAvailableProductId = await createProduct('Hamburguesa repetible', category.body.id as string)
-    repeatGoneProductId = await createProduct('Hamburguesa discontinuada', category.body.id as string)
+    repeatAvailableProductId = await createProduct(
+      'Hamburguesa repetible',
+      category.body.id as string,
+    )
+    repeatGoneProductId = await createProduct(
+      'Hamburguesa discontinuada',
+      category.body.id as string,
+    )
     matrixProductId = await createProduct('Hamburguesa de estados', category.body.id as string)
 
     await setRecipe(mainProductId, 2)
@@ -196,7 +202,11 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
   const addCartItem = (
     token: string,
     body: { productId: string; quantity: number; optionIds?: string[]; observations?: string },
-  ) => http().post('/v1/carts/items').set(...auth(token)).send(body)
+  ) =>
+    http()
+      .post('/v1/carts/items')
+      .set(...auth(token))
+      .send(body)
 
   const createPendingOrder = async (customerId: string): Promise<string> => {
     const token = customerToken(customerId)
@@ -272,10 +282,16 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
 
       expect(res.body.code).toBe('INSUFFICIENT_STOCK')
 
-      const orders = await http().get('/v1/orders').set(...auth(token)).expect(200)
+      const orders = await http()
+        .get('/v1/orders')
+        .set(...auth(token))
+        .expect(200)
       expect(orders.body.data).toHaveLength(0)
 
-      const cart = await http().get('/v1/carts').set(...auth(token)).expect(200)
+      const cart = await http()
+        .get('/v1/carts')
+        .set(...auth(token))
+        .expect(200)
       expect(cart.body.items).toHaveLength(1)
     })
 
@@ -337,13 +353,7 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
     it('recorre toda la cadena válida Pendiente → Entregado', async () => {
       const orderId = await createPendingOrder('cust-matrix-valid')
       const admin = branchAdminTokenFor(branchId)
-      const chain = [
-        'confirmed',
-        'preparing',
-        'ready_for_delivery',
-        'on_the_way',
-        'delivered',
-      ]
+      const chain = ['confirmed', 'preparing', 'ready_for_delivery', 'on_the_way', 'delivered']
 
       for (const status of chain) {
         const res = await http()
@@ -526,7 +536,10 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
 
   describe('actualización y eliminación de ítems (RQ-CART-04/05/06/07)', () => {
     const patchItem = (token: string, itemId: string, body: Record<string, unknown>) =>
-      http().patch(`/v1/carts/items/${itemId}`).set(...auth(token)).send(body)
+      http()
+        .patch(`/v1/carts/items/${itemId}`)
+        .set(...auth(token))
+        .send(body)
 
     it('recalcula el total en el servidor al actualizar cantidad, opciones y quitar', async () => {
       const token = customerToken('cust-cart')
@@ -583,7 +596,11 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
       const token = customerToken('cust-duplicate')
       await addCartItem(token, { productId: mainProductId, quantity: 1 }).expect(201)
 
-      await http().post('/v1/orders').set(...auth(token)).send(deliveryAddress).expect(201)
+      await http()
+        .post('/v1/orders')
+        .set(...auth(token))
+        .send(deliveryAddress)
+        .expect(201)
 
       const res = await http()
         .post('/v1/orders')
@@ -593,7 +610,10 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
 
       expect(res.body.code).toBe('CART_NOT_FOUND')
 
-      const orders = await http().get('/v1/orders').set(...auth(token)).expect(200)
+      const orders = await http()
+        .get('/v1/orders')
+        .set(...auth(token))
+        .expect(200)
       expect(orders.body.data).toHaveLength(1)
     })
   })

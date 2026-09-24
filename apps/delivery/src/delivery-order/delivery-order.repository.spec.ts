@@ -9,9 +9,7 @@ const makeRepository = () => {
     find: jest.fn(),
     updateMany: jest.fn(),
   }
-  const repository = new DeliveryOrderRepository(
-    model as unknown as Model<DeliveryOrderDocument>,
-  )
+  const repository = new DeliveryOrderRepository(model as unknown as Model<DeliveryOrderDocument>)
   return { repository, model }
 }
 

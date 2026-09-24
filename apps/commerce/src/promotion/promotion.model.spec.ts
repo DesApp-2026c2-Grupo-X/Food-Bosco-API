@@ -36,7 +36,9 @@ describe('serializePromotion', () => {
   })
 
   it('usa el ObjectId como string en el campo id', () => {
-    const result = serializePromotion(buildDoc({ _id: { toString: () => '507f1f77bcf86cd799439011' } }))
+    const result = serializePromotion(
+      buildDoc({ _id: { toString: () => '507f1f77bcf86cd799439011' } }),
+    )
 
     expect(result.id).toBe('507f1f77bcf86cd799439011')
   })

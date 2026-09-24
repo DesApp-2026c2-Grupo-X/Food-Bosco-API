@@ -404,10 +404,7 @@ describe('mapOrder', () => {
     expect(result.deliveryAddress).toEqual({ text: 'Av 1', latitude: -34, longitude: -58 })
     expect(result.items).toHaveLength(1)
     expect(result.statusHistory[0].newStatus).toBe(OrderStatus.CONFIRMED)
-    expect(result.availableTransitions).toEqual([
-      OrderStatus.DELIVERED,
-      OrderStatus.CANCELLED,
-    ])
+    expect(result.availableTransitions).toEqual([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
   })
 
   it('aplica defaults cuando faltan campos y la dirección', () => {
@@ -422,9 +419,9 @@ describe('mapOrder', () => {
   })
 
   it('descarta transiciones que no son arreglo', () => {
-    expect(mapOrder({ status: 'pending', availableTransitions: null }).availableTransitions).toEqual(
-      [],
-    )
+    expect(
+      mapOrder({ status: 'pending', availableTransitions: null }).availableTransitions,
+    ).toEqual([])
   })
 
   it('lanza error si un elemento de availableTransitions es desconocido', () => {

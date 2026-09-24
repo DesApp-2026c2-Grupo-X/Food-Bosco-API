@@ -4,7 +4,10 @@ import type { SalesAggregate } from './reporting.repository'
 import { ReportingRepository } from './reporting.repository'
 import { ReportingService } from './reporting.service'
 
-const productDoc = (id: string, overrides: Partial<Record<string, unknown>> = {}): ProductDocument =>
+const productDoc = (
+  id: string,
+  overrides: Partial<Record<string, unknown>> = {},
+): ProductDocument =>
   ({
     _id: { toString: () => id },
     categoryId: 'cat1',
@@ -49,7 +52,8 @@ const makeService = (
   return { repository, service: new ReportingService(repository as unknown as ReportingRepository) }
 }
 
-const ids = (rows: Array<{ product: { id: string } }>): string[] => rows.map((row) => row.product.id)
+const ids = (rows: Array<{ product: { id: string } }>): string[] =>
+  rows.map((row) => row.product.id)
 const positions = (rows: Array<{ position: number }>): number[] => rows.map((row) => row.position)
 
 describe('ReportingService.bestSellers (RQ-REP-01)', () => {

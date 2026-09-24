@@ -40,10 +40,30 @@ describe('HttpExceptionFilter', () => {
   })
 
   it.each([
-    { name: 'UnauthorizedException', exception: new UnauthorizedException(), status: 401, code: ERROR_CODES.unauthenticated },
-    { name: 'ForbiddenException', exception: new ForbiddenException(), status: 403, code: ERROR_CODES.forbidden },
-    { name: 'BadRequestException', exception: new BadRequestException('dato inválido'), status: 400, code: ERROR_CODES.validationError },
-    { name: 'NotFoundException', exception: new NotFoundException('no está'), status: 404, code: ERROR_CODES.notFound },
+    {
+      name: 'UnauthorizedException',
+      exception: new UnauthorizedException(),
+      status: 401,
+      code: ERROR_CODES.unauthenticated,
+    },
+    {
+      name: 'ForbiddenException',
+      exception: new ForbiddenException(),
+      status: 403,
+      code: ERROR_CODES.forbidden,
+    },
+    {
+      name: 'BadRequestException',
+      exception: new BadRequestException('dato inválido'),
+      status: 400,
+      code: ERROR_CODES.validationError,
+    },
+    {
+      name: 'NotFoundException',
+      exception: new NotFoundException('no está'),
+      status: 404,
+      code: ERROR_CODES.notFound,
+    },
   ])('mapea $name a $status/$code', ({ exception, status, code }) => {
     const { host, status: statusFn, json } = makeHost()
 
@@ -64,7 +84,10 @@ describe('HttpExceptionFilter', () => {
   it('une los mensajes de validación en un solo string', () => {
     const { host, json } = makeHost()
 
-    filter.catch(new BadRequestException({ message: ['limit debe ser entero', 'offset inválido'] }), host)
+    filter.catch(
+      new BadRequestException({ message: ['limit debe ser entero', 'offset inválido'] }),
+      host,
+    )
 
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'limit debe ser entero; offset inválido' }),

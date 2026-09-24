@@ -131,7 +131,9 @@ describe('UserService.createUser (RQ-AUTH-01/02/03)', () => {
     const result = await service.createUser({ ...baseInput, role, ...extraFields })
 
     expect(result.role).toBe(role)
-    expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ role, ...extraFields }))
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ role, ...extraFields }),
+    )
   })
 })
 
@@ -157,13 +159,13 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
     const { repository, service } = makeService()
     repository.findByEmailWithPassword.mockResolvedValue(null)
 
-    await expect(service.verifyCredentials('nadie@example.com', 'secreto123')).rejects.toMatchObject(
-      {
-        code: ERROR_CODES.invalidCredentials,
-        message: 'Credenciales inválidas',
-        status: 401,
-      },
-    )
+    await expect(
+      service.verifyCredentials('nadie@example.com', 'secreto123'),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.invalidCredentials,
+      message: 'Credenciales inválidas',
+      status: 401,
+    })
   })
 
   it('rechaza con error genérico si la contraseña es incorrecta (RQ-AUTH-06)', async () => {

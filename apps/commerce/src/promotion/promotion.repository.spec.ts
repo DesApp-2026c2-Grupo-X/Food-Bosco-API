@@ -44,7 +44,10 @@ const makeRepository = () => {
     create: jest.fn(),
     findByIdAndUpdate: jest.fn(),
   }
-  return { model, repository: new PromotionRepository(model as unknown as Model<PromotionDocument>) }
+  return {
+    model,
+    repository: new PromotionRepository(model as unknown as Model<PromotionDocument>),
+  }
 }
 
 describe('PromotionRepository.findById', () => {

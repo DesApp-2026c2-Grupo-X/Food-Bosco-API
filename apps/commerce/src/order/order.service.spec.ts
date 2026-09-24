@@ -212,20 +212,23 @@ describe('OrderService.list — paginación (RQ-ORD-11/19)', () => {
     { name: 'primera página', limit: 20, offset: 0, total: 2, expectedIds: ['o1', 'o2'] },
     { name: 'tamaño 1 desde offset 1', limit: 1, offset: 1, total: 2, expectedIds: ['o2'] },
     { name: 'offset posterior al total', limit: 20, offset: 50, total: 2, expectedIds: [] },
-  ])('$name → meta con limit/offset y $expectedIds', async ({ limit, offset, total, expectedIds }) => {
-    const docs = expectedIds.map(docWithId)
-    const repository = {
-      list: jest.fn().mockResolvedValue({ data: docs, total }),
-    }
-    const service = new OrderService(repository as unknown as OrderRepository)
-    const query = { clientId: 'c1', limit, offset }
+  ])(
+    '$name → meta con limit/offset y $expectedIds',
+    async ({ limit, offset, total, expectedIds }) => {
+      const docs = expectedIds.map(docWithId)
+      const repository = {
+        list: jest.fn().mockResolvedValue({ data: docs, total }),
+      }
+      const service = new OrderService(repository as unknown as OrderRepository)
+      const query = { clientId: 'c1', limit, offset }
 
-    const result = await service.list(query)
+      const result = await service.list(query)
 
-    expect(repository.list).toHaveBeenCalledWith(query)
-    expect(result.meta).toEqual({ total, limit, offset })
-    expect(result.data.map((entry) => entry.id)).toEqual(expectedIds)
-  })
+      expect(repository.list).toHaveBeenCalledWith(query)
+      expect(result.meta).toEqual({ total, limit, offset })
+      expect(result.data.map((entry) => entry.id)).toEqual(expectedIds)
+    },
+  )
 
   it('serializa el detalle y el historial de cada pedido', async () => {
     const doc = buildDoc({
@@ -271,7 +274,11 @@ describe('OrderService.create — numeración y estado inicial (RQ-ORD-07/08)', 
       count: jest.fn().mockResolvedValue(count),
       create: jest.fn().mockResolvedValue(created),
     }
-    return { service: new OrderService(repository as unknown as OrderRepository), repository, created }
+    return {
+      service: new OrderService(repository as unknown as OrderRepository),
+      repository,
+      created,
+    }
   }
 
   const input = {

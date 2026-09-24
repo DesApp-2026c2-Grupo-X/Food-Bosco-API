@@ -63,7 +63,7 @@ export class SeedService {
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
     @InjectConnection() private readonly connection: Connection,
-  ) { }
+  ) {}
 
   async seed(): Promise<SeedResult> {
     const zones = await this.seedZones()
@@ -139,10 +139,7 @@ export class SeedService {
       vehicle: input.vehicle ?? null,
     })
 
-    Logger.log(
-      `rider creado: ${input.firstName} ${input.lastName}`,
-      'Seed',
-    )
+    Logger.log(`rider creado: ${input.firstName} ${input.lastName}`, 'Seed')
 
     return {
       summary: {
@@ -161,10 +158,7 @@ export class SeedService {
     id: string
     userId: string
   } | null> {
-    const email = envString(
-      'SEED_RIDER_EMAIL',
-      this.loadData().rider.email,
-    )
+    const email = envString('SEED_RIDER_EMAIL', this.loadData().rider.email)
 
     const collection = this.connection.db?.collection('users')
 
@@ -173,10 +167,7 @@ export class SeedService {
     })) as AuthUserRow | null | undefined
 
     if (!user?._id) {
-      Logger.warn(
-        `usuario rider no encontrado en auth (${email}); perfil omitido`,
-        'Seed',
-      )
+      Logger.warn(`usuario rider no encontrado en auth (${email}); perfil omitido`, 'Seed')
       return null
     }
 

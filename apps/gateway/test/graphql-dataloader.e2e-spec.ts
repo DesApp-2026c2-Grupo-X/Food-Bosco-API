@@ -118,7 +118,10 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
         }),
       )
 
-      const res = await run('query { order(id: "o1") { client { id } branch { id } } }', 'customer').expect(200)
+      const res = await run(
+        'query { order(id: "o1") { client { id } branch { id } } }',
+        'customer',
+      ).expect(200)
       const body = res.body as GraphQLBody
 
       expect(body.data).toEqual({
@@ -136,7 +139,10 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
         }),
       )
 
-      const res = await run('query { product(id: "p1") { category { id name } } }', 'customer').expect(200)
+      const res = await run(
+        'query { product(id: "p1") { category { id name } } }',
+        'customer',
+      ).expect(200)
       const body = res.body as GraphQLBody
 
       expect(body.data).toEqual({ product: { category: { id: 'c1', name: 'Hamburguesas' } } })
@@ -159,7 +165,13 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
 
       expect(body.data).toEqual({
         product: {
-          recipe: [{ ingredientId: 'i1', ingredient: { id: 'i1', name: 'Queso', unit: 'kg' }, quantity: 0.2 }],
+          recipe: [
+            {
+              ingredientId: 'i1',
+              ingredient: { id: 'i1', name: 'Queso', unit: 'kg' },
+              quantity: 0.2,
+            },
+          ],
         },
       })
       expect(callsTo(downstream, '/v1/catalog/ingredients/i1')).toHaveLength(1)
@@ -179,7 +191,10 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
         }),
       )
 
-      const res = await run('query { myCart { items { id quantity product { id name } } } }', 'customer').expect(200)
+      const res = await run(
+        'query { myCart { items { id quantity product { id name } } } }',
+        'customer',
+      ).expect(200)
       const body = res.body as GraphQLBody
 
       expect(body.data).toEqual({
@@ -208,7 +223,9 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
         }),
       )
 
-      const res = await run('query { trip(id: "t1") { orders { order { id } } } }', 'rider').expect(400)
+      const res = await run('query { trip(id: "t1") { orders { order { id } } } }', 'rider').expect(
+        400,
+      )
       const body = res.body as GraphQLBody
 
       // KNOWN BUG (RQ-GW-08/RQ-GW-09): el documento lista `TripOrder.order` como unión
@@ -230,7 +247,10 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
         }),
       )
 
-      const res = await run('query { myOrders { id client { id } branch { id } } }', 'customer').expect(200)
+      const res = await run(
+        'query { myOrders { id client { id } branch { id } } }',
+        'customer',
+      ).expect(200)
       const body = res.body as GraphQLBody
 
       expect(body.errors).toBeUndefined()

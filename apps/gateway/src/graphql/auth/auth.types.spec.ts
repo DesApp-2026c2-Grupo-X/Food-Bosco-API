@@ -110,7 +110,13 @@ describe('mapAddress', () => {
   it('normaliza label/text a vacío y city/postalCode a null', () => {
     const result = mapAddress({ id: 'a1', latitude: 0, longitude: 0 })
 
-    expect(result).toMatchObject({ label: '', text: '', city: null, postalCode: null, active: false })
+    expect(result).toMatchObject({
+      label: '',
+      text: '',
+      city: null,
+      postalCode: null,
+      active: false,
+    })
   })
 
   it.each([

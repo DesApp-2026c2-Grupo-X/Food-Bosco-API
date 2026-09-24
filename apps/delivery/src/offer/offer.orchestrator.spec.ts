@@ -571,7 +571,8 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
   })
 
   it('agrupa como máximo maxOrdersPerTrip órdenes, priorizando las más cercanas', async () => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
     deliveryOrderService.claimableForRider.mockResolvedValue([
@@ -580,7 +581,9 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
       orderAt('D', 0.004),
       orderAt('B', 0.002),
     ])
-    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) => readyTrip(input))
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
 
     await orchestrator.listOffers('u1')
 
@@ -590,7 +593,8 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
   })
 
   it('calcula distancia, minutos y ganancia agregando todas las órdenes seleccionadas', async () => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
     deliveryOrderService.claimableForRider.mockResolvedValue([
@@ -598,7 +602,9 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
       orderAt('B', 0.002),
       orderAt('C', 0.003),
     ])
-    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) => readyTrip(input))
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
 
     await orchestrator.listOffers('u1')
 
@@ -626,11 +632,14 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
     { name: 'justo dentro del máximo (~7.9 km)', branchLat: 0.071, offered: true },
     { name: 'justo fuera del máximo (~8.1 km)', branchLat: 0.073, offered: false },
   ])('$name → ofrece=$offered', async ({ branchLat, offered }) => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
     deliveryOrderService.claimableForRider.mockResolvedValue([orderAt('A', branchLat)])
-    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) => readyTrip(input))
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
 
     const result = await orchestrator.listOffers('u1')
 
@@ -643,7 +652,8 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
   })
 
   it('devuelve vacío y no reserva nada cuando el pool de órdenes está vacío (0 órdenes)', async () => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
     deliveryOrderService.claimableForRider.mockResolvedValue([])
@@ -656,14 +666,17 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
   })
 
   it('hace rollback si reserva menos órdenes que las ofrecidas (carrera parcial)', async () => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue([])
     deliveryOrderService.claimableForRider.mockResolvedValue([
       orderAt('A', 0.001),
       orderAt('B', 0.002),
     ])
-    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) => readyTrip(input))
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
     deliveryOrderService.reserve.mockResolvedValue(1)
 
     const result = await orchestrator.listOffers('u1')
@@ -679,10 +692,16 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
 
   it.each([
     { name: 'no encuentra el viaje vencido', found: null, status: 'offered', cancelled: false },
-    { name: 'el viaje vencido ya no está offered', found: true, status: 'active', cancelled: false },
+    {
+      name: 'el viaje vencido ya no está offered',
+      found: true,
+      status: 'active',
+      cancelled: false,
+    },
     { name: 'el viaje vencido sigue offered', found: true, status: 'offered', cancelled: true },
   ])('al expirar ofertas: $name → cancela=$cancelled', async ({ found, status, cancelled }) => {
-    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } = makeOrchestrator()
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
     riderOrchestrator.getProfile.mockResolvedValue(rider)
     deliveryOrderService.releaseExpired.mockResolvedValue(['stale-1'])
     deliveryOrderService.claimableForRider.mockResolvedValue([])
@@ -754,7 +773,10 @@ describe('OfferOrchestrator: errores de dominio (código + mensaje + status)', (
     },
     {
       name: 'repartidor stale',
-      profile: { ...rider, lastSeenAt: new Date(Date.now() - env.rider.staleAfterMs - 1).toISOString() },
+      profile: {
+        ...rider,
+        lastSeenAt: new Date(Date.now() - env.rider.staleAfterMs - 1).toISOString(),
+      },
       code: ERROR_CODES.riderOffline,
       message: 'El repartidor está offline',
       status: 409,
@@ -818,17 +840,20 @@ describe('OfferOrchestrator: errores de dominio (código + mensaje + status)', (
       message: 'El viaje no está en curso',
       status: 409,
     },
-  ])('markPickup rechaza $name sin llamar a Commerce', async ({ trip: candidate, code, message, status }) => {
-    const { orchestrator, tripService, commerceClient } = makeOrchestrator()
-    tripService.findById.mockResolvedValue(candidate)
+  ])(
+    'markPickup rechaza $name sin llamar a Commerce',
+    async ({ trip: candidate, code, message, status }) => {
+      const { orchestrator, tripService, commerceClient } = makeOrchestrator()
+      tripService.findById.mockResolvedValue(candidate)
 
-    const error = await captureDomainError(orchestrator.markPickup('u1', 't1', 'ord-1'))
+      const error = await captureDomainError(orchestrator.markPickup('u1', 't1', 'ord-1'))
 
-    expect(error.code).toBe(code)
-    expect(error.message).toBe(message)
-    expect(error.getStatus()).toBe(status)
-    expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
-  })
+      expect(error.code).toBe(code)
+      expect(error.message).toBe(message)
+      expect(error.getStatus()).toBe(status)
+      expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
+    },
+  )
 
   it('markDeliver rechaza una orden que no pertenece al viaje', async () => {
     const { orchestrator, tripService, commerceClient } = makeOrchestrator()

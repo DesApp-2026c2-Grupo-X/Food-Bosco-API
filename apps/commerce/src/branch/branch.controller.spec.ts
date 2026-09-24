@@ -97,16 +97,20 @@ describe('BranchController — list (RQ-BRN-01)', () => {
 })
 
 describe('BranchController — sucursal inexistente (RQ-BRN-07)', () => {
-  const cases: Array<{ name: string; invoke: (controller: BranchController) => Promise<unknown> }> = [
-    { name: 'get', invoke: (controller) => controller.get('missing') },
-    { name: 'update', invoke: (controller) => controller.update('missing', {}) },
-    { name: 'setActive', invoke: (controller) => controller.setActive('missing', { active: true }) },
-    { name: 'getHours', invoke: (controller) => controller.getHours('missing') },
-    {
-      name: 'updateHours',
-      invoke: (controller) => controller.updateHours('missing', { hours: [] }),
-    },
-  ]
+  const cases: Array<{ name: string; invoke: (controller: BranchController) => Promise<unknown> }> =
+    [
+      { name: 'get', invoke: (controller) => controller.get('missing') },
+      { name: 'update', invoke: (controller) => controller.update('missing', {}) },
+      {
+        name: 'setActive',
+        invoke: (controller) => controller.setActive('missing', { active: true }),
+      },
+      { name: 'getHours', invoke: (controller) => controller.getHours('missing') },
+      {
+        name: 'updateHours',
+        invoke: (controller) => controller.updateHours('missing', { hours: [] }),
+      },
+    ]
 
   it.each(cases)('$name → BRANCH_NOT_FOUND (404)', async ({ invoke }) => {
     const { controller } = makeController()
@@ -211,7 +215,10 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
 
 describe('BranchController — control de acceso (RQ-SEC-05)', () => {
   it.each([
-    { name: 'super_admin sin sucursal asignada', auth: auth({ roles: [ROLES.superAdmin], branchId: null }) },
+    {
+      name: 'super_admin sin sucursal asignada',
+      auth: auth({ roles: [ROLES.superAdmin], branchId: null }),
+    },
     { name: 'branch_admin con su propia sucursal', auth: auth({ branchId: 'b1' }) },
   ])('$name accede a listProducts', async ({ auth: context }) => {
     const { controller, orchestrator } = makeController()

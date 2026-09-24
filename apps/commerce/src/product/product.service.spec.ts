@@ -77,7 +77,12 @@ const makeService = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
 }
 
 describe('ProductService.list (RQ-CAT-05)', () => {
-  const cases: Array<{ name: string; docs: ProductDocument[]; total: number; query: ProductListQuery }> = [
+  const cases: Array<{
+    name: string
+    docs: ProductDocument[]
+    total: number
+    query: ProductListQuery
+  }> = [
     { name: 'sin resultados', docs: [], total: 0, query: { limit: 20, offset: 0 } },
     { name: 'una página', docs: [buildDoc()], total: 1, query: { limit: 10, offset: 5 } },
     {
@@ -89,7 +94,9 @@ describe('ProductService.list (RQ-CAT-05)', () => {
   ]
 
   it.each(cases)('serializa los datos y arma el meta ($name)', async ({ docs, total, query }) => {
-    const { repository, service } = makeService({ list: jest.fn().mockResolvedValue({ data: docs, total }) })
+    const { repository, service } = makeService({
+      list: jest.fn().mockResolvedValue({ data: docs, total }),
+    })
 
     const result = await service.list(query)
 
@@ -105,7 +112,9 @@ describe('ProductService.list (RQ-CAT-05)', () => {
 
 describe('ProductService.findById / findByIds / findAll', () => {
   it('findById serializa el producto encontrado', async () => {
-    const { repository, service } = makeService({ findById: jest.fn().mockResolvedValue(buildDoc()) })
+    const { repository, service } = makeService({
+      findById: jest.fn().mockResolvedValue(buildDoc()),
+    })
 
     const result = await service.findById('p1')
 
@@ -121,7 +130,11 @@ describe('ProductService.findById / findByIds / findAll', () => {
   })
 
   it.each([
-    { name: 'varios productos', docs: [buildDoc(), buildDoc({ _id: objectId('p2') })], expected: 2 },
+    {
+      name: 'varios productos',
+      docs: [buildDoc(), buildDoc({ _id: objectId('p2') })],
+      expected: 2,
+    },
     { name: 'un producto', docs: [buildDoc()], expected: 1 },
     { name: 'ninguno', docs: [], expected: 0 },
   ])('findByIds serializa la lista ($name)', async ({ docs, expected }) => {
@@ -240,7 +253,11 @@ describe('ProductService — grupos de configuración (RQ-CAT-06/07)', () => {
     const { service } = makeService({ addConfigGroup: jest.fn().mockResolvedValue(null) })
 
     await expect(
-      service.addConfigGroup('missing', { name: 'X', type: CONFIG_GROUP_TYPE.single, required: true }),
+      service.addConfigGroup('missing', {
+        name: 'X',
+        type: CONFIG_GROUP_TYPE.single,
+        required: true,
+      }),
     ).resolves.toBeNull()
   })
 
@@ -265,7 +282,9 @@ describe('ProductService — grupos de configuración (RQ-CAT-06/07)', () => {
     { name: 'verdadero al eliminar', removed: true },
     { name: 'falso cuando no existe', removed: false },
   ])('removeConfigGroup propaga el booleano ($name)', async ({ removed }) => {
-    const { repository, service } = makeService({ removeConfigGroup: jest.fn().mockResolvedValue(removed) })
+    const { repository, service } = makeService({
+      removeConfigGroup: jest.fn().mockResolvedValue(removed),
+    })
 
     await expect(service.removeConfigGroup('p1', 'g1')).resolves.toBe(removed)
     expect(repository.removeConfigGroup).toHaveBeenCalledWith('p1', 'g1')
@@ -281,11 +300,23 @@ describe('ProductService — grupos de configuración (RQ-CAT-06/07)', () => {
     },
     {
       name: 'min mayor que max',
-      data: { name: 'Adicionales', type: CONFIG_GROUP_TYPE.multiple, required: true, min: 5, max: 1 },
+      data: {
+        name: 'Adicionales',
+        type: CONFIG_GROUP_TYPE.multiple,
+        required: true,
+        min: 5,
+        max: 1,
+      },
     },
     {
       name: 'min negativo',
-      data: { name: 'Adicionales', type: CONFIG_GROUP_TYPE.multiple, required: false, min: -1, max: 2 },
+      data: {
+        name: 'Adicionales',
+        type: CONFIG_GROUP_TYPE.multiple,
+        required: false,
+        min: -1,
+        max: 2,
+      },
     },
   ])('KNOWN BUG: acepta un grupo inconsistente ($name)', async ({ data }) => {
     const { repository, service } = makeService({
@@ -313,7 +344,9 @@ describe('ProductService — opciones de configuración (RQ-CAT-06/08)', () => {
   it('addConfigOption devuelve null si el grupo no existe', async () => {
     const { service } = makeService({ addConfigOption: jest.fn().mockResolvedValue(null) })
 
-    await expect(service.addConfigOption('p1', 'missing', { name: 'X', extraPrice: 1 })).resolves.toBeNull()
+    await expect(
+      service.addConfigOption('p1', 'missing', { name: 'X', extraPrice: 1 }),
+    ).resolves.toBeNull()
   })
 
   it('updateConfigOption serializa la opción actualizada', async () => {
@@ -323,21 +356,27 @@ describe('ProductService — opciones de configuración (RQ-CAT-06/08)', () => {
 
     const result = await service.updateConfigOption('p1', 'g1', 'opt1', { available: false })
 
-    expect(repository.updateConfigOption).toHaveBeenCalledWith('p1', 'g1', 'opt1', { available: false })
+    expect(repository.updateConfigOption).toHaveBeenCalledWith('p1', 'g1', 'opt1', {
+      available: false,
+    })
     expect(result?.available).toBe(false)
   })
 
   it('updateConfigOption devuelve null si la opción no existe', async () => {
     const { service } = makeService({ updateConfigOption: jest.fn().mockResolvedValue(null) })
 
-    await expect(service.updateConfigOption('p1', 'g1', 'missing', { name: 'X' })).resolves.toBeNull()
+    await expect(
+      service.updateConfigOption('p1', 'g1', 'missing', { name: 'X' }),
+    ).resolves.toBeNull()
   })
 
   it.each([
     { name: 'verdadero al eliminar', removed: true },
     { name: 'falso cuando no existe', removed: false },
   ])('removeConfigOption propaga el booleano ($name)', async ({ removed }) => {
-    const { repository, service } = makeService({ removeConfigOption: jest.fn().mockResolvedValue(removed) })
+    const { repository, service } = makeService({
+      removeConfigOption: jest.fn().mockResolvedValue(removed),
+    })
 
     await expect(service.removeConfigOption('p1', 'g1', 'opt1')).resolves.toBe(removed)
     expect(repository.removeConfigOption).toHaveBeenCalledWith('p1', 'g1', 'opt1')
@@ -352,7 +391,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
   }
 
   it('setRecipe delega los ítems y serializa el producto', async () => {
-    const { repository, service } = makeService({ setRecipe: jest.fn().mockResolvedValue(buildDoc()) })
+    const { repository, service } = makeService({
+      setRecipe: jest.fn().mockResolvedValue(buildDoc()),
+    })
 
     const result = await service.setRecipe('p1', [itemData])
 
@@ -370,7 +411,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
   })
 
   it('addRecipeItem delega el ítem y serializa el producto', async () => {
-    const { repository, service } = makeService({ addRecipeItem: jest.fn().mockResolvedValue(buildDoc()) })
+    const { repository, service } = makeService({
+      addRecipeItem: jest.fn().mockResolvedValue(buildDoc()),
+    })
 
     const result = await service.addRecipeItem('p1', itemData)
 
@@ -385,7 +428,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
   })
 
   it('updateRecipeItem delega el patch y serializa el producto', async () => {
-    const { repository, service } = makeService({ updateRecipeItem: jest.fn().mockResolvedValue(buildDoc()) })
+    const { repository, service } = makeService({
+      updateRecipeItem: jest.fn().mockResolvedValue(buildDoc()),
+    })
 
     const result = await service.updateRecipeItem('p1', 'r1', itemData)
 
@@ -400,7 +445,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
   })
 
   it('removeRecipeItem delega y serializa el producto', async () => {
-    const { repository, service } = makeService({ removeRecipeItem: jest.fn().mockResolvedValue(buildDoc()) })
+    const { repository, service } = makeService({
+      removeRecipeItem: jest.fn().mockResolvedValue(buildDoc()),
+    })
 
     const result = await service.removeRecipeItem('p1', 'r1')
 
@@ -425,7 +472,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
     await expect(
       service.setRecipe('p1', [{ ingredientId: 'ing-fantasma', quantity: 1 }]),
     ).resolves.toBeDefined()
-    expect(repository.setRecipe).toHaveBeenCalledWith('p1', [{ ingredientId: 'ing-fantasma', quantity: 1 }])
+    expect(repository.setRecipe).toHaveBeenCalledWith('p1', [
+      { ingredientId: 'ing-fantasma', quantity: 1 },
+    ])
   })
 
   // KNOWN BUG: la cantidad de un ingrediente debería ser > 0. El DTO usa @Min(0) y el
@@ -436,7 +485,9 @@ describe('ProductService — receta (RQ-CAT-11/12)', () => {
   ])('KNOWN BUG: setRecipe acepta cantidad no positiva ($name)', async ({ quantity }) => {
     const { service } = makeService({ setRecipe: jest.fn().mockResolvedValue(buildDoc()) })
 
-    await expect(service.setRecipe('p1', [{ ingredientId: 'ing1', quantity }])).resolves.toBeDefined()
+    await expect(
+      service.setRecipe('p1', [{ ingredientId: 'ing1', quantity }]),
+    ).resolves.toBeDefined()
   })
 
   // KNOWN BUG: no hay deduplicación ni fusión de ingredientes repetidos. La misma

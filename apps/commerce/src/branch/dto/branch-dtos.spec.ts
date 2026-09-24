@@ -25,7 +25,11 @@ describe('CreateBranchDto (RQ-BRN-02)', () => {
   it.each([
     { name: 'válido completo', payload: { ...valid, phone: '555', active: true }, valid: true },
     { name: 'válido mínimo (sin opcionales)', payload: valid, valid: true },
-    { name: 'nombre de 100 caracteres (límite)', payload: { ...valid, name: 'x'.repeat(100) }, valid: true },
+    {
+      name: 'nombre de 100 caracteres (límite)',
+      payload: { ...valid, name: 'x'.repeat(100) },
+      valid: true,
+    },
     {
       name: 'dirección de 200 caracteres (límite)',
       payload: { ...valid, addressText: 'x'.repeat(200) },
@@ -43,18 +47,48 @@ describe('CreateBranchDto (RQ-BRN-02)', () => {
       valid: false,
       property: 'name',
     },
-    { name: 'sin dirección', payload: { ...valid, addressText: undefined }, valid: false, property: 'addressText' },
+    {
+      name: 'sin dirección',
+      payload: { ...valid, addressText: undefined },
+      valid: false,
+      property: 'addressText',
+    },
     {
       name: 'dirección de 201 caracteres',
       payload: { ...valid, addressText: 'x'.repeat(201) },
       valid: false,
       property: 'addressText',
     },
-    { name: 'latitud mayor a 90', payload: { ...valid, latitude: 90.0001 }, valid: false, property: 'latitude' },
-    { name: 'latitud no numérica', payload: { ...valid, latitude: 'norte' }, valid: false, property: 'latitude' },
-    { name: 'longitud menor a -180', payload: { ...valid, longitude: -180.0001 }, valid: false, property: 'longitude' },
-    { name: 'teléfono de 51 caracteres', payload: { ...valid, phone: '1'.repeat(51) }, valid: false, property: 'phone' },
-    { name: 'active no booleano', payload: { ...valid, active: 'sí' }, valid: false, property: 'active' },
+    {
+      name: 'latitud mayor a 90',
+      payload: { ...valid, latitude: 90.0001 },
+      valid: false,
+      property: 'latitude',
+    },
+    {
+      name: 'latitud no numérica',
+      payload: { ...valid, latitude: 'norte' },
+      valid: false,
+      property: 'latitude',
+    },
+    {
+      name: 'longitud menor a -180',
+      payload: { ...valid, longitude: -180.0001 },
+      valid: false,
+      property: 'longitude',
+    },
+    {
+      name: 'teléfono de 51 caracteres',
+      payload: { ...valid, phone: '1'.repeat(51) },
+      valid: false,
+      property: 'phone',
+    },
+    {
+      name: 'active no booleano',
+      payload: { ...valid, active: 'sí' },
+      valid: false,
+      property: 'active',
+    },
   ])('$name', async ({ payload, valid: expectedValid, property }) => {
     const errors = await validate(instantiate(CreateBranchDto, payload))
 
@@ -81,9 +115,24 @@ describe('UpdateBranchDto (RQ-BRN-01)', () => {
     { name: 'solo nombre', payload: { name: 'Nuevo' }, valid: true },
     { name: 'latitud 90 (límite)', payload: { latitude: 90 }, valid: true },
     { name: 'nombre vacío', payload: { name: '' }, valid: false, property: 'name' },
-    { name: 'nombre de 101 caracteres', payload: { name: 'x'.repeat(101) }, valid: false, property: 'name' },
-    { name: 'latitud fuera de rango', payload: { latitude: -91 }, valid: false, property: 'latitude' },
-    { name: 'longitud fuera de rango', payload: { longitude: 181 }, valid: false, property: 'longitude' },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { name: 'x'.repeat(101) },
+      valid: false,
+      property: 'name',
+    },
+    {
+      name: 'latitud fuera de rango',
+      payload: { latitude: -91 },
+      valid: false,
+      property: 'latitude',
+    },
+    {
+      name: 'longitud fuera de rango',
+      payload: { longitude: 181 },
+      valid: false,
+      property: 'longitude',
+    },
     { name: 'active no booleano', payload: { active: 'no' }, valid: false, property: 'active' },
   ])('$name', async ({ payload, valid: expectedValid, property }) => {
     const errors = await validate(instantiate(UpdateBranchDto, payload))
@@ -102,17 +151,60 @@ describe('BranchHourDto (RQ-BRN-03)', () => {
     { name: 'válido', payload: valid, valid: true },
     { name: 'día 0 (domingo, límite inferior)', payload: { ...valid, dayOfWeek: 0 }, valid: true },
     { name: 'día 6 (sábado, límite superior)', payload: { ...valid, dayOfWeek: 6 }, valid: true },
-    { name: 'cerrado sin apertura ni cierre', payload: { dayOfWeek: 1, closed: true }, valid: true },
-    { name: 'apertura y cierre nulos (opcionales)', payload: { ...valid, opening: null, closing: null }, valid: true },
+    {
+      name: 'cerrado sin apertura ni cierre',
+      payload: { dayOfWeek: 1, closed: true },
+      valid: true,
+    },
+    {
+      name: 'apertura y cierre nulos (opcionales)',
+      payload: { ...valid, opening: null, closing: null },
+      valid: true,
+    },
     { name: 'día -1', payload: { ...valid, dayOfWeek: -1 }, valid: false, property: 'dayOfWeek' },
     { name: 'día 7', payload: { ...valid, dayOfWeek: 7 }, valid: false, property: 'dayOfWeek' },
-    { name: 'día no entero', payload: { ...valid, dayOfWeek: 1.5 }, valid: false, property: 'dayOfWeek' },
-    { name: 'día no numérico', payload: { ...valid, dayOfWeek: 'lunes' }, valid: false, property: 'dayOfWeek' },
-    { name: 'apertura con formato inválido', payload: { ...valid, opening: '8:00' }, valid: false, property: 'opening' },
-    { name: 'cierre con formato inválido', payload: { ...valid, closing: '20' }, valid: false, property: 'closing' },
-    { name: 'apertura no string', payload: { ...valid, opening: 800 }, valid: false, property: 'opening' },
-    { name: 'closed ausente', payload: { dayOfWeek: 1, opening: '08:00', closing: '20:00' }, valid: false, property: 'closed' },
-    { name: 'closed no booleano', payload: { ...valid, closed: 'sí' }, valid: false, property: 'closed' },
+    {
+      name: 'día no entero',
+      payload: { ...valid, dayOfWeek: 1.5 },
+      valid: false,
+      property: 'dayOfWeek',
+    },
+    {
+      name: 'día no numérico',
+      payload: { ...valid, dayOfWeek: 'lunes' },
+      valid: false,
+      property: 'dayOfWeek',
+    },
+    {
+      name: 'apertura con formato inválido',
+      payload: { ...valid, opening: '8:00' },
+      valid: false,
+      property: 'opening',
+    },
+    {
+      name: 'cierre con formato inválido',
+      payload: { ...valid, closing: '20' },
+      valid: false,
+      property: 'closing',
+    },
+    {
+      name: 'apertura no string',
+      payload: { ...valid, opening: 800 },
+      valid: false,
+      property: 'opening',
+    },
+    {
+      name: 'closed ausente',
+      payload: { dayOfWeek: 1, opening: '08:00', closing: '20:00' },
+      valid: false,
+      property: 'closed',
+    },
+    {
+      name: 'closed no booleano',
+      payload: { ...valid, closed: 'sí' },
+      valid: false,
+      property: 'closed',
+    },
   ])('$name', async ({ payload, valid: expectedValid, property }) => {
     const errors = await validate(instantiate(BranchHourDto, payload))
 
@@ -166,7 +258,11 @@ describe('BranchQueryDto (RQ-BRN-01)', () => {
     { name: 'true → true', payload: { active: true }, expected: true },
     { name: '"false" → false', payload: { active: 'false' }, expected: false },
     { name: 'false → false', payload: { active: false }, expected: false },
-    { name: 'valor no booleano → false (transform actual)', payload: { active: 'otro' }, expected: false },
+    {
+      name: 'valor no booleano → false (transform actual)',
+      payload: { active: 'otro' },
+      expected: false,
+    },
   ])('transforma active: $name', async ({ payload, expected }) => {
     const dto = instantiate(BranchQueryDto, payload)
 

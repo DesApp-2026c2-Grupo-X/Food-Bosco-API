@@ -6,7 +6,9 @@ import { IngredientService } from './ingredient.service'
 const emptyList: IngredientListResponse = { data: [], meta: { total: 0, limit: 20, offset: 0 } }
 
 const makeController = (
-  overrides: Partial<Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>> = {},
+  overrides: Partial<
+    Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>
+  > = {},
 ) => {
   const service = {
     list: jest.fn().mockResolvedValue(emptyList),
@@ -97,7 +99,9 @@ describe('IngredientController.update / setActive — error de dominio', () => {
 
   it('pasa el nuevo estado al servicio al activar/desactivar', async () => {
     const { service, controller } = makeController({
-      setActive: jest.fn().mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: false }),
+      setActive: jest
+        .fn()
+        .mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: false }),
     })
 
     await controller.setActive('ing1', { active: false })

@@ -383,7 +383,11 @@ describe('AuthResolver — propagación exacta de contexto y errores', () => {
   it('users combina contexto exacto y filtros mapeados', async () => {
     rest.get.mockResolvedValue({ data: [], meta: { total: 0, limit: 20, offset: 0 } })
 
-    await resolver.users({ role: Role.RIDER, active: false, search: 'ana' }, { limit: 20, offset: 40 }, ctx)
+    await resolver.users(
+      { role: Role.RIDER, active: false, search: 'ana' },
+      { limit: 20, offset: 40 },
+      ctx,
+    )
 
     expect(rest.get).toHaveBeenCalledWith('/v1/users', {
       context: expectedContext,
@@ -412,7 +416,14 @@ describe('AuthResolver — propagación exacta de contexto y errores', () => {
       method: 'post',
       invoke: () =>
         resolver.createStaff(
-          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', branchId: 'b1' },
+          {
+            firstName: 'A',
+            lastName: 'B',
+            email: 'a@b.com',
+            phone: '1',
+            password: 'p',
+            branchId: 'b1',
+          },
           ctx,
         ),
     },
@@ -430,22 +441,34 @@ describe('AuthResolver — propagación exacta de contexto y errores', () => {
       method: 'post',
       invoke: () =>
         resolver.createRider(
-          { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', vehicle: 'moto' },
+          {
+            firstName: 'A',
+            lastName: 'B',
+            email: 'a@b.com',
+            phone: '1',
+            password: 'p',
+            vehicle: 'moto',
+          },
           ctx,
         ),
     },
-    { name: 'updateUser', method: 'patch', invoke: () => resolver.updateUser('u9', { phone: '2' }, ctx) },
-    { name: 'setUserActive', method: 'patch', invoke: () => resolver.setUserActive('u9', false, ctx) },
+    {
+      name: 'updateUser',
+      method: 'patch',
+      invoke: () => resolver.updateUser('u9', { phone: '2' }, ctx),
+    },
+    {
+      name: 'setUserActive',
+      method: 'patch',
+      invoke: () => resolver.setUserActive('u9', false, ctx),
+    },
     { name: 'myAddresses', method: 'get', invoke: () => resolver.myAddresses(ctx) },
     { name: 'address', method: 'get', invoke: () => resolver.address('a1', ctx) },
     {
       name: 'createAddress',
       method: 'post',
       invoke: () =>
-        resolver.createAddress(
-          { label: 'Casa', text: 'Av 1', latitude: 0, longitude: 0 },
-          ctx,
-        ),
+        resolver.createAddress({ label: 'Casa', text: 'Av 1', latitude: 0, longitude: 0 }, ctx),
     },
     {
       name: 'updateAddress',

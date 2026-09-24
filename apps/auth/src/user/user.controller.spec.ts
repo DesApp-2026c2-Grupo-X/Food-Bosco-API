@@ -56,9 +56,7 @@ describe('UserController.list (RQ-AUTH: listado con filtros)', () => {
 
     await controller.list({} as UserQueryDto)
 
-    expect(service.list).toHaveBeenCalledWith(
-      expect.objectContaining({ limit: 20, offset: 0 }),
-    )
+    expect(service.list).toHaveBeenCalledWith(expect.objectContaining({ limit: 20, offset: 0 }))
   })
 
   it.each<{ name: string; query: UserQueryDto }>([
@@ -101,21 +99,22 @@ describe('UserController.createStaff (RQ-AUTH-13)', () => {
     { name: 'sucursal existente', branchId: 'branch-1' },
     { name: 'sucursal inexistente', branchId: 'no-existe' },
     { name: 'cadena vacía', branchId: '' },
-  ])('acepta cualquier branchId sin validarlo contra Commerce: $name (KNOWN BUG: RQ-AUTH-13)', async ({
-    branchId,
-  }) => {
-    const { service, controller } = makeController({
-      createUser: jest.fn().mockResolvedValue(publicUser({ role: ROLES.branchAdmin, branchId })),
-    })
+  ])(
+    'acepta cualquier branchId sin validarlo contra Commerce: $name (KNOWN BUG: RQ-AUTH-13)',
+    async ({ branchId }) => {
+      const { service, controller } = makeController({
+        createUser: jest.fn().mockResolvedValue(publicUser({ role: ROLES.branchAdmin, branchId })),
+      })
 
-    await controller.createStaff({ ...staffDto, branchId })
+      await controller.createStaff({ ...staffDto, branchId })
 
-    // No existe llamada a Commerce/Branch: el servicio recibe el branchId tal cual.
-    expect(service.createUser).toHaveBeenCalledWith(
-      expect.objectContaining({ role: ROLES.branchAdmin, branchId }),
-    )
-    expect(service.findById).not.toHaveBeenCalled()
-  })
+      // No existe llamada a Commerce/Branch: el servicio recibe el branchId tal cual.
+      expect(service.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({ role: ROLES.branchAdmin, branchId }),
+      )
+      expect(service.findById).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('UserController.createAdmin (RQ-AUTH-14)', () => {

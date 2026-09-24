@@ -7,9 +7,7 @@ import { DeliveryOrderService } from './delivery-order.service'
 import { OrderEventsConsumer } from './order-events.consumer'
 import type { OrderStatusChangedEvent } from '../config/messaging/events'
 
-const orderEvent = (
-  overrides: Partial<OrderStatusChangedEvent> = {},
-): OrderStatusChangedEvent => ({
+const orderEvent = (overrides: Partial<OrderStatusChangedEvent> = {}): OrderStatusChangedEvent => ({
   type: ORDER_STATUS_CHANGED_EVENT,
   version: 1,
   eventId: 'e1',

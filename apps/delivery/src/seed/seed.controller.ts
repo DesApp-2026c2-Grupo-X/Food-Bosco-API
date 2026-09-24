@@ -1,13 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common'
 
 import { Type } from 'class-transformer'
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from 'class-validator'
+import { IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
 
 import { VEHICLE_TYPE_VALUES } from '../config/constants'
 import type { VehicleType } from '../config/constants'
@@ -57,7 +51,7 @@ class SeedBody {
 
 @Controller('v1/seed')
 export class SeedController {
-  constructor(private readonly seedService: SeedService) { }
+  constructor(private readonly seedService: SeedService) {}
 
   @Post()
   @Internal()

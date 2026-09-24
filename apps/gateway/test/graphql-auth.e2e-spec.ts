@@ -39,12 +39,10 @@ const rawAddress = {
 
 type HandlerMap = Record<string, unknown>
 
-const respondWith =
-  (handlers: HandlerMap) =>
-  (call: { method: string; path: string }) => {
-    const key = `${call.method} ${call.path}`
-    return key in handlers ? okResponse(handlers[key]) : undefined
-  }
+const respondWith = (handlers: HandlerMap) => (call: { method: string; path: string }) => {
+  const key = `${call.method} ${call.path}`
+  return key in handlers ? okResponse(handlers[key]) : undefined
+}
 
 describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () => {
   let app: INestApplication<App>
@@ -127,7 +125,9 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
         body: { token: 't1', newPassword: 'nueva' },
       },
     ])('$name mapea el body REST', async ({ query, path, body }) => {
-      downstream.setResponder(respondWith({ [`POST ${path}`]: { accessToken: 'at', refreshToken: 'rt' } }))
+      downstream.setResponder(
+        respondWith({ [`POST ${path}`]: { accessToken: 'at', refreshToken: 'rt' } }),
+      )
 
       const res = await post(query).expect(200)
 
@@ -175,7 +175,9 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
     it('user(id) hace GET /v1/users/{id} y mapea el rol', async () => {
       downstream.setResponder(respondWith({ 'GET /v1/users/u9': rawUser }))
 
-      const res = await post('query { user(id: "u9") { id email role branchId } }', admin()).expect(200)
+      const res = await post('query { user(id: "u9") { id email role branchId } }', admin()).expect(
+        200,
+      )
 
       expect((res.body as GraphQLBody).data).toEqual({
         user: { id: 'u9', email: 'user@example.com', role: 'BRANCH_ADMIN', branchId: 'b1' },
@@ -188,7 +190,14 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
         query:
           'mutation { createStaff(input: { firstName: "A", lastName: "B", email: "a@b.com", phone: "1", password: "p", branchId: "b1" }) { id role } }',
         path: '/v1/users/staff',
-        body: { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', branchId: 'b1' },
+        body: {
+          firstName: 'A',
+          lastName: 'B',
+          email: 'a@b.com',
+          phone: '1',
+          password: 'p',
+          branchId: 'b1',
+        },
         role: 'branch_admin',
       },
       {
@@ -204,7 +213,14 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
         query:
           'mutation { createRider(input: { firstName: "A", lastName: "B", email: "a@b.com", phone: "1", password: "p", vehicle: "Moto" }) { id role } }',
         path: '/v1/users/riders',
-        body: { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p', vehicle: 'Moto' },
+        body: {
+          firstName: 'A',
+          lastName: 'B',
+          email: 'a@b.com',
+          phone: '1',
+          password: 'p',
+          vehicle: 'Moto',
+        },
         role: 'rider',
       },
     ])('$name reenvía el input al endpoint REST', async ({ query, path, body, role }) => {
@@ -217,9 +233,14 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
     })
 
     it('setUserActive hace PATCH y traduce el flag', async () => {
-      downstream.setResponder(respondWith({ 'PATCH /v1/users/u9/active': { ...rawUser, active: false } }))
+      downstream.setResponder(
+        respondWith({ 'PATCH /v1/users/u9/active': { ...rawUser, active: false } }),
+      )
 
-      const res = await post('mutation { setUserActive(id: "u9", active: false) { id active } }', admin()).expect(200)
+      const res = await post(
+        'mutation { setUserActive(id: "u9", active: false) { id active } }',
+        admin(),
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({ setUserActive: { id: 'u9', active: false } })
       expect(callFor('PATCH', '/v1/users/u9/active').body).toEqual({ active: false })
@@ -275,7 +296,9 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
         method: 'GET',
         path: '/v1/addresses/a1',
         body: undefined,
-        expected: { address: { id: 'a1', label: 'Casa', city: 'CABA', latitude: -34.6, longitude: -58.4 } },
+        expected: {
+          address: { id: 'a1', label: 'Casa', city: 'CABA', latitude: -34.6, longitude: -58.4 },
+        },
       },
       {
         name: 'createAddress',

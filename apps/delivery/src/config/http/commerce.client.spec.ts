@@ -28,18 +28,15 @@ describe('CommerceClient.patchOrderStatus', () => {
 
     await client.patchOrderStatus('ord-1', ORDER_STATUS.onTheWay)
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${env.commerceServiceUrl}/v1/orders/ord-1/status`,
-      {
-        method: 'PATCH',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          [HEADERS.internalToken]: env.internalApiToken,
-        },
-        body: JSON.stringify({ status: ORDER_STATUS.onTheWay }),
+    expect(fetchMock).toHaveBeenCalledWith(`${env.commerceServiceUrl}/v1/orders/ord-1/status`, {
+      method: 'PATCH',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        [HEADERS.internalToken]: env.internalApiToken,
       },
-    )
+      body: JSON.stringify({ status: ORDER_STATUS.onTheWay }),
+    })
   })
 
   it.each([

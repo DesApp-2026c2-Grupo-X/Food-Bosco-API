@@ -51,7 +51,8 @@ const captureError = (fn: () => unknown): { status?: number; message?: string; n
   return {}
 }
 
-const bearer = (payload: object, options?: jwt.SignOptions): string => `Bearer ${sign(payload, options)}`
+const bearer = (payload: object, options?: jwt.SignOptions): string =>
+  `Bearer ${sign(payload, options)}`
 
 describe('RolesGuard.canActivate (RQ-SEC-04)', () => {
   it('permite rutas públicas (sin roles ni autenticación)', () => {
@@ -170,14 +171,18 @@ describe('RolesGuard.canActivate (RQ-SEC-04)', () => {
 describe('RolesGuard scope de super_admin (RQ-SEC-04/05)', () => {
   it('super_admin sólo satisface el rol super_admin (sin escalada implícita)', () => {
     const guard = makeGuard({ roles: ['super_admin'] })
-    const context = buildContext({ authorization: bearer({ userId: 'u1', roles: ['super_admin'] }) })
+    const context = buildContext({
+      authorization: bearer({ userId: 'u1', roles: ['super_admin'] }),
+    })
 
     expect(guard.canActivate(context.executionContext)).toBe(true)
   })
 
   it('super_admin no satisface un rol de sucursal requerido', () => {
     const guard = makeGuard({ roles: ['branch_admin'] })
-    const context = buildContext({ authorization: bearer({ userId: 'u1', roles: ['super_admin'] }) })
+    const context = buildContext({
+      authorization: bearer({ userId: 'u1', roles: ['super_admin'] }),
+    })
 
     expect(() => guard.canActivate(context.executionContext)).toThrow(ForbiddenException)
   })

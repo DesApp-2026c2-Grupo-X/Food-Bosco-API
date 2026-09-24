@@ -85,10 +85,26 @@ describe('RequestPasswordRecoveryDto (RQ-AUTH-09)', () => {
 
 describe('ResetPasswordDto (RQ-AUTH-10)', () => {
   it.each([
-    { name: 'token y password de 8 (mínimo)', payload: { token: 'tok', newPassword: 'a'.repeat(8) }, valid: true },
-    { name: 'password de 128 (máximo)', payload: { token: 'tok', newPassword: 'a'.repeat(128) }, valid: true },
-    { name: 'password de 7 (bajo el mínimo)', payload: { token: 'tok', newPassword: 'a'.repeat(7) }, valid: false },
-    { name: 'password de 129 (sobre el máximo)', payload: { token: 'tok', newPassword: 'a'.repeat(129) }, valid: false },
+    {
+      name: 'token y password de 8 (mínimo)',
+      payload: { token: 'tok', newPassword: 'a'.repeat(8) },
+      valid: true,
+    },
+    {
+      name: 'password de 128 (máximo)',
+      payload: { token: 'tok', newPassword: 'a'.repeat(128) },
+      valid: true,
+    },
+    {
+      name: 'password de 7 (bajo el mínimo)',
+      payload: { token: 'tok', newPassword: 'a'.repeat(7) },
+      valid: false,
+    },
+    {
+      name: 'password de 129 (sobre el máximo)',
+      payload: { token: 'tok', newPassword: 'a'.repeat(129) },
+      valid: false,
+    },
     { name: 'token vacío', payload: { token: '', newPassword: 'a'.repeat(8) }, valid: false },
     { name: 'sin token', payload: { newPassword: 'a'.repeat(8) }, valid: false },
     { name: 'sin password', payload: { token: 'tok' }, valid: false },
@@ -114,7 +130,11 @@ describe('LoginDto (RQ-AUTH-04)', () => {
   it.each([
     { name: 'email y password válidos', payload: validRegister, valid: true },
     { name: 'password de una letra', payload: { email: 'a@b.com', password: 'x' }, valid: true },
-    { name: 'email inválido', payload: { email: 'no-email', password: 'secreto123' }, valid: false },
+    {
+      name: 'email inválido',
+      payload: { email: 'no-email', password: 'secreto123' },
+      valid: false,
+    },
     { name: 'email vacío', payload: { email: '', password: 'secreto123' }, valid: false },
     { name: 'password vacío', payload: { email: 'a@b.com', password: '' }, valid: false },
     { name: 'sin password', payload: { email: 'a@b.com' }, valid: false },
@@ -140,16 +160,48 @@ describe('LoginDto (RQ-AUTH-04)', () => {
 describe('RegisterDto (RQ-AUTH-01)', () => {
   it.each([
     { name: 'payload completo válido', payload: validRegister, valid: true },
-    { name: 'firstName de 100 (límite)', payload: { ...validRegister, firstName: 'a'.repeat(100) }, valid: true },
-    { name: 'lastName de 100 (límite)', payload: { ...validRegister, lastName: 'a'.repeat(100) }, valid: true },
-    { name: 'phone de 50 (límite)', payload: { ...validRegister, phone: '1'.repeat(50) }, valid: true },
-    { name: 'password de 8 (límite)', payload: { ...validRegister, password: 'a'.repeat(8) }, valid: true },
-    { name: 'password de 128 (límite)', payload: { ...validRegister, password: 'a'.repeat(128) }, valid: true },
-    { name: 'firstName de 101', payload: { ...validRegister, firstName: 'a'.repeat(101) }, valid: false },
-    { name: 'lastName de 101', payload: { ...validRegister, lastName: 'a'.repeat(101) }, valid: false },
+    {
+      name: 'firstName de 100 (límite)',
+      payload: { ...validRegister, firstName: 'a'.repeat(100) },
+      valid: true,
+    },
+    {
+      name: 'lastName de 100 (límite)',
+      payload: { ...validRegister, lastName: 'a'.repeat(100) },
+      valid: true,
+    },
+    {
+      name: 'phone de 50 (límite)',
+      payload: { ...validRegister, phone: '1'.repeat(50) },
+      valid: true,
+    },
+    {
+      name: 'password de 8 (límite)',
+      payload: { ...validRegister, password: 'a'.repeat(8) },
+      valid: true,
+    },
+    {
+      name: 'password de 128 (límite)',
+      payload: { ...validRegister, password: 'a'.repeat(128) },
+      valid: true,
+    },
+    {
+      name: 'firstName de 101',
+      payload: { ...validRegister, firstName: 'a'.repeat(101) },
+      valid: false,
+    },
+    {
+      name: 'lastName de 101',
+      payload: { ...validRegister, lastName: 'a'.repeat(101) },
+      valid: false,
+    },
     { name: 'phone de 51', payload: { ...validRegister, phone: '1'.repeat(51) }, valid: false },
     { name: 'password de 7', payload: { ...validRegister, password: 'a'.repeat(7) }, valid: false },
-    { name: 'password de 129', payload: { ...validRegister, password: 'a'.repeat(129) }, valid: false },
+    {
+      name: 'password de 129',
+      payload: { ...validRegister, password: 'a'.repeat(129) },
+      valid: false,
+    },
     { name: 'email inválido', payload: { ...validRegister, email: 'no-email' }, valid: false },
     { name: 'firstName vacío', payload: { ...validRegister, firstName: '' }, valid: false },
     { name: 'phone vacío', payload: { ...validRegister, phone: '' }, valid: false },

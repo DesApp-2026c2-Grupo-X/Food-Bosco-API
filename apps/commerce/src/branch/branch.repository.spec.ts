@@ -209,11 +209,7 @@ describe('BranchRepository.setActive', () => {
 
     await repository.setActive('b1', active)
 
-    expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
-      'b1',
-      { $set: { active } },
-      { new: true },
-    )
+    expect(model.findByIdAndUpdate).toHaveBeenCalledWith('b1', { $set: { active } }, { new: true })
   })
 })
 

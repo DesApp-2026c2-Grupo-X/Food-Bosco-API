@@ -40,17 +40,45 @@ const base = {
 describe('RegisterDto (RQ-AUTH-01)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
     { name: 'payload válido', payload: { ...base }, valid: true },
-    { name: 'contraseña de 8 caracteres (límite)', payload: { ...base, password: 'a'.repeat(8) }, valid: true },
-    { name: 'contraseña de 128 caracteres (límite)', payload: { ...base, password: 'a'.repeat(128) }, valid: true },
-    { name: 'nombre de 100 caracteres (límite)', payload: { ...base, firstName: 'a'.repeat(100) }, valid: true },
+    {
+      name: 'contraseña de 8 caracteres (límite)',
+      payload: { ...base, password: 'a'.repeat(8) },
+      valid: true,
+    },
+    {
+      name: 'contraseña de 128 caracteres (límite)',
+      payload: { ...base, password: 'a'.repeat(128) },
+      valid: true,
+    },
+    {
+      name: 'nombre de 100 caracteres (límite)',
+      payload: { ...base, firstName: 'a'.repeat(100) },
+      valid: true,
+    },
     { name: 'sin nombre', payload: { ...base, firstName: undefined }, valid: false },
     { name: 'nombre vacío', payload: { ...base, firstName: '' }, valid: false },
-    { name: 'nombre de 101 caracteres', payload: { ...base, firstName: 'a'.repeat(101) }, valid: false },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { ...base, firstName: 'a'.repeat(101) },
+      valid: false,
+    },
     { name: 'correo inválido', payload: { ...base, email: 'no-valido' }, valid: false },
     { name: 'sin correo', payload: { ...base, email: undefined }, valid: false },
-    { name: 'teléfono de 51 caracteres', payload: { ...base, phone: '1'.repeat(51) }, valid: false },
-    { name: 'contraseña de 7 caracteres', payload: { ...base, password: 'a'.repeat(7) }, valid: false },
-    { name: 'contraseña de 129 caracteres', payload: { ...base, password: 'a'.repeat(129) }, valid: false },
+    {
+      name: 'teléfono de 51 caracteres',
+      payload: { ...base, phone: '1'.repeat(51) },
+      valid: false,
+    },
+    {
+      name: 'contraseña de 7 caracteres',
+      payload: { ...base, password: 'a'.repeat(7) },
+      valid: false,
+    },
+    {
+      name: 'contraseña de 129 caracteres',
+      payload: { ...base, password: 'a'.repeat(129) },
+      valid: false,
+    },
     { name: 'nombre numérico', payload: { ...base, firstName: 123 }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(RegisterDto, payload)
@@ -89,7 +117,11 @@ describe('CreateStaffDto (RQ-AUTH-13)', () => {
 
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
     { name: 'payload válido con branchId', payload: staff, valid: true },
-    { name: 'branchId en el límite permitido', payload: { ...staff, branchId: 'b'.repeat(50) }, valid: true },
+    {
+      name: 'branchId en el límite permitido',
+      payload: { ...staff, branchId: 'b'.repeat(50) },
+      valid: true,
+    },
     { name: 'sin branchId', payload: { ...staff, branchId: undefined }, valid: false },
     { name: 'branchId vacío', payload: { ...staff, branchId: '' }, valid: false },
     { name: 'branchId numérico', payload: { ...staff, branchId: 123 }, valid: false },
@@ -116,7 +148,11 @@ describe('CreateAdminDto (RQ-AUTH-14)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
     { name: 'payload válido', payload: { ...base }, valid: true },
     { name: 'sin contraseña', payload: { ...base, password: undefined }, valid: false },
-    { name: 'contraseña de 7 caracteres', payload: { ...base, password: 'a'.repeat(7) }, valid: false },
+    {
+      name: 'contraseña de 7 caracteres',
+      payload: { ...base, password: 'a'.repeat(7) },
+      valid: false,
+    },
     { name: 'correo inválido', payload: { ...base, email: 'admin' }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(CreateAdminDto, payload)
@@ -141,7 +177,11 @@ describe('CreateRiderDto / RegisterRiderDto (RQ-AUTH-15)', () => {
     { name: 'payload válido con vehículo', payload: rider, valid: true },
     { name: 'sin vehículo', payload: { ...rider, vehicle: undefined }, valid: false },
     { name: 'sin teléfono', payload: { ...rider, phone: undefined }, valid: false },
-    { name: 'contraseña de 7 caracteres', payload: { ...rider, password: 'a'.repeat(7) }, valid: false },
+    {
+      name: 'contraseña de 7 caracteres',
+      payload: { ...rider, password: 'a'.repeat(7) },
+      valid: false,
+    },
   ])('RegisterRiderDto: $name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(RegisterRiderDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -150,11 +190,27 @@ describe('CreateRiderDto / RegisterRiderDto (RQ-AUTH-15)', () => {
 
 describe('UpdateProfileDto (RQ-AUTH-11)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
-    { name: 'payload válido', payload: { firstName: 'Ana', lastName: 'Gomez', phone: '999' }, valid: true },
-    { name: 'nombre de 100 caracteres (límite)', payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '1' }, valid: true },
+    {
+      name: 'payload válido',
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '999' },
+      valid: true,
+    },
+    {
+      name: 'nombre de 100 caracteres (límite)',
+      payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '1' },
+      valid: true,
+    },
     { name: 'sin teléfono', payload: { firstName: 'Ana', lastName: 'Gomez' }, valid: false },
-    { name: 'teléfono vacío', payload: { firstName: 'Ana', lastName: 'Gomez', phone: '' }, valid: false },
-    { name: 'apellido de 101 caracteres', payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '1' }, valid: false },
+    {
+      name: 'teléfono vacío',
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '' },
+      valid: false,
+    },
+    {
+      name: 'apellido de 101 caracteres',
+      payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '1' },
+      valid: false,
+    },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateProfileDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -209,7 +265,11 @@ describe('UserQueryDto (listado con filtros)', () => {
     { name: 'rol inválido', payload: { role: 'vendedor' }, valid: false },
     { name: 'active true', payload: { active: true }, valid: true },
     { name: 'active false', payload: { active: false }, valid: true },
-    { name: 'search de 100 caracteres (límite)', payload: { search: 'a'.repeat(100) }, valid: true },
+    {
+      name: 'search de 100 caracteres (límite)',
+      payload: { search: 'a'.repeat(100) },
+      valid: true,
+    },
     { name: 'search de 101 caracteres', payload: { search: 'a'.repeat(101) }, valid: false },
     { name: 'search numérico', payload: { search: 10 }, valid: false },
     { name: 'limit mínimo 1', payload: { limit: 1 }, valid: true },
@@ -236,7 +296,11 @@ describe('UserQueryDto (listado con filtros)', () => {
     { name: '"false" se transforma a false', input: 'false', expected: false },
     { name: 'true booleano se mantiene', input: true, expected: true },
     { name: 'false booleano se mantiene', input: false, expected: false },
-    { name: 'un valor inesperado se coacciona a false (transform sin validación estricta)', input: 'yes', expected: false },
+    {
+      name: 'un valor inesperado se coacciona a false (transform sin validación estricta)',
+      input: 'yes',
+      expected: false,
+    },
   ])('active: $name', async ({ input, expected }) => {
     const { instance, invalid } = await check(UserQueryDto, { active: input })
     expect(invalid).toEqual([])

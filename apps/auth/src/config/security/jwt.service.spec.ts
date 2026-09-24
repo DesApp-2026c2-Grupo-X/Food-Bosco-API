@@ -45,14 +45,17 @@ describe('JwtService.signAccessToken (RQ-SEC-01/02)', () => {
       expectedRole: ROLES.superAdmin,
       expectedBranch: null,
     },
-  ])('$name: incluye userId, rol en arreglo y branchId', ({ user, expectedRole, expectedBranch }) => {
-    const payload = jwt.verify(service.signAccessToken(user), env.jwtSecret) as jwt.JwtPayload
+  ])(
+    '$name: incluye userId, rol en arreglo y branchId',
+    ({ user, expectedRole, expectedBranch }) => {
+      const payload = jwt.verify(service.signAccessToken(user), env.jwtSecret) as jwt.JwtPayload
 
-    expect(payload.userId).toBe(user.id)
-    expect(payload.sub).toBe(user.id)
-    expect(payload.roles).toEqual([expectedRole])
-    expect(payload.branchId).toBe(expectedBranch)
-  })
+      expect(payload.userId).toBe(user.id)
+      expect(payload.sub).toBe(user.id)
+      expect(payload.roles).toEqual([expectedRole])
+      expect(payload.branchId).toBe(expectedBranch)
+    },
+  )
 
   it('incluye expiración coherente con jwtAccessExpiresIn', () => {
     const payload = jwt.verify(

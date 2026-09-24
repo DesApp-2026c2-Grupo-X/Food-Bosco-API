@@ -21,10 +21,12 @@ const makeService = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
 describe('ParameterService.list (RQ-CFG-01/02)', () => {
   it('serializa los parámetros respetando el orden del repositorio', async () => {
     const { service } = makeService({
-      findAll: jest.fn().mockResolvedValue([
-        parameterDoc(PARAMETER_KEYS.avgSpeedKmh, 25, 'km/h'),
-        parameterDoc(PARAMETER_KEYS.basePrepMin, 15, 'min'),
-      ]),
+      findAll: jest
+        .fn()
+        .mockResolvedValue([
+          parameterDoc(PARAMETER_KEYS.avgSpeedKmh, 25, 'km/h'),
+          parameterDoc(PARAMETER_KEYS.basePrepMin, 15, 'min'),
+        ]),
     })
 
     const result = await service.list()
@@ -111,9 +113,7 @@ describe('ParameterService.getValue (RQ-CFG-01/03/04)', () => {
 describe('ParameterService.create (RQ-CFG-01)', () => {
   it('delega en el repositorio y serializa el parámetro creado', async () => {
     const { repository, service } = makeService({
-      create: jest
-        .fn()
-        .mockResolvedValue(parameterDoc(PARAMETER_KEYS.avgSpeedKmh, 30, 'km/h')),
+      create: jest.fn().mockResolvedValue(parameterDoc(PARAMETER_KEYS.avgSpeedKmh, 30, 'km/h')),
     })
 
     const result = await service.create({

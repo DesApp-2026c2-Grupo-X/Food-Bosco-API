@@ -291,10 +291,7 @@ describe('BranchService.findAvailable (RQ-BRN-04/05/06/08)', () => {
       branchAt('mid', 0.3),
       branchAt('near', 0.1),
     ]
-    const { service } = makeService(
-      { findActive: jest.fn().mockResolvedValue(branches) },
-      100,
-    )
+    const { service } = makeService({ findActive: jest.fn().mockResolvedValue(branches) }, 100)
 
     const result = await service.findAvailable(origin.latitude, origin.longitude)
 

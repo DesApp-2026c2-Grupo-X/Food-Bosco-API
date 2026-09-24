@@ -198,17 +198,20 @@ describe('CommerceResolver — lookups por id', () => {
     },
   ]
 
-  it.each(cases)('$name → GET $path y mapea la entidad', async ({ path, raw, expectedId, invoke }) => {
-    restMock.get.mockResolvedValue(raw)
+  it.each(cases)(
+    '$name → GET $path y mapea la entidad',
+    async ({ path, raw, expectedId, invoke }) => {
+      restMock.get.mockResolvedValue(raw)
 
-    const result = (await invoke(resolver)) as { id: string }
+      const result = (await invoke(resolver)) as { id: string }
 
-    expect(restMock.get).toHaveBeenCalledTimes(1)
-    expect(restMock.get).toHaveBeenCalledWith(path, {
-      context: expect.objectContaining({ userId: 'u1', authorization: 'Bearer xyz' }),
-    })
-    expect(result.id).toBe(expectedId)
-  })
+      expect(restMock.get).toHaveBeenCalledTimes(1)
+      expect(restMock.get).toHaveBeenCalledWith(path, {
+        context: expect.objectContaining({ userId: 'u1', authorization: 'Bearer xyz' }),
+      })
+      expect(result.id).toBe(expectedId)
+    },
+  )
 
   it('order → convierte status y availableTransitions', async () => {
     restMock.get.mockResolvedValue(rawOrder)
@@ -940,11 +943,7 @@ describe('CommerceResolver — changeOrderStatus y repeatOrder', () => {
   it('changeOrderStatus traduce el estado GraphQL al REST en snake_case', async () => {
     restMock.patch.mockResolvedValue({ ...rawOrder, status: 'ready_for_delivery' })
 
-    const result = await resolver.changeOrderStatus(
-      'o1',
-      OrderStatus.READY_FOR_DELIVERY,
-      ctx,
-    )
+    const result = await resolver.changeOrderStatus('o1', OrderStatus.READY_FOR_DELIVERY, ctx)
 
     expect(restMock.patch).toHaveBeenCalledWith('/v1/orders/o1/status', {
       body: { status: 'ready_for_delivery' },

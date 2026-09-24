@@ -95,9 +95,7 @@ describe('UploadExceptionFilter.catch', () => {
 
     filter.catch(exception, host)
 
-    expect(json).toHaveBeenCalledWith(
-      expect.objectContaining({ code: 'X', message: 'Error' }),
-    )
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ code: 'X', message: 'Error' }))
   })
 
   it('excepción no-HttpException → 500 INTERNAL_SERVER_ERROR genérico', () => {

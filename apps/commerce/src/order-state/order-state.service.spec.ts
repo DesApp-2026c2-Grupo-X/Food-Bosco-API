@@ -32,10 +32,12 @@ const makeService = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
 describe('OrderStateService.list (RQ-CFG-05)', () => {
   it('serializa los estados respetando el orden del repositorio', async () => {
     const { service } = makeService({
-      findAll: jest.fn().mockResolvedValue([
-        orderStateDoc({ code: 'PENDING', name: 'Pendiente', order: 1 }),
-        orderStateDoc({ code: 'CONFIRMED', name: 'Confirmado', order: 2 }),
-      ]),
+      findAll: jest
+        .fn()
+        .mockResolvedValue([
+          orderStateDoc({ code: 'PENDING', name: 'Pendiente', order: 1 }),
+          orderStateDoc({ code: 'CONFIRMED', name: 'Confirmado', order: 2 }),
+        ]),
     })
 
     const result = await service.list()
@@ -75,7 +77,9 @@ describe('OrderStateService.findByCode (RQ-CFG-05)', () => {
 describe('OrderStateService.create (RQ-CFG-05/06)', () => {
   it('delega los datos y serializa el estado creado activo', async () => {
     const { repository, service } = makeService({
-      create: jest.fn().mockResolvedValue(orderStateDoc({ code: 'PREPARING', name: 'Preparando', order: 3 })),
+      create: jest
+        .fn()
+        .mockResolvedValue(orderStateDoc({ code: 'PREPARING', name: 'Preparando', order: 3 })),
     })
 
     const result = await service.create({ code: 'PREPARING', name: 'Preparando', order: 3 })

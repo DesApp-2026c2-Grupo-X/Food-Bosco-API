@@ -55,10 +55,26 @@ const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): ProductDocu
 
 describe('serializeOption (RQ-CAT-07/08)', () => {
   it.each([
-    { name: 'opción disponible estándar', overrides: {}, expected: { id: 'opt1', name: 'Queso', extraPrice: 10, available: true } },
-    { name: 'opción no disponible', overrides: { available: false }, expected: { id: 'opt1', name: 'Queso', extraPrice: 10, available: false } },
-    { name: 'opción con precio extra 0 (límite)', overrides: { extraPrice: 0 }, expected: { id: 'opt1', name: 'Queso', extraPrice: 0, available: true } },
-    { name: 'opción con precio extra negativo', overrides: { extraPrice: -5 }, expected: { id: 'opt1', name: 'Queso', extraPrice: -5, available: true } },
+    {
+      name: 'opción disponible estándar',
+      overrides: {},
+      expected: { id: 'opt1', name: 'Queso', extraPrice: 10, available: true },
+    },
+    {
+      name: 'opción no disponible',
+      overrides: { available: false },
+      expected: { id: 'opt1', name: 'Queso', extraPrice: 10, available: false },
+    },
+    {
+      name: 'opción con precio extra 0 (límite)',
+      overrides: { extraPrice: 0 },
+      expected: { id: 'opt1', name: 'Queso', extraPrice: 0, available: true },
+    },
+    {
+      name: 'opción con precio extra negativo',
+      overrides: { extraPrice: -5 },
+      expected: { id: 'opt1', name: 'Queso', extraPrice: -5, available: true },
+    },
   ])('mapea el contrato público ($name)', ({ overrides, expected }) => {
     const result = serializeOption(buildOption(overrides))
 
@@ -115,13 +131,33 @@ describe('serializeGroup (RQ-CAT-06/07)', () => {
     const result = serializeGroup(buildGroup(overrides))
 
     expect(result).toEqual(expected)
-    expect(Object.keys(result).sort()).toEqual(['id', 'max', 'min', 'name', 'options', 'required', 'type'])
+    expect(Object.keys(result).sort()).toEqual([
+      'id',
+      'max',
+      'min',
+      'name',
+      'options',
+      'required',
+      'type',
+    ])
   })
 
   it.each([
-    { name: 'min y max en null', overrides: { min: null, max: null }, expected: { min: null, max: null } },
-    { name: 'min y max indefinidos se normalizan a null', overrides: { min: undefined, max: undefined }, expected: { min: null, max: null } },
-    { name: 'min 0 conserva el cero', overrides: { min: 0, max: undefined }, expected: { min: 0, max: null } },
+    {
+      name: 'min y max en null',
+      overrides: { min: null, max: null },
+      expected: { min: null, max: null },
+    },
+    {
+      name: 'min y max indefinidos se normalizan a null',
+      overrides: { min: undefined, max: undefined },
+      expected: { min: null, max: null },
+    },
+    {
+      name: 'min 0 conserva el cero',
+      overrides: { min: 0, max: undefined },
+      expected: { min: 0, max: null },
+    },
   ])('normaliza min/max ($name)', ({ overrides, expected }) => {
     const result = serializeGroup(buildGroup(overrides))
 
@@ -139,7 +175,11 @@ describe('serializeGroup (RQ-CAT-06/07)', () => {
     const result = serializeGroup(buildGroup({ options }))
 
     expect(result.options.map((option) => option.id)).toEqual(['o1', 'o2', 'o3'])
-    expect(result.options.map((option) => option.name)).toEqual(['Sin cebolla', 'Doble queso', 'Bacon'])
+    expect(result.options.map((option) => option.name)).toEqual([
+      'Sin cebolla',
+      'Doble queso',
+      'Bacon',
+    ])
   })
 
   it('no expone los _id internos del grupo ni de sus opciones', () => {
@@ -152,10 +192,26 @@ describe('serializeGroup (RQ-CAT-06/07)', () => {
 
 describe('serializeProduct (RQ-CAT-04/06/11/12)', () => {
   it.each([
-    { name: 'producto completo', overrides: {}, expected: { id: 'p1', image: null, available: true } },
-    { name: 'producto no disponible', overrides: { available: false }, expected: { id: 'p1', image: null, available: false } },
-    { name: 'producto con imagen', overrides: { image: 'https://cdn.test/burger.png' }, expected: { id: 'p1', image: 'https://cdn.test/burger.png', available: true } },
-    { name: 'producto con precio 0', overrides: { price: 0 }, expected: { id: 'p1', image: null, available: true } },
+    {
+      name: 'producto completo',
+      overrides: {},
+      expected: { id: 'p1', image: null, available: true },
+    },
+    {
+      name: 'producto no disponible',
+      overrides: { available: false },
+      expected: { id: 'p1', image: null, available: false },
+    },
+    {
+      name: 'producto con imagen',
+      overrides: { image: 'https://cdn.test/burger.png' },
+      expected: { id: 'p1', image: 'https://cdn.test/burger.png', available: true },
+    },
+    {
+      name: 'producto con precio 0',
+      overrides: { price: 0 },
+      expected: { id: 'p1', image: null, available: true },
+    },
   ])('mapea campos básicos ($name)', ({ overrides, expected }) => {
     const result = serializeProduct(buildDoc(overrides))
 
@@ -193,9 +249,27 @@ describe('serializeProduct (RQ-CAT-04/06/11/12)', () => {
   })
 
   it.each([
-    { name: 'sin grupos ni receta', configGroups: [], recipe: [], expectedGroups: 0, expectedRecipe: 0 },
-    { name: 'un grupo y un ítem', configGroups: [buildGroup()], recipe: [buildRecipeItem()], expectedGroups: 1, expectedRecipe: 1 },
-    { name: 'varios grupos y varios ítems', configGroups: [buildGroup(), buildGroup({ _id: objectId('g2') })], recipe: [buildRecipeItem(), buildRecipeItem({ _id: objectId('r2') })], expectedGroups: 2, expectedRecipe: 2 },
+    {
+      name: 'sin grupos ni receta',
+      configGroups: [],
+      recipe: [],
+      expectedGroups: 0,
+      expectedRecipe: 0,
+    },
+    {
+      name: 'un grupo y un ítem',
+      configGroups: [buildGroup()],
+      recipe: [buildRecipeItem()],
+      expectedGroups: 1,
+      expectedRecipe: 1,
+    },
+    {
+      name: 'varios grupos y varios ítems',
+      configGroups: [buildGroup(), buildGroup({ _id: objectId('g2') })],
+      recipe: [buildRecipeItem(), buildRecipeItem({ _id: objectId('r2') })],
+      expectedGroups: 2,
+      expectedRecipe: 2,
+    },
   ])('mapea colecciones ($name)', ({ configGroups, recipe, expectedGroups, expectedRecipe }) => {
     const result = serializeProduct(buildDoc({ configGroups, recipe }))
 
@@ -214,7 +288,12 @@ describe('serializeProduct (RQ-CAT-04/06/11/12)', () => {
           { optionId: 'opt-triple', quantity: 3 },
         ],
       }),
-      buildRecipeItem({ _id: objectId('r2'), ingredientId: 'ing-pan', quantity: 1, optionAdjustments: [] }),
+      buildRecipeItem({
+        _id: objectId('r2'),
+        ingredientId: 'ing-pan',
+        quantity: 1,
+        optionAdjustments: [],
+      }),
     ]
 
     const result = serializeProduct(buildDoc({ recipe }))

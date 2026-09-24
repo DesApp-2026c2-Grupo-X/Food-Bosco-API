@@ -9,13 +9,8 @@ import { SeedController } from './seed.controller'
 import { SeedService } from './seed.service'
 
 @Module({
-  imports: [
-    DatabaseModule,
-    RiderModule,
-    ZoneModule,
-    ShiftModule,
-  ],
+  imports: [DatabaseModule, RiderModule, ZoneModule, ShiftModule],
   controllers: [SeedController],
   providers: [SeedService],
 })
-export class SeedModule { }
+export class SeedModule {}

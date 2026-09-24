@@ -21,7 +21,10 @@ const makeService = (repository: Partial<Record<string, jest.Mock>> = {}) => {
     setActive: jest.fn(),
     ...repository,
   }
-  return { repository: mock, service: new IngredientService(mock as unknown as IngredientRepository) }
+  return {
+    repository: mock,
+    service: new IngredientService(mock as unknown as IngredientRepository),
+  }
 }
 
 describe('IngredientService.list (RQ-CAT-09)', () => {

@@ -53,7 +53,7 @@ export interface SeedResult {
 
 @Injectable()
 export class SeedService {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   async seed(branchId?: string): Promise<SeedResult> {
     const users: PublicUser[] = []
@@ -64,10 +64,7 @@ export class SeedService {
       const password = PASSWORDS[seed.key]
 
       if (!password) {
-        Logger.warn(
-          `usuario de seed sin contraseña configurada: ${seed.key}`,
-          'Seed',
-        )
+        Logger.warn(`usuario de seed sin contraseña configurada: ${seed.key}`, 'Seed')
         continue
       }
 
@@ -123,9 +120,7 @@ export class SeedService {
       return created
     } catch (error: unknown) {
       const race = isDuplicateKeyError(error)
-      const alreadyTaken =
-        error instanceof DomainException &&
-        error.code === ERROR_CODES.emailTaken
+      const alreadyTaken = error instanceof DomainException && error.code === ERROR_CODES.emailTaken
 
       if (!race && !alreadyTaken) throw error
 

@@ -76,10 +76,7 @@ describe('RabbitTransport.publish (sin broker real)', () => {
   it('serializa conexiones concurrentes en una sola apertura', async () => {
     const { transport } = setup()
 
-    await Promise.all([
-      transport.publish(event),
-      transport.publish({ ...event, eventId: 'e2' }),
-    ])
+    await Promise.all([transport.publish(event), transport.publish({ ...event, eventId: 'e2' })])
 
     expect(connectMock).toHaveBeenCalledTimes(1)
   })

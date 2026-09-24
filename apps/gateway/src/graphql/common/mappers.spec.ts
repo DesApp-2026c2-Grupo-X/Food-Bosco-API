@@ -106,8 +106,14 @@ describe('asStringList', () => {
     [undefined, []],
     ['no-es-array', []],
     [{ 0: 'a' }, []],
-    [['a', 'b'], ['a', 'b']],
-    [['a', 1, null], ['a', '1', '']],
+    [
+      ['a', 'b'],
+      ['a', 'b'],
+    ],
+    [
+      ['a', 1, null],
+      ['a', '1', ''],
+    ],
   ])('asStringList(%p) → %p', (value, expected) => {
     expect(asStringList(value)).toEqual(expected)
   })
@@ -119,9 +125,15 @@ describe('asRecordList', () => {
     [null, []],
     [undefined, []],
     ['no-es-array', []],
-    [[{ a: 1 }, { b: 2 }], [{ a: 1 }, { b: 2 }]],
+    [
+      [{ a: 1 }, { b: 2 }],
+      [{ a: 1 }, { b: 2 }],
+    ],
     [[{ a: 1 }, null, 'x', 1, undefined], [{ a: 1 }]],
-    [[[], { b: 2 }], [[], { b: 2 }]],
+    [
+      [[], { b: 2 }],
+      [[], { b: 2 }],
+    ],
   ])('asRecordList(%p) → %p', (value, expected) => {
     expect(asRecordList(value)).toEqual(expected)
   })
