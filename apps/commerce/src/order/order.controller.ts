@@ -95,7 +95,7 @@ export class OrderController {
   }
 
   @Post(':orderId/release-rider')
-  @Roles(ROLES.superAdmin)
+  @Roles(ROLES.rider, ROLES.branchAdmin, ROLES.superAdmin)
   @Internal()
   releaseRider(
     @CurrentUser() auth: AuthContext,

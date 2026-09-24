@@ -121,11 +121,10 @@ export class OrderOrchestrator {
     if (!order) {
       throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
     }
-    if (!actor.internal && !actor.roles.includes(ROLES.superAdmin)) {
-      throw new DomainException(ERROR_CODES.forbidden, 'Sin permiso para liberar el rider', 403)
-    }
+    this.assertCanRelease(actor, order)
 
-    const result = await this.orderService.releaseRider(orderId)
+    const isRider = !actor.internal && actor.roles.includes(ROLES.rider)
+    const result = await this.orderService.releaseRider(orderId, { allowAfterPickup: !isRider })
     if (!result) {
       throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
     }
@@ -267,6 +266,28 @@ export class OrderOrchestrator {
     const distanceKm = haversineDistanceKm(branch, deliveryAddress)
     const etaMinutes = basePrepMin + estimateMinutes(distanceKm, avgSpeedKmh)
     return new Date(Date.now() + etaMinutes * 60 * 1000)
+  }
+
+  private assertCanRelease(actor: AuthContext, order: PublicOrder): void {
+    if (actor.internal) {
+      return
+    }
+    if (actor.roles.includes(ROLES.superAdmin)) {
+      return
+    }
+    if (actor.roles.includes(ROLES.branchAdmin)) {
+      if (actor.branchId !== order.branchId) {
+        throw new DomainException(ERROR_CODES.forbidden, 'Sin acceso a esta sucursal', 403)
+      }
+      return
+    }
+    if (actor.roles.includes(ROLES.rider)) {
+      if (order.riderId !== actor.userId) {
+        throw new DomainException(ERROR_CODES.forbidden, 'Este pedido no te pertenece', 403)
+      }
+      return
+    }
+    throw new DomainException(ERROR_CODES.forbidden, 'Sin permiso para liberar el pedido', 403)
   }
 
   private assertBranchAccess(actor: AuthContext, order: PublicOrder): void {

@@ -53,6 +53,7 @@ const order = (overrides: Partial<PublicOrder> = {}): PublicOrder => ({
   estimatedDeliveryAt: null,
   riderId: null,
   tripId: null,
+  cancelReason: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   items: [],
   statusHistory: [],
@@ -112,7 +113,12 @@ const internalActor = (): AuthContext => ({
 })
 
 const makeOrchestrator = () => {
-  const orderService = { findById: jest.fn(), create: jest.fn(), applyTransition: jest.fn() }
+  const orderService = {
+    findById: jest.fn(),
+    create: jest.fn(),
+    applyTransition: jest.fn(),
+    releaseRider: jest.fn(),
+  }
   const cartService = { findActiveByClient: jest.fn(), confirm: jest.fn() }
   const cartOrchestrator = { replaceItems: jest.fn() }
   const productService = { findByIds: jest.fn(), findById: jest.fn() }
@@ -799,5 +805,66 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
 
     expect(mocks.cartOrchestrator.replaceItems).toHaveBeenCalledWith('c1', [])
     expect(result.skippedProducts.map((entry) => entry.id)).toEqual(['p2'])
+  })
+})
+
+describe('OrderOrchestrator.releaseRider (RQ-ORD-16)', () => {
+  const rider = (userId: string): AuthContext => ({
+    authenticated: true,
+    userId,
+    roles: [ROLES.rider],
+    branchId: null,
+    internal: false,
+  })
+
+  it('el rider solo puede liberar antes del retiro y publica el evento', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(
+      order({ riderId: 'r1', status: ORDER_STATUS.readyForDelivery }),
+    )
+    mocks.orderService.releaseRider.mockResolvedValue({
+      order: order({ riderId: null, status: ORDER_STATUS.readyForDelivery }),
+      changed: true,
+    })
+    mocks.branchService.findById.mockResolvedValue(branch())
+
+    await mocks.orchestrator.releaseRider(rider('r1'), 'o1')
+
+    expect(mocks.orderService.releaseRider).toHaveBeenCalledWith('o1', { allowAfterPickup: false })
+    expect(mocks.eventBus.publish).toHaveBeenCalled()
+  })
+
+  it('branch/admin pueden liberar aunque el pedido ya se haya retirado', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(
+      order({ riderId: 'r1', status: ORDER_STATUS.onTheWay }),
+    )
+    mocks.orderService.releaseRider.mockResolvedValue({
+      order: order({ riderId: null, status: ORDER_STATUS.cancelled, cancelReason: 'lost' }),
+      changed: true,
+    })
+    mocks.branchService.findById.mockResolvedValue(branch())
+
+    await mocks.orchestrator.releaseRider(superAdmin(), 'o1')
+
+    expect(mocks.orderService.releaseRider).toHaveBeenCalledWith('o1', { allowAfterPickup: true })
+  })
+
+  it('rechaza al rider que no es dueño del pedido', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(order({ riderId: 'r1' }))
+
+    await expect(mocks.orchestrator.releaseRider(rider('r2'), 'o1')).rejects.toMatchObject({
+      code: ERROR_CODES.forbidden,
+    })
+  })
+
+  it('rechaza a un branch_admin de otra sucursal', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(order({ branchId: 'b1', riderId: 'r1' }))
+
+    await expect(mocks.orchestrator.releaseRider(admin('b2'), 'o1')).rejects.toMatchObject({
+      code: ERROR_CODES.forbidden,
+    })
   })
 })

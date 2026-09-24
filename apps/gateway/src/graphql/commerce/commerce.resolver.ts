@@ -866,7 +866,7 @@ export class CommerceResolver {
   }
 
   @Mutation(() => Order)
-  @Roles(ROLES.superAdmin)
+  @Roles(ROLES.rider, ROLES.branchAdmin, ROLES.superAdmin)
   async releaseOrderRider(
     @Args('orderId', { type: () => ID }) orderId: string,
     @Context() ctx: GraphQLContext,

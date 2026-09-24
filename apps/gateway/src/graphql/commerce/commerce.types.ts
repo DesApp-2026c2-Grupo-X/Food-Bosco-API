@@ -327,6 +327,9 @@ export class Order {
   @Field(() => String, { nullable: true })
   estimatedDeliveryAt!: string | null
 
+  @Field(() => String, { nullable: true })
+  cancelReason!: string | null
+
   @Field()
   createdAt!: string
 
@@ -576,6 +579,7 @@ export const mapOrder = (raw: RawRecord): Order => ({
   status: orderStatusFromRest(asString(raw.status)),
   total: asNumber(raw.total),
   estimatedDeliveryAt: nullableString(raw.estimatedDeliveryAt),
+  cancelReason: nullableString(raw.cancelReason),
   createdAt: asString(raw.createdAt),
   items: asRecordList(raw.items).map(mapOrderItem),
   statusHistory: asRecordList(raw.statusHistory).map(mapOrderStatusHistory),

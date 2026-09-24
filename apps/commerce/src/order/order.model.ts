@@ -103,6 +103,9 @@ export class Order {
   @Prop({ default: null, type: String })
   tripId!: string | null
 
+  @Prop({ default: null, type: String })
+  cancelReason!: string | null
+
   @Prop({ type: [OrderItemSchema], default: [] })
   items!: OrderItem[]
 
@@ -151,6 +154,7 @@ export interface PublicOrder {
   estimatedDeliveryAt: string | null
   riderId: string | null
   tripId: string | null
+  cancelReason: string | null
   createdAt: string
   items: PublicOrderItem[]
   statusHistory: PublicOrderStatusHistory[]
@@ -195,6 +199,7 @@ export const serializeOrder = (doc: OrderDocument): PublicOrder => ({
   estimatedDeliveryAt: doc.estimatedDeliveryAt?.toISOString() ?? null,
   riderId: doc.riderId ?? null,
   tripId: doc.tripId ?? null,
+  cancelReason: doc.cancelReason ?? null,
   createdAt: doc.createdAt.toISOString(),
   items: doc.items.map(serializeItem),
   statusHistory: doc.statusHistory.map(serializeHistory),

@@ -46,6 +46,12 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [ORDER_STATUS.cancelled]: [],
 }
 
+export const CANCEL_REASON = {
+  lost: 'lost',
+} as const
+
+export type CancelReason = (typeof CANCEL_REASON)[keyof typeof CANCEL_REASON]
+
 export const CART_STATUS = {
   active: 'active',
   confirmed: 'confirmed',

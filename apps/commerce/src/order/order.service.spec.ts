@@ -411,33 +411,44 @@ describe('OrderService.create (RQ-ORD-07/08)', () => {
 })
 
 describe('OrderService.releaseRider (RQ-ORD-16)', () => {
-  it('desasigna el rider y vuelve el pedido a listo para entregar', async () => {
-    const doc = buildDoc({ status: ORDER_STATUS.onTheWay, riderId: 'r1', tripId: 't1' })
+  it('antes del retiro vuelve el pedido a listo para entregar y libera al rider', async () => {
+    const doc = buildDoc({ status: ORDER_STATUS.readyForDelivery, riderId: 'r1', tripId: 't1' })
     const service = makeService(doc)
 
-    const result = await service.releaseRider('o1')
+    const result = await service.releaseRider('o1', { allowAfterPickup: false })
 
     expect(result?.changed).toBe(true)
     expect(result?.order.status).toBe(ORDER_STATUS.readyForDelivery)
     expect(result?.order.riderId).toBeNull()
     expect(result?.order.tripId).toBeNull()
-    expect(doc.statusHistory.at(-1)?.newStatus).toBe(ORDER_STATUS.readyForDelivery)
+    expect(result?.order.cancelReason).toBeNull()
   })
 
-  it('solo limpia la asignación si el pedido ya estaba listo para entregar', async () => {
-    const doc = buildDoc({ status: ORDER_STATUS.readyForDelivery, riderId: 'r1', tripId: 't1' })
+  it('si ya fue retirado, cancela el pedido y lo marca como robado', async () => {
+    const doc = buildDoc({ status: ORDER_STATUS.onTheWay, riderId: 'r1', tripId: 't1' })
     const service = makeService(doc)
 
-    const result = await service.releaseRider('o1')
+    const result = await service.releaseRider('o1', { allowAfterPickup: true })
 
-    expect(result?.order.status).toBe(ORDER_STATUS.readyForDelivery)
+    expect(result?.order.status).toBe(ORDER_STATUS.cancelled)
+    expect(result?.order.cancelReason).toBe('lost')
     expect(result?.order.riderId).toBeNull()
+    expect(doc.statusHistory.at(-1)?.newStatus).toBe(ORDER_STATUS.cancelled)
+  })
+
+  it('el rider no puede liberar un pedido ya retirado', async () => {
+    const doc = buildDoc({ status: ORDER_STATUS.onTheWay, riderId: 'r1', tripId: 't1' })
+    const service = makeService(doc)
+
+    await expect(service.releaseRider('o1', { allowAfterPickup: false })).rejects.toMatchObject({
+      code: ERROR_CODES.invalidTransition,
+    })
   })
 
   it('rechaza liberar un pedido sin rider asignado', async () => {
     const service = makeService(buildDoc({ status: ORDER_STATUS.pending }))
 
-    await expect(service.releaseRider('o1')).rejects.toMatchObject({
+    await expect(service.releaseRider('o1', { allowAfterPickup: true })).rejects.toMatchObject({
       code: ERROR_CODES.invalidTransition,
     })
   })
@@ -445,6 +456,6 @@ describe('OrderService.releaseRider (RQ-ORD-16)', () => {
   it('devuelve null cuando el pedido no existe', async () => {
     const service = makeService(null)
 
-    await expect(service.releaseRider('o1')).resolves.toBeNull()
+    await expect(service.releaseRider('o1', { allowAfterPickup: true })).resolves.toBeNull()
   })
 })
