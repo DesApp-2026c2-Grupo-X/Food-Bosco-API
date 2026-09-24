@@ -116,6 +116,26 @@ export class OrderOrchestrator {
     return result.order
   }
 
+  async releaseRider(actor: AuthContext, orderId: string): Promise<PublicOrder> {
+    const order = await this.orderService.findById(orderId)
+    if (!order) {
+      throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
+    }
+    if (!actor.internal && !actor.roles.includes(ROLES.superAdmin)) {
+      throw new DomainException(ERROR_CODES.forbidden, 'Sin permiso para liberar el rider', 403)
+    }
+
+    const result = await this.orderService.releaseRider(orderId)
+    if (!result) {
+      throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
+    }
+
+    const branch = await this.branchService.findById(order.branchId)
+    await this.eventBus.publish(this.toStatusChangedEvent(result.order, branch))
+
+    return result.order
+  }
+
   async repeat(clientId: string, orderId: string): Promise<RepeatOrderResult> {
     const order = await this.orderService.findById(orderId)
     if (!order || order.clientId !== clientId) {

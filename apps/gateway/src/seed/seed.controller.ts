@@ -51,11 +51,9 @@ export class SeedController {
 
     const commerceResult = await this.commerce.post<CommerceSeedResult>('/v1/seed', { context })
 
-    const branchId = commerceResult.branches[0]?.id
-
     const authResult = await this.auth.post<AuthSeedResult>('/v1/seed', {
       context,
-      body: { branchId },
+      body: { branches: commerceResult.branches },
     })
 
     const rider = authResult.users.find((user) => user.role === 'rider')
@@ -70,7 +68,7 @@ export class SeedController {
           firstName: rider.firstName,
           lastName: rider.lastName,
           phone: rider.phone,
-          vehicle: rider.vehicle,
+          vehicle: { type: 'moto', brand: 'Honda', model: 'CG Titan', plate: 'HLP 482' },
         },
       })
 

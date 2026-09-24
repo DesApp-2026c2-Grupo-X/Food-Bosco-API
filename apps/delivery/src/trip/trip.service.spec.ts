@@ -38,6 +38,7 @@ const makeService = () => {
     findById: jest.fn(),
     findByIdForRider: jest.fn(),
     findActiveOfferByRider: jest.fn(),
+    findByOrderId: jest.fn().mockResolvedValue([]),
     listByRider: jest.fn(),
     save: jest.fn((doc: TripDocument) => Promise.resolve(doc)),
   }
@@ -559,5 +560,82 @@ describe('TripService.findById / findActiveOffer / createOffered', () => {
       estimatedEarnings: 1500,
       expiresAt,
     })
+  })
+})
+
+describe('TripService.cancelOrder (orden cancelada, RQ-DLV-08)', () => {
+  it('marca la orden cancelada y completa el viaje cuando no queda nada pendiente', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([buildDoc({ status: 'active' })])
+
+    const freed = await service.cancelOrder('ord-1')
+
+    expect(freed).toEqual(['u1'])
+    const saved = repository.save.mock.calls[0][0] as TripDocument
+    expect(saved.orders[0].status).toBe('cancelled')
+    expect(saved.status).toBe('completed')
+  })
+
+  it('no completa el viaje si quedan órdenes activas', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([
+      buildDoc({
+        status: 'active',
+        orders: [buildOrder(), buildOrder({ orderId: 'ord-2', status: 'on_the_way' })],
+      }),
+    ])
+
+    const freed = await service.cancelOrder('ord-1')
+
+    expect(freed).toEqual([])
+    const saved = repository.save.mock.calls[0][0] as TripDocument
+    expect(saved.status).toBe('active')
+  })
+
+  it('ignora viajes que no contienen la orden o ya la tienen resuelta', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([])
+
+    await expect(service.cancelOrder('ord-1')).resolves.toEqual([])
+    expect(repository.save).not.toHaveBeenCalled()
+  })
+})
+
+describe('TripService.releaseOrder (liberar rider, RQ-DLV-09)', () => {
+  it('quita la orden del viaje y libera al rider si el viaje queda sin órdenes', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([buildDoc({ status: 'active' })])
+
+    const result = await service.releaseOrder('ord-1')
+
+    expect(result).toEqual({ riderId: 'u1', finished: true })
+    const saved = repository.save.mock.calls[0][0] as TripDocument
+    expect(saved.orders).toHaveLength(0)
+    expect(saved.status).toBe('cancelled')
+  })
+
+  it('mantiene el viaje activo si quedan otras órdenes', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([
+      buildDoc({
+        status: 'active',
+        orders: [buildOrder(), buildOrder({ orderId: 'ord-2', status: 'ready_for_delivery' })],
+      }),
+    ])
+
+    const result = await service.releaseOrder('ord-1')
+
+    expect(result).toEqual({ riderId: 'u1', finished: false })
+    const saved = repository.save.mock.calls[0][0] as TripDocument
+    expect(saved.orders.map((order) => order.orderId)).toEqual(['ord-2'])
+    expect(saved.status).toBe('active')
+  })
+
+  it('devuelve null cuando ningún viaje contiene la orden', async () => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue([])
+
+    await expect(service.releaseOrder('ord-1')).resolves.toBeNull()
+    expect(repository.save).not.toHaveBeenCalled()
   })
 })

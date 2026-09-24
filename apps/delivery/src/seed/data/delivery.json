@@ -2,17 +2,17 @@
   "zones": [
     {
       "name": "Centro",
-      "center": { "latitude": -34.589, "longitude": -58.636 },
+      "center": { "latitude": -34.595519, "longitude": -58.636055 },
       "radiusKm": 4
     },
     {
       "name": "Norte",
-      "center": { "latitude": -34.586, "longitude": -58.63 },
+      "center": { "latitude": -34.614988, "longitude": -58.634316 },
       "radiusKm": 4
     },
     {
       "name": "Oeste",
-      "center": { "latitude": -34.651, "longitude": -58.621 },
+      "center": { "latitude": -34.6493555, "longitude": -58.6172306 },
       "radiusKm": 5
     }
   ],

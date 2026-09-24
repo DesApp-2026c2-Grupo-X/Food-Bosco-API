@@ -113,7 +113,7 @@ describe('SeedService (delivery)', () => {
       firstName: 'Marcos',
       lastName: 'Peralta',
       phone: '3333333333',
-      vehicle: 'Moto Honda CG Titan',
+      vehicle: { type: 'moto', brand: 'Honda', model: 'CG Titan', plate: 'HLP 482' },
     })
 
     expect(riderService.create).not.toHaveBeenCalled()

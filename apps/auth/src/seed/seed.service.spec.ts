@@ -41,7 +41,7 @@ describe('SeedService (auth)', () => {
     expect(createdEmails).not.toContain('sucursal@foodbosco.local')
   })
 
-  it('con branchId crea también branchAdmin con ese branchId', async () => {
+  it('con una sucursal crea el branchAdmin asociado por nombre', async () => {
     const userService = {
       findByEmail: jest.fn().mockResolvedValue(null),
       createUser: jest
@@ -52,13 +52,57 @@ describe('SeedService (auth)', () => {
     }
     const service = new SeedService(userService as unknown as UserService)
 
-    const result = await service.seed('b1')
+    const result = await service.seed([{ id: 'b1', name: 'Centro' }])
 
     expect(result.summary.users).toBe(4)
     const branchAdminCall = userService.createUser.mock.calls.find(
-      (call) => call[0].email === 'sucursal@foodbosco.local',
+      (call) => call[0].email === 'sucursal.centro@foodbosco.local',
     )
     expect(branchAdminCall?.[0].branchId).toBe('b1')
+  })
+
+  it('con las tres sucursales crea un branchAdmin por cada una', async () => {
+    const userService = {
+      findByEmail: jest.fn().mockResolvedValue(null),
+      createUser: jest
+        .fn()
+        .mockImplementation(async (input: { email: string; branchId?: string | null }) =>
+          publicUser({ id: input.email, email: input.email, branchId: input.branchId ?? null }),
+        ),
+    }
+    const service = new SeedService(userService as unknown as UserService)
+
+    const result = await service.seed([
+      { id: 'b1', name: 'Centro' },
+      { id: 'b2', name: 'Norte' },
+      { id: 'b3', name: 'Oeste' },
+    ])
+
+    expect(result.summary.users).toBe(6)
+    const branchAdmins = userService.createUser.mock.calls
+      .map((call) => call[0])
+      .filter((input) => input.role === 'branch_admin')
+    expect(branchAdmins).toEqual([
+      expect.objectContaining({ email: 'sucursal.centro@foodbosco.local', branchId: 'b1' }),
+      expect.objectContaining({ email: 'sucursal.norte@foodbosco.local', branchId: 'b2' }),
+      expect.objectContaining({ email: 'sucursal.oeste@foodbosco.local', branchId: 'b3' }),
+    ])
+  })
+
+  it('omite el branchAdmin cuando su sucursal no existe', async () => {
+    const userService = {
+      findByEmail: jest.fn().mockResolvedValue(null),
+      createUser: jest
+        .fn()
+        .mockImplementation(async (input: { email: string; role: string }) =>
+          publicUser({ id: input.email, email: input.email, role: input.role as never }),
+        ),
+    }
+    const service = new SeedService(userService as unknown as UserService)
+
+    const result = await service.seed([{ id: 'b1', name: 'Otra' }])
+
+    expect(result.summary.users).toBe(3)
   })
 
   it('es idempotente: no crea usuarios que ya existen', async () => {

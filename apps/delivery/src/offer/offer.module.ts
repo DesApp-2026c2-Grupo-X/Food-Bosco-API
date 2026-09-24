@@ -6,10 +6,11 @@ import { RiderModule } from '../rider/rider.module'
 import { TripModule } from '../trip/trip.module'
 import { OfferController } from './offer.controller'
 import { OfferOrchestrator } from './offer.orchestrator'
+import { TripAdminController } from './trip-admin.controller'
 
 @Module({
   imports: [RiderModule, TripModule, DeliveryOrderModule, HttpModule, MessagingModule],
-  controllers: [OfferController],
+  controllers: [OfferController, TripAdminController],
   providers: [OfferOrchestrator],
 })
 export class OfferModule {}

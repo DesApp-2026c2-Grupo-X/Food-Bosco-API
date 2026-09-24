@@ -85,4 +85,34 @@ export class OrderService {
   async markAssigned(orderIds: string[], tripId: string, riderId: string): Promise<void> {
     await this.repository.markAssigned(orderIds, tripId, riderId)
   }
+
+  async releaseRider(id: string): Promise<TransitionResult | null> {
+    const doc = await this.repository.findById(id)
+    if (!doc) {
+      return null
+    }
+
+    if (doc.status !== ORDER_STATUS.readyForDelivery && doc.status !== ORDER_STATUS.onTheWay) {
+      throw new DomainException(
+        ERROR_CODES.invalidTransition,
+        'El pedido no tiene un rider asignado',
+        409,
+      )
+    }
+
+    doc.riderId = null
+    doc.tripId = null
+
+    if (doc.status !== ORDER_STATUS.readyForDelivery) {
+      doc.statusHistory.push({
+        previousStatus: doc.status,
+        newStatus: ORDER_STATUS.readyForDelivery,
+        changedAt: new Date(),
+      })
+      doc.status = ORDER_STATUS.readyForDelivery
+    }
+
+    await this.repository.save(doc)
+    return { order: serializeOrder(doc), changed: true }
+  }
 }

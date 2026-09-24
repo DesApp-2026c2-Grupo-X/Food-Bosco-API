@@ -2,6 +2,8 @@ import { EventBus } from '../config/messaging/event-bus'
 import { ORDER_STATUS_CHANGED_EVENT } from '../config/messaging/events'
 import type { EventHandler } from '../config/messaging/transport'
 import { InProcessTransport } from '../config/messaging/in-process.transport'
+import { RiderOrchestrator } from '../rider/rider.orchestrator'
+import { TripService } from '../trip/trip.service'
 import { DeliveryOrderRepository } from './delivery-order.repository'
 import { DeliveryOrderService } from './delivery-order.service'
 import { OrderEventsConsumer } from './order-events.consumer'
@@ -27,8 +29,17 @@ const makeConsumer = () => {
   const deliveryOrderService = {
     handleOrderStatusChanged,
   } as unknown as DeliveryOrderService
-  const consumer = new OrderEventsConsumer(eventBus, deliveryOrderService)
-  return { consumer, subscribe, handleOrderStatusChanged }
+  const cancelOrder = jest.fn().mockResolvedValue([])
+  const tripService = { cancelOrder } as unknown as TripService
+  const setStatus = jest.fn().mockResolvedValue(undefined)
+  const riderOrchestrator = { setStatus } as unknown as RiderOrchestrator
+  const consumer = new OrderEventsConsumer(
+    eventBus,
+    deliveryOrderService,
+    tripService,
+    riderOrchestrator,
+  )
+  return { consumer, subscribe, handleOrderStatusChanged, cancelOrder, setStatus }
 }
 
 describe('OrderEventsConsumer (RQ-DLV-03)', () => {
@@ -69,7 +80,11 @@ describe('OrderEventsConsumer + EventBus (wiring real, RQ-DLV-03)', () => {
     const bus = new EventBus(new InProcessTransport())
     const handleOrderStatusChanged = jest.fn().mockResolvedValue(undefined)
     const service = { handleOrderStatusChanged } as unknown as DeliveryOrderService
-    const consumer = new OrderEventsConsumer(bus, service)
+    const tripService = { cancelOrder: jest.fn().mockResolvedValue([]) } as unknown as TripService
+    const riderOrchestrator = {
+      setStatus: jest.fn().mockResolvedValue(undefined),
+    } as unknown as RiderOrchestrator
+    const consumer = new OrderEventsConsumer(bus, service, tripService, riderOrchestrator)
     await consumer.onModuleInit()
 
     await bus.publish(orderEvent())
@@ -85,7 +100,11 @@ describe('OrderEventsConsumer + EventBus (wiring real, RQ-DLV-03)', () => {
     }
     const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
     const bus = new EventBus(new InProcessTransport())
-    const consumer = new OrderEventsConsumer(bus, service)
+    const tripService = { cancelOrder: jest.fn().mockResolvedValue([]) } as unknown as TripService
+    const riderOrchestrator = {
+      setStatus: jest.fn().mockResolvedValue(undefined),
+    } as unknown as RiderOrchestrator
+    const consumer = new OrderEventsConsumer(bus, service, tripService, riderOrchestrator)
     await consumer.onModuleInit()
 
     await bus.publish(orderEvent({ status: 'preparing' }))

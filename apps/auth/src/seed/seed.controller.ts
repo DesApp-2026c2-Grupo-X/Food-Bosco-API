@@ -1,12 +1,23 @@
 import { Body, Controller, Post } from '@nestjs/common'
-import { IsOptional, IsString } from 'class-validator'
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator'
+import { Type } from 'class-transformer'
 import { Internal } from '../config/security/internal.decorator'
-import { SeedService, type SeedResult } from './seed.service'
+import { SeedService, type SeedBranch, type SeedResult } from './seed.service'
+
+class SeedBranchBody {
+  @IsString()
+  id!: string
+
+  @IsString()
+  name!: string
+}
 
 class SeedBody {
   @IsOptional()
-  @IsString()
-  branchId?: string
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SeedBranchBody)
+  branches?: SeedBranch[]
 }
 
 @Controller('v1/seed')
@@ -16,6 +27,6 @@ export class SeedController {
   @Post()
   @Internal()
   seed(@Body() body: SeedBody): Promise<SeedResult> {
-    return this.seedService.seed(body.branchId)
+    return this.seedService.seed(body.branches ?? [])
   }
 }

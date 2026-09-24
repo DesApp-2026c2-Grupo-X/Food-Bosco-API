@@ -94,6 +94,16 @@ export class OrderController {
     return this.orchestrator.changeStatus(auth, orderId, dto.status)
   }
 
+  @Post(':orderId/release-rider')
+  @Roles(ROLES.superAdmin)
+  @Internal()
+  releaseRider(
+    @CurrentUser() auth: AuthContext,
+    @Param('orderId') orderId: string,
+  ): Promise<PublicOrder> {
+    return this.orchestrator.releaseRider(auth, orderId)
+  }
+
   @Post(':orderId/repeat')
   @Roles(ROLES.customer)
   repeat(

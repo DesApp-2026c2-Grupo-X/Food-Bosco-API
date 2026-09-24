@@ -24,9 +24,11 @@ const restMock = {
   delete: jest.fn(),
 }
 const authMock = { get: jest.fn() }
+const deliveryMock = { post: jest.fn() }
 const resolver = new CommerceResolver(
   restMock as unknown as RestClient,
   authMock as unknown as RestClient,
+  deliveryMock as unknown as RestClient,
 )
 
 beforeEach(() => jest.resetAllMocks())

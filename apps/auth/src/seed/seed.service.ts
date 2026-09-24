@@ -19,7 +19,7 @@ interface SeedUser {
   firstName: string
   lastName: string
   phone: string
-  branchId?: string | null
+  branchName?: string | null
   vehicle?: string | null
 }
 
@@ -27,14 +27,23 @@ interface AuthSeedData {
   users: SeedUser[]
 }
 
+export interface SeedBranch {
+  id: string
+  name: string
+}
+
 const DATA_DIR = join(__dirname, 'data')
 
 const PASSWORDS: Record<string, string> = {
   superAdmin: env.seed.superAdminPassword,
   customer: env.seed.customerPassword,
-  branchAdmin: env.seed.branchAdminPassword,
   rider: env.seed.riderPassword,
 }
+
+const normalizeBranchName = (value: string) => value.trim().toLowerCase()
+
+const passwordFor = (seed: SeedUser): string | undefined =>
+  seed.role === 'branch_admin' ? env.seed.branchAdminPassword : PASSWORDS[seed.key]
 
 export interface SeedUserSummary {
   id: string
@@ -55,17 +64,29 @@ export interface SeedResult {
 export class SeedService {
   constructor(private readonly userService: UserService) {}
 
-  async seed(branchId?: string): Promise<SeedResult> {
+  async seed(branches: SeedBranch[] = []): Promise<SeedResult> {
     const users: PublicUser[] = []
+    const branchByName = new Map(
+      branches.map((branch) => [normalizeBranchName(branch.name), branch.id]),
+    )
 
     for (const seed of this.loadData().users) {
-      if (seed.key === 'branchAdmin' && !branchId) continue
-
-      const password = PASSWORDS[seed.key]
+      const password = passwordFor(seed)
 
       if (!password) {
         Logger.warn(`usuario de seed sin contraseña configurada: ${seed.key}`, 'Seed')
         continue
+      }
+
+      let branchId: string | null = null
+
+      if (seed.role === 'branch_admin') {
+        if (!seed.branchName) continue
+        branchId = branchByName.get(normalizeBranchName(seed.branchName)) ?? null
+        if (!branchId) {
+          Logger.warn(`sucursal no encontrada para el admin de seed: ${seed.branchName}`, 'Seed')
+          continue
+        }
       }
 
       users.push(
@@ -76,7 +97,7 @@ export class SeedService {
           firstName: seed.firstName,
           lastName: seed.lastName,
           phone: seed.phone,
-          branchId: seed.key === 'branchAdmin' ? branchId : null,
+          branchId,
           vehicle: seed.vehicle ?? null,
         }),
       )

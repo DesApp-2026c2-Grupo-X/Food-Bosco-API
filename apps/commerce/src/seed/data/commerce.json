@@ -22,23 +22,23 @@
   "branches": [
     {
       "name": "Centro",
-      "addressText": "Av. Vergara 1200, Hurlingham",
-      "latitude": -34.589,
-      "longitude": -58.636,
+      "addressText": "Av. Gobernador Valentín Vergara 2349, Hurlingham",
+      "latitude": -34.595519,
+      "longitude": -58.636055,
       "phone": "11 5555 1111"
     },
     {
       "name": "Norte",
-      "addressText": "Calle 25 de Mayo 450, Villa Tesei",
-      "latitude": -34.586,
-      "longitude": -58.63,
+      "addressText": "Av. Gobernador Valentín Vergara 3000, Villa Tesei",
+      "latitude": -34.614988,
+      "longitude": -58.634316,
       "phone": "11 5555 2222"
     },
     {
       "name": "Oeste",
-      "addressText": "Av. Roca 600, Morón",
-      "latitude": -34.651,
-      "longitude": -58.621,
+      "addressText": "Av. Rivadavia 18000, Morón",
+      "latitude": -34.6493555,
+      "longitude": -58.6172306,
       "phone": "11 5555 3333"
     }
   ],
