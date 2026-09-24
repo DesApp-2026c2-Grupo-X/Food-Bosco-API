@@ -12,6 +12,7 @@ import type { OrderStatusChangedEvent } from '../config/messaging/events'
 import type { AuthContext } from '../config/security/jwt.service'
 import type { PublicBranch } from '../branch/branch.model'
 import { BranchService } from '../branch/branch.service'
+import { CategoryService } from '../category/category.service'
 import { ParameterService } from '../parameter/parameter.service'
 import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
@@ -39,6 +40,7 @@ export class OrderOrchestrator {
     private readonly cartOrchestrator: CartOrchestrator,
     private readonly productService: ProductService,
     private readonly branchService: BranchService,
+    private readonly categoryService: CategoryService,
     private readonly stockService: StockService,
     private readonly parameterService: ParameterService,
     private readonly eventBus: EventBus,
@@ -63,9 +65,16 @@ export class OrderOrchestrator {
     }
     const branch = branches[0]
 
-    const availability = await this.branchService.getAvailabilityMap(branch.id)
+    const [availability, activeCategoryIds] = await Promise.all([
+      this.branchService.getAvailabilityMap(branch.id),
+      this.categoryService.listActiveIds(),
+    ])
 
-    const { items, requirements } = await this.buildOrderItems(cart.items, availability)
+    const { items, requirements } = await this.buildOrderItems(
+      cart.items,
+      availability,
+      activeCategoryIds,
+    )
 
     await this.stockService.validateAvailability(branch.id, requirements)
 
@@ -169,6 +178,7 @@ export class OrderOrchestrator {
   private async buildOrderItems(
     cartItems: CartItemData[],
     availability: Map<string, boolean>,
+    activeCategoryIds: Set<string>,
   ): Promise<{ items: PublicOrder['items']; requirements: IngredientRequirements }> {
     const productIds = cartItems.map((item) => item.productId)
     const products = await this.productService.findByIds(productIds)
@@ -179,7 +189,7 @@ export class OrderOrchestrator {
 
     for (const cartItem of cartItems) {
       const product = productById.get(cartItem.productId)
-      if (!product || !product.available) {
+      if (!product || !product.available || !activeCategoryIds.has(product.categoryId)) {
         throw new DomainException(ERROR_CODES.productUnavailable, 'Producto no disponible', 400)
       }
       if (availability.get(product.id) === false) {

@@ -1,3 +1,4 @@
+import type { CategoryService } from '../category/category.service'
 import type { PublicProduct } from '../product/product.model'
 import type { ProductService } from '../product/product.service'
 import { BranchOrchestrator } from './branch.orchestrator'
@@ -31,11 +32,13 @@ const branch = (id: string): PublicBranch => ({
 const makeOrchestrator = () => {
   const branchService = { getAvailabilityMap: jest.fn(), findAvailable: jest.fn() }
   const productService = { findAll: jest.fn() }
+  const categoryService = { listActiveIds: jest.fn().mockResolvedValue(new Set(['cat1'])) }
   const orchestrator = new BranchOrchestrator(
     branchService as unknown as BranchService,
     productService as unknown as ProductService,
+    categoryService as unknown as CategoryService,
   )
-  return { orchestrator, branchService, productService }
+  return { orchestrator, branchService, productService, categoryService }
 }
 
 describe('BranchOrchestrator.listProducts (RQ-CAT-16)', () => {
@@ -70,6 +73,37 @@ describe('BranchOrchestrator.listProducts (RQ-CAT-16)', () => {
       ['p1', true],
       ['p2', false],
     ])
+  })
+
+  it('un producto desactivado globalmente no queda disponible aunque la sucursal no lo haya pausado', async () => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    branchService.getAvailabilityMap.mockResolvedValue(new Map())
+    productService.findAll.mockResolvedValue([product({ available: false })])
+
+    const result = await orchestrator.listProducts('b1')
+
+    expect(result.data[0]).toMatchObject({ available: false, availableInBranch: false })
+  })
+
+  it('el admin global gana sobre una marca de disponible en la sucursal', async () => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    branchService.getAvailabilityMap.mockResolvedValue(new Map([['p1', true]]))
+    productService.findAll.mockResolvedValue([product({ available: false })])
+
+    const result = await orchestrator.listProducts('b1')
+
+    expect(result.data[0].availableInBranch).toBe(false)
+  })
+
+  it('un producto de una categoría inactiva no queda disponible', async () => {
+    const { orchestrator, branchService, productService, categoryService } = makeOrchestrator()
+    branchService.getAvailabilityMap.mockResolvedValue(new Map())
+    categoryService.listActiveIds.mockResolvedValue(new Set(['otra']))
+    productService.findAll.mockResolvedValue([product({ categoryId: 'cat1' })])
+
+    const result = await orchestrator.listProducts('b1')
+
+    expect(result.data[0].availableInBranch).toBe(false)
   })
 })
 

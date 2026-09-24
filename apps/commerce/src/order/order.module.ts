@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { BranchModule } from '../branch/branch.module'
 import { CartModule } from '../cart/cart.module'
+import { CategoryModule } from '../category/category.module'
 import { MessagingModule } from '../config/messaging/messaging.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
@@ -19,6 +20,7 @@ import { TripEventsConsumer } from './trip-events.consumer'
     CartModule,
     ProductModule,
     BranchModule,
+    CategoryModule,
     StockModule,
     ParameterModule,
     MessagingModule,

@@ -34,6 +34,11 @@ export class CategoryRepository {
     return this.model.find({ _id: { $in: ids } }).exec()
   }
 
+  async findActiveIds(): Promise<string[]> {
+    const docs = await this.model.find({ active: true }).select('_id').exec()
+    return docs.map((doc) => doc._id.toString())
+  }
+
   create(data: CreateCategoryData): Promise<CategoryDocument> {
     return this.model.create({ ...data, active: data.active ?? true })
   }

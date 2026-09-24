@@ -4,6 +4,7 @@ import type { CartItemData } from '../cart/cart.repository'
 import type { PublicCart } from '../cart/cart.model'
 import type { PublicBranch } from '../branch/branch.model'
 import { BranchService } from '../branch/branch.service'
+import type { CategoryService } from '../category/category.service'
 import { ERROR_CODES, ORDER_STATUS, PARAMETER_KEYS, ROLES } from '../config/constants'
 import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
 import { EventBus } from '../config/messaging/event-bus'
@@ -129,6 +130,7 @@ const makeOrchestrator = () => {
   }
   const stockService = { validateAvailability: jest.fn(), discount: jest.fn() }
   const parameterService = { getValue: jest.fn() }
+  const categoryService = { listActiveIds: jest.fn().mockResolvedValue(new Set(['cat1'])) }
   const eventBus = { publish: jest.fn() }
 
   const orchestrator = new OrderOrchestrator(
@@ -137,6 +139,7 @@ const makeOrchestrator = () => {
     cartOrchestrator as unknown as CartOrchestrator,
     productService as unknown as ProductService,
     branchService as unknown as BranchService,
+    categoryService as unknown as CategoryService,
     stockService as unknown as StockService,
     parameterService as unknown as ParameterService,
     eventBus as unknown as EventBus,
@@ -149,6 +152,7 @@ const makeOrchestrator = () => {
     cartOrchestrator,
     productService,
     branchService,
+    categoryService,
     stockService,
     parameterService,
     eventBus,
