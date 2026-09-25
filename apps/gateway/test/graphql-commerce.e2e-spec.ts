@@ -320,6 +320,17 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       expect(params.get('lng')).toBe('-58.4')
     })
 
+    it('nearbyBranches envía lat/lng', async () => {
+      downstream.setResponder(respondWith({ 'GET /v1/branches/nearby': [rawBranch] }))
+
+      const res = await run('query { nearbyBranches(lat: -34.6, lng: -58.4) { id name } }', 'customer').expect(200)
+
+      expect((res.body as GraphQLBody).data).toEqual({ nearbyBranches: [{ id: 'b1', name: 'Centro' }] })
+      const params = queryParams(callFor('GET', '/v1/branches/nearby').url)
+      expect(params.get('lat')).toBe('-34.6')
+      expect(params.get('lng')).toBe('-58.4')
+    })
+
     it('branchProducts usa availableInBranch (branch_admin)', async () => {
       downstream.setResponder(
         respondWith({ 'GET /v1/branches/b1/products': { data: [{ ...rawProduct, availableInBranch: false }] } }),

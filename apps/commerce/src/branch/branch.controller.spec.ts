@@ -37,6 +37,7 @@ const makeController = () => {
     setActive: jest.fn().mockResolvedValue(null),
     updateHours: jest.fn().mockResolvedValue(null),
     findAvailable: jest.fn(),
+    findInZone: jest.fn(),
     getAvailabilityMap: jest.fn(),
     setProductAvailability: jest.fn(),
   }
@@ -198,6 +199,14 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
 
     await expect(controller.available('-34.6', '-58.4')).resolves.toHaveLength(1)
     expect(branchService.findAvailable).toHaveBeenCalledWith(-34.6, -58.4)
+  })
+
+  it('nearby convierte lat/lng a número', async () => {
+    const { controller, branchService } = makeController()
+    branchService.findInZone.mockResolvedValue([branch()])
+
+    await expect(controller.nearby('-34.6', '-58.4')).resolves.toHaveLength(1)
+    expect(branchService.findInZone).toHaveBeenCalledWith(-34.6, -58.4)
   })
 
   it('availableProducts delega en el orchestrator con lat/lng numéricos', async () => {

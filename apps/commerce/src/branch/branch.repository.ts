@@ -50,6 +50,10 @@ export class BranchRepository {
     return this.model.find({ active: true }).exec()
   }
 
+  findAll(): Promise<BranchDocument[]> {
+    return this.model.find({}).exec()
+  }
+
   create(data: CreateBranchData): Promise<BranchDocument> {
     return this.model.create({
       ...data,

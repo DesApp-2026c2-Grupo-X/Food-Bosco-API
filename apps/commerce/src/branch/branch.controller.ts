@@ -52,6 +52,11 @@ export class BranchController {
     return this.branchService.findAvailable(Number(lat), Number(lng))
   }
 
+  @Get('nearby')
+  async nearby(@Query('lat') lat: string, @Query('lng') lng: string): Promise<PublicBranch[]> {
+    return this.branchService.findInZone(Number(lat), Number(lng))
+  }
+
   @Get('available/products')
   async availableProducts(
     @Query('lat') lat: string,
