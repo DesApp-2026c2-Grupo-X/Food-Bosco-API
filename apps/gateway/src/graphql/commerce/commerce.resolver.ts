@@ -1,9 +1,14 @@
 import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { ROLES } from '../../config/constants'
+import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
-import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT } from '../../rest/rest.module'
+import {
+  AUTH_REST_CLIENT,
+  COMMERCE_REST_CLIENT,
+  DELIVERY_REST_CLIENT,
+} from '../../rest/rest.module'
 import { AuthGuard } from '../../security/auth.guard'
 import { Authenticated } from '../../security/authenticated.decorator'
 import { Roles } from '../../security/roles.decorator'
@@ -76,6 +81,7 @@ export class CommerceResolver {
   constructor(
     @Inject(COMMERCE_REST_CLIENT) private readonly rest: RestClient,
     @Inject(AUTH_REST_CLIENT) private readonly authRest: RestClient,
+    @Inject(DELIVERY_REST_CLIENT) private readonly deliveryRest: RestClient,
   ) {}
 
   @Query(() => [Category])
@@ -854,6 +860,21 @@ export class CommerceResolver {
   ): Promise<Order> {
     const raw = await this.rest.patch<RawRecord>(`/v1/orders/${orderId}/status`, {
       body: { status: orderStatusToRest(status) },
+      context: toRestContext(ctx),
+    })
+    return mapOrder(raw)
+  }
+
+  @Mutation(() => Order)
+  @Roles(ROLES.rider, ROLES.branchAdmin, ROLES.superAdmin)
+  async releaseOrderRider(
+    @Args('orderId', { type: () => ID }) orderId: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Order> {
+    await this.deliveryRest.post(`/v1/internal/trips/orders/${orderId}/release`, {
+      context: { internalToken: env.internalApiToken },
+    })
+    const raw = await this.rest.post<RawRecord>(`/v1/orders/${orderId}/release-rider`, {
       context: toRestContext(ctx),
     })
     return mapOrder(raw)

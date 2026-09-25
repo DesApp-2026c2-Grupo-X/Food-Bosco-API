@@ -1,3 +1,5 @@
+import 'dotenv/config'
+
 const toNumber = (value: string | undefined, fallback: number): number => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -16,5 +18,8 @@ export const env = {
   throttle: {
     ttlMs: toNumber(process.env.THROTTLE_TTL_MS, 60_000),
     limit: toNumber(process.env.THROTTLE_LIMIT, 100),
+  },
+  uploads: {
+    maxSizeBytes: toNumber(process.env.UPLOAD_MAX_SIZE_BYTES, 5 * 1024 * 1024),
   },
 }

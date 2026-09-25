@@ -37,6 +37,13 @@ export class TripRepository {
       .exec()
   }
 
+  findByOrderId(orderId: string, statuses: TripStatus[]): Promise<TripDocument[]> {
+    return this.model
+      .find({ status: { $in: statuses }, 'orders.orderId': orderId })
+      .sort({ createdAt: 1 })
+      .exec()
+  }
+
   async listByRider(
     riderId: string,
     limit: number,

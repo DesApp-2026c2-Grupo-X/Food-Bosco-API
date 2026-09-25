@@ -21,6 +21,7 @@ export const ERROR_CODES = {
   userNotFound: 'USER_NOT_FOUND',
   invalidRefreshToken: 'INVALID_REFRESH_TOKEN',
   invalidOrExpiredToken: 'INVALID_OR_EXPIRED_TOKEN',
+  emailSendFailed: 'EMAIL_SEND_FAILED',
   addressNotFound: 'ADDRESS_NOT_FOUND',
   validationError: 'VALIDATION_ERROR',
   forbidden: 'FORBIDDEN',

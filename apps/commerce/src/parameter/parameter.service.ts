@@ -34,6 +34,11 @@ export class ParameterService {
     return serializeParameter(doc)
   }
 
+  async upsertByKey(data: CreateParameterData): Promise<PublicParameter> {
+    const doc = await this.repository.upsertByKey(data)
+    return serializeParameter(doc!)
+  }
+
   async update(key: string, value: number): Promise<PublicParameter> {
     const doc = await this.repository.update(key, value)
     return doc ? serializeParameter(doc) : { key, value, unit: '' }

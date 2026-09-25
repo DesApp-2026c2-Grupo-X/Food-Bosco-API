@@ -13,6 +13,7 @@ import { AuthModule } from '../src/auth/auth.module'
 import { env } from '../src/config/env'
 import { HttpExceptionFilter } from '../src/config/exceptions/http-exception.filter'
 import { SecurityModule } from '../src/config/security/security.module'
+import { EMAIL_PROVIDER } from '../src/email/email.model'
 import { PasswordRecoveryModule } from '../src/password-recovery/password-recovery.module'
 import { RefreshTokenModule } from '../src/refresh-token/refresh-token.module'
 import { UserModule } from '../src/user/user.module'
@@ -44,6 +45,8 @@ describe('Auth Service (e2e)', () => {
   let userModel: Model<UserRow>
   let recoveryModel: Model<RecoveryRow>
 
+  const emailSend = jest.fn().mockResolvedValue(undefined)
+
   let customerToken = ''
   let customerId = ''
   let adminToken = ''
@@ -70,7 +73,10 @@ describe('Auth Service (e2e)', () => {
         PasswordRecoveryModule,
         AddressModule,
       ],
-    }).compile()
+    })
+      .overrideProvider(EMAIL_PROVIDER)
+      .useValue({ send: emailSend })
+      .compile()
 
     app = moduleFixture.createNestApplication()
     app.useGlobalPipes(
@@ -245,7 +251,10 @@ describe('Auth Service (e2e)', () => {
   })
 
   describe('recuperación de contraseña (RQ-AUTH-09/10)', () => {
-    it('responde neutral tanto si el correo existe como si no', async () => {
+    it('responde neutral y envía correo solo si el correo existe', async () => {
+      await recoveryModel.deleteMany({})
+      emailSend.mockClear()
+
       await request(app.getHttpServer())
         .post('/v1/auth/password-recovery')
         .send({ email: 'cliente@test.com' })
@@ -255,6 +264,51 @@ describe('Auth Service (e2e)', () => {
         .post('/v1/auth/password-recovery')
         .send({ email: 'no-existe@test.com' })
         .expect(200)
+
+      const stored = await recoveryModel.find({})
+      expect(stored).toHaveLength(1)
+      expect(stored[0].used).toBe(false)
+      expect(stored[0].tokenHash).toHaveLength(64)
+      expect(emailSend).toHaveBeenCalledTimes(1)
+      expect(emailSend.mock.calls[0][0].to).toBe('cliente@test.com')
+    })
+
+    it('no regenera ni reenvía dentro del intervalo mínimo (anti-abuso)', async () => {
+      await recoveryModel.deleteMany({})
+      emailSend.mockClear()
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/password-recovery')
+        .send({ email: 'cliente@test.com' })
+        .expect(200)
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/password-recovery')
+        .send({ email: 'cliente@test.com' })
+        .expect(200)
+
+      expect(await recoveryModel.countDocuments({})).toBe(1)
+      expect(emailSend).toHaveBeenCalledTimes(1)
+    })
+
+    it('invalida los tokens anteriores al emitir uno nuevo', async () => {
+      await recoveryModel.deleteMany({})
+      await recoveryModel.collection.insertOne({
+        userId: customerId,
+        tokenHash: sha256('token-viejo'),
+        expiresAt: new Date(Date.now() + 60_000),
+        used: false,
+        createdAt: new Date(Date.now() - 10 * 60_000),
+      })
+
+      await request(app.getHttpServer())
+        .post('/v1/auth/password-recovery')
+        .send({ email: 'cliente@test.com' })
+        .expect(200)
+
+      const previous = await recoveryModel.findOne({ tokenHash: sha256('token-viejo') })
+      expect(previous?.used).toBe(true)
+      expect(await recoveryModel.countDocuments({ used: false })).toBe(1)
     })
 
     it('restablece la contraseña con un token válido', async () => {

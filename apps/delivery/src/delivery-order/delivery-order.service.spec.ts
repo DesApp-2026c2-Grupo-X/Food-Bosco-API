@@ -231,3 +231,174 @@ describe('DeliveryOrderService.reserve / markAssigned / release', () => {
     expect(doc.status).toBe('ready')
   })
 })
+
+describe('DeliveryOrderService.handleOrderStatusChanged: idempotencia y errores (RQ-DLV-03)', () => {
+  const repository = { upsertReady: jest.fn(), remove: jest.fn() }
+  const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+  beforeEach(() => jest.clearAllMocks())
+
+  // KNOWN BUG: handleOrderStatusChanged nunca registra ni consulta eventId. Reprocesar el
+  // mismo evento READY vuelve a ejecutar upsertReady. Como upsertReady hace $set de status
+  // 'ready' y tripId null, una orden ya reservada/asignada se reintegra al pool y puede ser
+  // ofrecida a otro repartidor. Causa: no hay guarda de idempotencia por eventId.
+  it('KNOWN BUG: no deduplica por eventId: un READY reprocesado reescribe el pool dos veces', async () => {
+    const duplicated: OrderStatusChangedEvent = { ...event('ready_for_delivery'), eventId: 'dup-1' }
+
+    await service.handleOrderStatusChanged(duplicated)
+    await service.handleOrderStatusChanged(duplicated)
+
+    expect(repository.upsertReady).toHaveBeenCalledTimes(2)
+    expect(repository.remove).not.toHaveBeenCalled()
+  })
+
+  it('propaga el error del repositorio al procesar un READY', async () => {
+    repository.upsertReady.mockRejectedValueOnce(new Error('mongo caído'))
+
+    await expect(service.handleOrderStatusChanged(event('ready_for_delivery'))).rejects.toThrow(
+      'mongo caído',
+    )
+  })
+
+  it('propaga el error del repositorio al quitar una orden cancelada', async () => {
+    repository.remove.mockRejectedValueOnce(new Error('delete falló'))
+
+    await expect(service.handleOrderStatusChanged(event('cancelled'))).rejects.toThrow(
+      'delete falló',
+    )
+  })
+})
+
+describe('DeliveryOrderService.claimableForRider: inicialización y límites de rotación', () => {
+  const now = new Date('2026-01-01T00:00:00.000Z')
+
+  it('inicializa el roster con los vecinos elegibles y guarda la orden', async () => {
+    const doc = buildDoc({ rotationRoster: null })
+    const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider(
+      'u1',
+      now,
+      ctx({ eligibleNear: jest.fn().mockResolvedValue(['u1', 'u2']) }),
+    )
+
+    expect(result).toHaveLength(1)
+    expect(doc.rotationRoster).toEqual(['u1', 'u2'])
+    expect(doc.rotationIndex).toBe(0)
+    expect(doc.save).toHaveBeenCalled()
+  })
+
+  it('no reclama si no hay vecinos elegibles para construir el roster', async () => {
+    const doc = buildDoc({ rotationRoster: null })
+    const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider(
+      'u1',
+      now,
+      ctx({ eligibleNear: jest.fn().mockResolvedValue([]) }),
+    )
+
+    expect(result).toHaveLength(0)
+    expect(doc.rotationRoster).toBeNull()
+    expect(doc.save).not.toHaveBeenCalled()
+  })
+
+  it('devuelve vacío cuando no hay documentos en el pool', async () => {
+    const repository = { listReadyDocs: jest.fn().mockResolvedValue([]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await expect(service.claimableForRider('u1', now, ctx())).resolves.toEqual([])
+  })
+
+  it('recorre el roster cuando el turno actual está vencido', async () => {
+    const doc = buildDoc({
+      rotationRoster: ['u1', 'u2'],
+      rotationIndex: 0,
+      rotationTurnUntil: new Date('2025-12-31T23:59:00.000Z'),
+    })
+    const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider('u2', now, ctx())
+
+    expect(result).toHaveLength(1)
+    expect(doc.rotationIndex).toBe(1)
+    expect(doc.save).toHaveBeenCalled()
+  })
+
+  it('no reclama y limpia el roster cuando nadie está activo ni en turno', async () => {
+    const doc = buildDoc({
+      rotationRoster: ['u1', 'u2'],
+      rotationIndex: 0,
+      rotationTurnUntil: new Date('2025-12-31T23:59:00.000Z'),
+    })
+    const repository = { listReadyDocs: jest.fn().mockResolvedValue([doc]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.claimableForRider(
+      'u3',
+      now,
+      ctx({
+        isActive: jest.fn().mockResolvedValue(false),
+        eligibleNear: jest.fn().mockResolvedValue([]),
+      }),
+    )
+
+    expect(result).toHaveLength(0)
+    expect(doc.rotationRoster).toBeNull()
+    expect(doc.rotationIndex).toBeNull()
+  })
+})
+
+describe('DeliveryOrderService.reserve / releaseExpired / releaseByTrip (bordes)', () => {
+  const now = new Date('2026-01-02T00:00:00.000Z')
+
+  it('reserve propaga la cantidad devuelta por el repositorio', async () => {
+    const repository = { reserve: jest.fn().mockResolvedValue(2) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await expect(
+      service.reserve(['ord-1', 'ord-2'], 't1', new Date('2026-01-01T00:01:00.000Z')),
+    ).resolves.toBe(2)
+  })
+
+  it('releaseExpired deduplica tripIds y omite reservas sin viaje', async () => {
+    const docs = [
+      buildDoc({ status: 'reserved', tripId: 't1' }),
+      buildDoc({ orderId: 'ord-2', status: 'reserved', tripId: 't1' }),
+      buildDoc({ orderId: 'ord-3', status: 'reserved', tripId: null }),
+    ]
+    const repository = { findExpiredReservedDocs: jest.fn().mockResolvedValue(docs) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    const result = await service.releaseExpired(now, ctx())
+
+    expect(result).toEqual(['t1'])
+    expect(docs.map((doc) => doc.status)).toEqual(['ready', 'ready', 'ready'])
+    expect(docs.map((doc) => doc.tripId)).toEqual([null, null, null])
+    expect(docs.every((doc) => (doc.save as jest.Mock).mock.calls.length === 1)).toBe(true)
+  })
+
+  it('releaseExpired devuelve vacío cuando no hay reservas vencidas', async () => {
+    const repository = { findExpiredReservedDocs: jest.fn().mockResolvedValue([]) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await expect(service.releaseExpired(now, ctx())).resolves.toEqual([])
+  })
+
+  it('releaseByTrip libera y guarda todos los documentos del viaje', async () => {
+    const docs = [
+      buildDoc({ status: 'reserved', tripId: 't1' }),
+      buildDoc({ orderId: 'ord-2', status: 'reserved', tripId: 't1' }),
+    ]
+    const repository = { findReservedDocsByTripId: jest.fn().mockResolvedValue(docs) }
+    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
+
+    await service.releaseByTrip('t1', now, ctx())
+
+    expect(docs.every((doc) => doc.status === 'ready')).toBe(true)
+    expect(docs.every((doc) => (doc.save as jest.Mock).mock.calls.length === 1)).toBe(true)
+  })
+})

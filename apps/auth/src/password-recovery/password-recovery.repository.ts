@@ -23,6 +23,14 @@ export class PasswordRecoveryRepository {
     return this.model.findOne({ tokenHash }).exec()
   }
 
+  findLatestActiveByUser(userId: string): Promise<PasswordRecoveryDocument | null> {
+    return this.model.findOne({ userId, used: false }).sort({ createdAt: -1 }).exec()
+  }
+
+  async invalidateActiveByUser(userId: string): Promise<void> {
+    await this.model.updateMany({ userId, used: false }, { $set: { used: true } }).exec()
+  }
+
   async markUsedByHash(tokenHash: string): Promise<void> {
     await this.model.updateOne({ tokenHash }, { $set: { used: true } }).exec()
   }

@@ -41,6 +41,14 @@ describe('JwtService.verify', () => {
       branchId: null,
     },
     {
+      name: 'token sin userId usa el claim sub',
+      token: () => sign({ sub: 'u-sub', roles: ['rider'] }),
+      authenticated: true,
+      userId: 'u-sub',
+      roles: ['rider'],
+      branchId: null,
+    },
+    {
       name: 'sin token',
       token: () => undefined,
       authenticated: false,
@@ -81,5 +89,22 @@ describe('JwtService.verify', () => {
       expect(result.roles).toEqual([])
       expect(result.branchId).toBeNull()
     }
+  })
+
+  it('devuelve exactamente la forma del AuthContext', () => {
+    const result = service.verify(sign({ userId: 'u1', roles: ['rider'], branchId: 'b1' }))
+
+    expect(Object.keys(result).sort()).toEqual(['authenticated', 'branchId', 'roles', 'userId'])
+  })
+
+  it('rechaza un token firmado con otro secreto', () => {
+    const token = jwt.sign({ userId: 'u1', roles: ['customer'] }, 'otro-secreto')
+
+    expect(service.verify(token)).toEqual({
+      authenticated: false,
+      userId: null,
+      roles: [],
+      branchId: null,
+    })
   })
 })

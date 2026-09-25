@@ -1,0 +1,27 @@
+{
+  "zones": [
+    {
+      "name": "Centro",
+      "center": { "latitude": -34.595519, "longitude": -58.636055 },
+      "radiusKm": 4
+    },
+    {
+      "name": "Norte",
+      "center": { "latitude": -34.614988, "longitude": -58.634316 },
+      "radiusKm": 4
+    },
+    {
+      "name": "Oeste",
+      "center": { "latitude": -34.6493555, "longitude": -58.6172306 },
+      "radiusKm": 5
+    }
+  ],
+  "shifts": [
+    { "name": "Mañana", "startTime": "08:00", "endTime": "13:00" },
+    { "name": "Tarde", "startTime": "13:00", "endTime": "18:00" },
+    { "name": "Noche", "startTime": "18:00", "endTime": "23:00" }
+  ],
+  "rider": {
+    "email": "repartidor@foodbosco.local"
+  }
+}

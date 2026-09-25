@@ -133,6 +133,14 @@ export class OfferOrchestrator {
     await this.deliveryOrderService.releaseByTrip(trip.id, now, ctx)
   }
 
+  async releaseOrder(orderId: string): Promise<void> {
+    const result = await this.tripService.releaseOrder(orderId)
+
+    if (result?.finished) {
+      await this.riderOrchestrator.setStatus(result.riderId, RIDER_STATUS.free)
+    }
+  }
+
   async markPickup(riderId: string, tripId: string, orderId: string): Promise<PublicTrip> {
     const trip = await this.requireOwnedTrip(riderId, tripId)
     this.requireOrderInTrip(trip, orderId)

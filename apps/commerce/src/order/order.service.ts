@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common'
-import { ERROR_CODES, ORDER_STATUS, ORDER_TRANSITIONS, OrderStatus } from '../config/constants'
+import {
+  CANCEL_REASON,
+  ERROR_CODES,
+  ORDER_STATUS,
+  ORDER_TRANSITIONS,
+  OrderStatus,
+} from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { OrderStatusHistory, PublicOrder, serializeOrder } from './order.model'
 import { CreateOrderData, OrderListQuery, OrderRepository } from './order.repository'
@@ -84,5 +90,47 @@ export class OrderService {
 
   async markAssigned(orderIds: string[], tripId: string, riderId: string): Promise<void> {
     await this.repository.markAssigned(orderIds, tripId, riderId)
+  }
+
+  async releaseRider(
+    id: string,
+    options: { allowAfterPickup: boolean },
+  ): Promise<TransitionResult | null> {
+    const doc = await this.repository.findById(id)
+    if (!doc) {
+      return null
+    }
+
+    if (doc.status !== ORDER_STATUS.readyForDelivery && doc.status !== ORDER_STATUS.onTheWay) {
+      throw new DomainException(
+        ERROR_CODES.invalidTransition,
+        'El pedido no tiene un rider asignado',
+        409,
+      )
+    }
+
+    doc.riderId = null
+    doc.tripId = null
+
+    if (doc.status === ORDER_STATUS.onTheWay) {
+      if (!options.allowAfterPickup) {
+        throw new DomainException(
+          ERROR_CODES.invalidTransition,
+          'No podés liberar un pedido que ya retiraste',
+          409,
+        )
+      }
+
+      doc.statusHistory.push({
+        previousStatus: doc.status,
+        newStatus: ORDER_STATUS.cancelled,
+        changedAt: new Date(),
+      })
+      doc.status = ORDER_STATUS.cancelled
+      doc.cancelReason = CANCEL_REASON.lost
+    }
+
+    await this.repository.save(doc)
+    return { order: serializeOrder(doc), changed: true }
   }
 }

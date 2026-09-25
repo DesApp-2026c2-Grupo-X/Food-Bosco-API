@@ -224,3 +224,100 @@ describe('DeliveryResolver — mutations', () => {
     expect(result.status).toBe(TripStatus.COMPLETED)
   })
 })
+
+describe('DeliveryResolver — propagación exacta de contexto y errores', () => {
+  const rest = { get: jest.fn(), post: jest.fn(), patch: jest.fn() }
+  const resolver = new DeliveryResolver(rest as unknown as RestClient)
+
+  const expectedContext = {
+    authorization: 'Bearer xyz',
+    userId: 'u1',
+    roles: ['rider'],
+    branchId: null,
+    requestId: 'rid-1',
+  }
+
+  beforeEach(() => jest.clearAllMocks())
+
+  it('riderProfile propaga el contexto de identidad exacto (RQ-GW-05/RQ-SEC-03)', async () => {
+    rest.get.mockResolvedValue(rawRider)
+
+    await resolver.riderProfile(ctx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/riders/me', { context: expectedContext })
+  })
+
+  it('trip propaga contexto exacto e id en el path', async () => {
+    rest.get.mockResolvedValue(rawTrip)
+
+    await resolver.trip('t1', ctx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/trips/t1', { context: expectedContext })
+  })
+
+  it('myTrips combina contexto exacto y paginación', async () => {
+    rest.get.mockResolvedValue({ data: [] })
+
+    await resolver.myTrips({ limit: 5, offset: 10 }, ctx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/trips', {
+      context: expectedContext,
+      query: { limit: 5, offset: 10 },
+    })
+  })
+
+  type DeliveryOp = {
+    name: string
+    method: 'get' | 'post' | 'patch'
+    invoke: () => Promise<unknown>
+  }
+
+  const deliveryOps: DeliveryOp[] = [
+    { name: 'riderProfile', method: 'get', invoke: () => resolver.riderProfile(ctx) },
+    { name: 'tripOffers', method: 'get', invoke: () => resolver.tripOffers(ctx) },
+    { name: 'trip', method: 'get', invoke: () => resolver.trip('t1', ctx) },
+    { name: 'myTrips', method: 'get', invoke: () => resolver.myTrips(null, ctx) },
+    {
+      name: 'updateRiderProfile',
+      method: 'patch',
+      invoke: () => resolver.updateRiderProfile({ phone: '1' }, ctx),
+    },
+    {
+      name: 'updateRiderVehicle',
+      method: 'patch',
+      invoke: () => resolver.updateRiderVehicle({ type: 'moto' }, ctx),
+    },
+    {
+      name: 'setRiderAvailability',
+      method: 'patch',
+      invoke: () => resolver.setRiderAvailability(true, ctx),
+    },
+    {
+      name: 'updateRiderLocation',
+      method: 'patch',
+      invoke: () => resolver.updateRiderLocation(0, 0, ctx),
+    },
+    { name: 'acceptTripOffer', method: 'post', invoke: () => resolver.acceptTripOffer('o1', ctx) },
+    { name: 'rejectTripOffer', method: 'post', invoke: () => resolver.rejectTripOffer('o1', ctx) },
+    {
+      name: 'markOrderPickup',
+      method: 'post',
+      invoke: () => resolver.markOrderPickup('t1', 'ord-1', ctx),
+    },
+    {
+      name: 'markOrderDelivered',
+      method: 'post',
+      invoke: () => resolver.markOrderDelivered('t1', 'ord-1', ctx),
+    },
+  ]
+
+  it.each(deliveryOps)(
+    '$name propaga el error del servicio tal cual',
+    async ({ method, invoke }) => {
+      const failure = new Error('delivery service down')
+      rest[method].mockRejectedValueOnce(failure)
+
+      await expect(invoke()).rejects.toBe(failure)
+    },
+  )
+})

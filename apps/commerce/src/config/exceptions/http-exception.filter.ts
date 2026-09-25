@@ -10,6 +10,8 @@ const codeForStatus = (status: number): string => {
   if (status === HttpStatus.FORBIDDEN) return ERROR_CODES.forbidden
   if (status === HttpStatus.BAD_REQUEST) return ERROR_CODES.validationError
   if (status === HttpStatus.NOT_FOUND) return ERROR_CODES.notFound
+  if (status === HttpStatus.PAYLOAD_TOO_LARGE) return ERROR_CODES.payloadTooLarge
+  if (status === HttpStatus.UNSUPPORTED_MEDIA_TYPE) return ERROR_CODES.invalidImageType
   return ERROR_CODES.internal
 }
 

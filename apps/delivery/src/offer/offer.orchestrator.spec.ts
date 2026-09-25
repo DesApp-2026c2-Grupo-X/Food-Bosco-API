@@ -1,5 +1,6 @@
 import { ERROR_CODES, ORDER_STATUS, RIDER_STATUS, TRIP_STATUS } from '../config/constants'
 import { env } from '../config/env'
+import { DomainException } from '../config/exceptions/domain.exception'
 import { CommerceClient } from '../config/http/commerce.client'
 import { EventBus } from '../config/messaging/event-bus'
 import { haversineDistanceKm } from '../config/geo/distance'
@@ -507,6 +508,362 @@ describe('OfferOrchestrator.markDeliver (RQ-DLV-07/08, RQ-DLV-12)', () => {
     await expect(orchestrator.markDeliver('u1', 't1', 'ord-999')).rejects.toMatchObject({
       code: ERROR_CODES.orderNotInTrip,
     })
+    expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
+  })
+})
+
+const captureDomainError = async (promise: Promise<unknown>): Promise<DomainException> => {
+  try {
+    await promise
+  } catch (error) {
+    return error as DomainException
+  }
+  throw new Error('Se esperaba un error de dominio y no hubo ninguno')
+}
+
+interface CreateOfferedInput {
+  riderId: string
+  orders: Array<{ orderId: string; pickupBranchId: string }>
+  distanceKm: number
+  estimatedMinutes: number
+  estimatedEarnings: number
+  expiresAt: Date
+}
+
+const orderAt = (orderId: string, branchLat: number): PublicDeliveryOrder => ({
+  orderId,
+  branchId: `b-${orderId}`,
+  branchLocation: { latitude: branchLat, longitude: 0 },
+  deliveryAddress: { text: `addr-${orderId}`, latitude: branchLat + 0.0005, longitude: 0 },
+  status: 'ready',
+})
+
+const routeKmOf = (orders: PublicDeliveryOrder[]): number =>
+  orders.reduce(
+    (acc, order) => {
+      const toPickup = haversineDistanceKm(acc.previous, order.branchLocation)
+      const pickupToDelivery = haversineDistanceKm(order.branchLocation, order.deliveryAddress)
+      return { total: acc.total + toPickup + pickupToDelivery, previous: order.deliveryAddress }
+    },
+    { total: 0, previous: { latitude: 0, longitude: 0 } },
+  ).total
+
+const firstCallInput = (tripService: { createOffered: jest.Mock }): CreateOfferedInput =>
+  tripService.createOffered.mock.calls[0][0] as CreateOfferedInput
+
+describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', () => {
+  const readyTrip = (input: CreateOfferedInput): PublicTrip => ({
+    ...trip,
+    riderId: input.riderId,
+    orders: input.orders.map((order) => ({
+      orderId: order.orderId,
+      pickupBranchId: order.pickupBranchId,
+      pickupLocation: { latitude: 0, longitude: 0 },
+      deliveryAddress: { text: 'Av', latitude: 0, longitude: 0 },
+      status: ORDER_STATUS.readyForDelivery,
+      pickedUpAt: null,
+      deliveredAt: null,
+    })),
+    distanceKm: input.distanceKm,
+    estimatedMinutes: input.estimatedMinutes,
+    estimatedEarnings: input.estimatedEarnings,
+    expiresAt: input.expiresAt.toISOString(),
+  })
+
+  it('agrupa como máximo maxOrdersPerTrip órdenes, priorizando las más cercanas', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([
+      orderAt('C', 0.003),
+      orderAt('A', 0.001),
+      orderAt('D', 0.004),
+      orderAt('B', 0.002),
+    ])
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
+
+    await orchestrator.listOffers('u1')
+
+    const input = firstCallInput(tripService)
+    expect(input.orders.map((order) => order.orderId)).toEqual(['A', 'B', 'C'])
+    expect(input.orders).toHaveLength(env.offer.maxOrdersPerTrip)
+  })
+
+  it('calcula distancia, minutos y ganancia agregando todas las órdenes seleccionadas', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([
+      orderAt('A', 0.001),
+      orderAt('B', 0.002),
+      orderAt('C', 0.003),
+    ])
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
+
+    await orchestrator.listOffers('u1')
+
+    const selected = [orderAt('A', 0.001), orderAt('B', 0.002), orderAt('C', 0.003)]
+    const routeKm = routeKmOf(selected)
+    const expectedDistance = Math.round(routeKm * 100) / 100
+    const expectedMinutes = Math.round((expectedDistance / env.offer.avgSpeedKmh) * 60)
+    const expectedEarnings = Math.round(
+      env.offer.earningsBase +
+        env.offer.earningsPerKm * expectedDistance +
+        env.offer.earningsPerOrder * selected.length,
+    )
+
+    expect(tripService.createOffered).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distanceKm: expectedDistance,
+        estimatedMinutes: expectedMinutes,
+        estimatedEarnings: expectedEarnings,
+      }),
+    )
+    expect(firstCallInput(tripService).orders).toHaveLength(3)
+  })
+
+  it.each([
+    { name: 'justo dentro del máximo (~7.9 km)', branchLat: 0.071, offered: true },
+    { name: 'justo fuera del máximo (~8.1 km)', branchLat: 0.073, offered: false },
+  ])('$name → ofrece=$offered', async ({ branchLat, offered }) => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([orderAt('A', branchLat)])
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result.data).toHaveLength(offered ? 1 : 0)
+    if (offered) {
+      expect(tripService.createOffered).toHaveBeenCalled()
+    } else {
+      expect(tripService.createOffered).not.toHaveBeenCalled()
+    }
+  })
+
+  it('devuelve vacío y no reserva nada cuando el pool de órdenes está vacío (0 órdenes)', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([])
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result).toEqual({ data: [] })
+    expect(tripService.createOffered).not.toHaveBeenCalled()
+    expect(deliveryOrderService.reserve).not.toHaveBeenCalled()
+  })
+
+  it('hace rollback si reserva menos órdenes que las ofrecidas (carrera parcial)', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([
+      orderAt('A', 0.001),
+      orderAt('B', 0.002),
+    ])
+    tripService.createOffered.mockImplementation(async (input: CreateOfferedInput) =>
+      readyTrip(input),
+    )
+    deliveryOrderService.reserve.mockResolvedValue(1)
+
+    const result = await orchestrator.listOffers('u1')
+
+    expect(result).toEqual({ data: [] })
+    expect(deliveryOrderService.releaseByTrip).toHaveBeenCalledWith(
+      trip.id,
+      expect.any(Date),
+      expect.any(Object),
+    )
+    expect(tripService.markCancelled).toHaveBeenCalledWith(trip.id)
+  })
+
+  it.each([
+    { name: 'no encuentra el viaje vencido', found: null, status: 'offered', cancelled: false },
+    {
+      name: 'el viaje vencido ya no está offered',
+      found: true,
+      status: 'active',
+      cancelled: false,
+    },
+    { name: 'el viaje vencido sigue offered', found: true, status: 'offered', cancelled: true },
+  ])('al expirar ofertas: $name → cancela=$cancelled', async ({ found, status, cancelled }) => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue(['stale-1'])
+    deliveryOrderService.claimableForRider.mockResolvedValue([])
+    tripService.findById.mockResolvedValue(
+      found ? { ...trip, id: 'stale-1', status: status as PublicTrip['status'] } : null,
+    )
+
+    await orchestrator.listOffers('u1')
+
+    if (cancelled) {
+      expect(tripService.markCancelled).toHaveBeenCalledWith('stale-1')
+    } else {
+      expect(tripService.markCancelled).not.toHaveBeenCalled()
+    }
+  })
+})
+
+describe('OfferOrchestrator.acceptOffer: idempotencia/replay (RQ-DLV-05/06)', () => {
+  it('una oferta ya aceptada no puede volver a aceptarse (replay)', async () => {
+    const { orchestrator, tripService, deliveryOrderService, riderOrchestrator, eventBus } =
+      makeOrchestrator()
+    let stored: PublicTrip = { ...trip, expiresAt: null }
+    tripService.findById.mockImplementation(async () => stored)
+    tripService.markActive.mockImplementation(async () => {
+      stored = { ...stored, status: TRIP_STATUS.active }
+      return stored
+    })
+
+    const first = await orchestrator.acceptOffer('u1', 't1')
+    expect(first.status).toBe(TRIP_STATUS.active)
+
+    const error = await captureDomainError(orchestrator.acceptOffer('u1', 't1'))
+
+    expect(error.code).toBe(ERROR_CODES.invalidTripStatus)
+    expect(error.message).toBe('La oferta ya no está disponible')
+    expect(error.getStatus()).toBe(409)
+    expect(deliveryOrderService.markAssigned).toHaveBeenCalledTimes(1)
+    expect(riderOrchestrator.setStatus).toHaveBeenCalledTimes(1)
+    expect(eventBus.publish).toHaveBeenCalledTimes(1)
+  })
+
+  it('rechaza aceptar una oferta inexistente con código, mensaje y status', async () => {
+    const { orchestrator, tripService } = makeOrchestrator()
+    tripService.findById.mockResolvedValue(null)
+
+    const error = await captureDomainError(orchestrator.acceptOffer('u1', 'nope'))
+
+    expect(error.code).toBe(ERROR_CODES.offerNotFound)
+    expect(error.message).toBe('Oferta no encontrada')
+    expect(error.getStatus()).toBe(404)
+  })
+})
+
+describe('OfferOrchestrator: errores de dominio (código + mensaje + status)', () => {
+  it.each([
+    {
+      name: 'repartidor offline',
+      profile: { ...rider, available: false },
+      code: ERROR_CODES.riderOffline,
+      message: 'El repartidor está offline',
+      status: 409,
+    },
+    {
+      name: 'repartidor sin ubicación',
+      profile: { ...rider, currentLocation: null },
+      code: ERROR_CODES.locationRequired,
+      message: 'Comparte tu ubicación para recibir viajes',
+      status: 409,
+    },
+    {
+      name: 'repartidor stale',
+      profile: {
+        ...rider,
+        lastSeenAt: new Date(Date.now() - env.rider.staleAfterMs - 1).toISOString(),
+      },
+      code: ERROR_CODES.riderOffline,
+      message: 'El repartidor está offline',
+      status: 409,
+    },
+  ])('listOffers rechaza $name', async ({ profile, code, message, status }) => {
+    const { orchestrator, riderOrchestrator } = makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(profile)
+
+    const error = await captureDomainError(orchestrator.listOffers('u1'))
+
+    expect(error.code).toBe(code)
+    expect(error.message).toBe(message)
+    expect(error.getStatus()).toBe(status)
+  })
+
+  it.each([
+    {
+      name: 'oferta vencida',
+      trip: { ...trip, expiresAt: '2020-01-01T00:00:00.000Z' },
+      code: ERROR_CODES.offerExpired,
+      message: 'La oferta venció',
+      status: 409,
+    },
+    {
+      name: 'oferta de otro repartidor',
+      trip: { ...trip, riderId: 'otro' },
+      code: ERROR_CODES.offerNotFound,
+      message: 'Oferta no encontrada',
+      status: 404,
+    },
+    {
+      name: 'oferta ya no disponible',
+      trip: { ...trip, status: TRIP_STATUS.active },
+      code: ERROR_CODES.invalidTripStatus,
+      message: 'La oferta ya no está disponible',
+      status: 409,
+    },
+  ])('acceptOffer rechaza $name', async ({ trip: candidate, code, message, status }) => {
+    const { orchestrator, tripService } = makeOrchestrator()
+    tripService.findById.mockResolvedValue(candidate)
+
+    const error = await captureDomainError(orchestrator.acceptOffer('u1', 't1'))
+
+    expect(error.code).toBe(code)
+    expect(error.message).toBe(message)
+    expect(error.getStatus()).toBe(status)
+  })
+
+  it.each([
+    {
+      name: 'viaje de otro repartidor',
+      trip: { ...trip, status: TRIP_STATUS.active, riderId: 'otro' },
+      code: ERROR_CODES.tripNotFound,
+      message: 'Viaje no encontrado',
+      status: 404,
+    },
+    {
+      name: 'viaje no activo',
+      trip: { ...trip, status: TRIP_STATUS.offered },
+      code: ERROR_CODES.invalidTripStatus,
+      message: 'El viaje no está en curso',
+      status: 409,
+    },
+  ])(
+    'markPickup rechaza $name sin llamar a Commerce',
+    async ({ trip: candidate, code, message, status }) => {
+      const { orchestrator, tripService, commerceClient } = makeOrchestrator()
+      tripService.findById.mockResolvedValue(candidate)
+
+      const error = await captureDomainError(orchestrator.markPickup('u1', 't1', 'ord-1'))
+
+      expect(error.code).toBe(code)
+      expect(error.message).toBe(message)
+      expect(error.getStatus()).toBe(status)
+      expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
+    },
+  )
+
+  it('markDeliver rechaza una orden que no pertenece al viaje', async () => {
+    const { orchestrator, tripService, commerceClient } = makeOrchestrator()
+    tripService.findById.mockResolvedValue({ ...trip, status: TRIP_STATUS.active })
+
+    const error = await captureDomainError(orchestrator.markDeliver('u1', 't1', 'ord-999'))
+
+    expect(error.code).toBe(ERROR_CODES.orderNotInTrip)
+    expect(error.message).toBe('La orden no pertenece al viaje')
+    expect(error.getStatus()).toBe(404)
     expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
   })
 })

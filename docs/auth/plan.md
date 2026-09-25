@@ -80,17 +80,23 @@ Se cubren los requerimientos `RQ-AUTH-01` a `RQ-AUTH-22`, más los transversales
 
 ## 1.3 Variables de entorno (las carga el usuario)
 
-| Variable                       | Default (dev)                        | Uso                                                           |
-| ------------------------------ | ------------------------------------ | ------------------------------------------------------------- |
-| `PORT`                         | `4201`                               | Puerto HTTP.                                                  |
-| `MONGODB_URI`                  | `mongodb://localhost:27017/fastfood` | Cadena de conexión a MongoDB (la provee el usuario).          |
-| `JWT_SECRET`                   | `dev-secret-change-me`               | Secreto compartido con el gateway.                            |
-| `JWT_ACCESS_EXPIRES_IN`        | `15m`                                | Vida del access token.                                        |
-| `JWT_REFRESH_EXPIRES_IN`       | `7d`                                 | Vida del refresh token.                                       |
-| `PASSWORD_RECOVERY_EXPIRES_IN` | `1h`                                 | Vida del token de recuperación.                               |
-| `COMMERCE_SERVICE_URL`         | `http://localhost:4202`              | Validación de sucursal (`RQ-AUTH-13`).                        |
-| `INTERNAL_API_TOKEN`           | `dev-internal-token`                 | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`. |
-| `SEED_SUPER_ADMIN_*`           | (ver §1.8)                           | Credenciales del `super_admin` inicial por seed.              |
+| Variable                         | Default (dev)                           | Uso                                                                   |
+| -------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `PORT`                           | `4201`                                  | Puerto HTTP.                                                          |
+| `MONGODB_URI`                    | `mongodb://localhost:27017/fastfood`    | Cadena de conexión a MongoDB (la provee el usuario).                  |
+| `JWT_SECRET`                     | `dev-secret-change-me`                  | Secreto compartido con el gateway.                                    |
+| `JWT_ACCESS_EXPIRES_IN`          | `15m`                                   | Vida del access token.                                                |
+| `JWT_REFRESH_EXPIRES_IN`         | `7d`                                    | Vida del refresh token.                                               |
+| `PASSWORD_RECOVERY_EXPIRES_IN`   | `1h`                                    | Vida del token de recuperación.                                       |
+| `PASSWORD_RECOVERY_MIN_INTERVAL` | `60s`                                   | Intervalo mínimo entre solicitudes de recuperación del mismo usuario. |
+| `EMAIL_PROVIDER`                 | `log`                                   | Proveedor de correo: `log` (no envía) o `resend`.                     |
+| `EMAIL_FROM`                     | `Food Bosco <no-reply@foodbosco.local>` | Remitente de los correos.                                             |
+| `RESEND_API_KEY`                 | (vacío)                                 | API key de Resend (obligatoria si `EMAIL_PROVIDER=resend`).           |
+| `FRONTEND_URL`                   | `http://localhost:3000`                 | URL base del frontend para el enlace de recuperación.                 |
+| `PASSWORD_RESET_PATH`            | `/reset-password`                       | Ruta del formulario de nueva contraseña.                              |
+| `COMMERCE_SERVICE_URL`           | `http://localhost:4202`                 | Validación de sucursal (`RQ-AUTH-13`).                                |
+| `INTERNAL_API_TOKEN`             | `dev-internal-token`                    | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`.         |
+| `SEED_SUPER_ADMIN_*`             | (ver §1.8)                              | Credenciales del `super_admin` inicial por seed.                      |
 
 Se documentará en un `../../apps/auth/.env.example` (no se versiona `.env`; ya está en `../../.gitignore`).
 También se actualizará `../../turbo.json` (`globalEnv`) con las variables nuevas que Turborepo
@@ -709,7 +715,7 @@ requerimiento o la decisión, y qué falta.
 | #   | Tema                                           | Referencia      | Qué falta                                                                                                                                                                                                                                                             |
 | --- | ---------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Validación de sucursal al crear `branch_admin` | `RQ-AUTH-13`    | No se valida la sucursal contra Commerce Service vía REST por ahora (decisión del equipo). Cuando se active: extraer la creación de personal a un orchestrator + un cliente HTTP a `GET /v1/branches/{branchId}` (`COMMERCE_SERVICE_URL` ya está en `config/env.ts`). |
-| 2   | Envío de token de recuperación                 | `RQ-AUTH-09/10` | El token de recuperación se genera y guarda, pero **no se envía** (no hay servicio de email en el alcance). El endpoint responde neutral como exige la spec.                                                                                                          |
+| 2   | Envío de token de recuperación                 | `RQ-AUTH-09/10` | **Resuelto.** Se integró un dominio `email/` desacoplado (proveedor Resend vía `fetch` o `log` para desarrollo) y el `AuthOrchestrator` envía el enlace de recuperación. Ver `docs/auth/password-recovery.md`.                                                        |
 | 3   | Acceso "interno" a `GET /v1/users/{id}`        | `RQ-AUTH-17`    | Soportado vía header `X-Internal-Token` (`INTERNAL_API_TOKEN`) además de `super_admin`. El gateway lo usará para resolver `Order.client` cuando exista Commerce.                                                                                                      |
 | 4   | Resolvers de Commerce/Delivery en el gateway   | Parte 4         | Solo se implementó el dominio auth del esquema GraphQL. Catalog/Branch/Cart/Order/Stock/Reporting/Config/Delivery quedan para cuando existan sus servicios.                                                                                                           |
 | 5   | `PageInfo` en GraphQL                          | §2.6            | Se expone `UserPage { data, pageInfo }` para `users`. `myAddresses` queda como lista simple (sin paginación).                                                                                                                                                         |

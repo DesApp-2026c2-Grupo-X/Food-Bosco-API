@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
+import { CategoryModule } from '../category/category.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
 import { BranchController } from './branch.controller'
@@ -20,6 +21,7 @@ import { BranchService } from './branch.service'
     ]),
     ParameterModule,
     ProductModule,
+    CategoryModule,
   ],
   controllers: [BranchController],
   providers: [BranchRepository, BranchService, BranchOrchestrator],

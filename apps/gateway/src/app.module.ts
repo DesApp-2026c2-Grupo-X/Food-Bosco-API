@@ -4,10 +4,11 @@ import { HealthModule } from './health/health.module'
 import { SecurityModule } from './security/security.module'
 import { SeedModule } from './seed/seed.module'
 import { ThrottleModule } from './throttle/throttle.module'
+import { UploadModule } from './upload/upload.module'
 import { RequestIdMiddleware } from './observability/request-id.middleware'
 
 @Module({
-  imports: [SecurityModule, GatewayModule, HealthModule, SeedModule, ThrottleModule],
+  imports: [SecurityModule, GatewayModule, HealthModule, SeedModule, ThrottleModule, UploadModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

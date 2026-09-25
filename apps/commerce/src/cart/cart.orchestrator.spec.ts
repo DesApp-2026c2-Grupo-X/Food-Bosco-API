@@ -143,4 +143,265 @@ describe('CartOrchestrator.removeItem (RQ-CART-05)', () => {
       code: ERROR_CODES.cartItemNotFound,
     })
   })
+
+  it('al eliminar el último ítem recalcula el total en 0 y envía la lista vacía', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(
+      cart({
+        items: [{ id: 'i1', productId: 'p1', quantity: 2, observations: null, optionIds: [] }],
+        total: 200,
+      }),
+    )
+    productService.findByIds.mockResolvedValue([])
+    cartService.replaceItems.mockResolvedValue(cart({ items: [], total: 0 }))
+
+    await orchestrator.removeItem('c1', 'i1')
+
+    expect(cartService.replaceItems).toHaveBeenCalledWith('cart1', [], 0)
+  })
+})
+
+describe('CartOrchestrator.addItem — apilado y cálculo (RQ-CART-03/06/07)', () => {
+  it('agrega el ítem al final del carrito existente', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(
+      cart({
+        items: [{ id: 'i1', productId: 'p1', quantity: 1, observations: 'sin sal', optionIds: [] }],
+        total: 100,
+      }),
+    )
+    productService.findById.mockResolvedValue(product())
+    productService.findByIds.mockResolvedValue([product()])
+    cartService.replaceItems.mockResolvedValue(cart({ total: 300 }))
+
+    await orchestrator.addItem('c1', { productId: 'p1', quantity: 2 })
+
+    expect(cartService.replaceItems).toHaveBeenCalledWith(
+      'cart1',
+      [
+        { productId: 'p1', quantity: 1, observations: 'sin sal', optionIds: [] },
+        { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
+      ],
+      300,
+    )
+  })
+
+  it('calcula el total sumando los adicionales de las opciones', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart())
+    productService.findById.mockResolvedValue(product())
+    productService.findByIds.mockResolvedValue([product()])
+    cartService.replaceItems.mockResolvedValue(cart({ total: 300 }))
+
+    await orchestrator.addItem('c1', { productId: 'p1', quantity: 2, optionIds: ['opt1'] })
+
+    const total = cartService.replaceItems.mock.calls[0][2]
+    expect(total).toBe(300)
+  })
+
+  it('ignora productos ausentes en el cálculo del total', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(
+      cart({
+        items: [{ id: 'i1', productId: 'ghost', quantity: 1, observations: null, optionIds: [] }],
+        total: 0,
+      }),
+    )
+    productService.findById.mockResolvedValue(product())
+    productService.findByIds.mockResolvedValue([])
+    cartService.replaceItems.mockResolvedValue(cart())
+
+    await orchestrator.addItem('c1', { productId: 'p1', quantity: 1 })
+
+    expect(cartService.replaceItems.mock.calls[0][2]).toBe(0)
+  })
+})
+
+describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
+  const existingItem = {
+    id: 'i1',
+    productId: 'p1',
+    quantity: 2,
+    observations: null,
+    optionIds: [] as string[],
+  }
+
+  const primeUpdate = (mocks: ReturnType<typeof makeOrchestrator>) => {
+    mocks.cartService.findActiveByClient.mockResolvedValue(
+      cart({ items: [existingItem], total: 200 }),
+    )
+    mocks.productService.findById.mockResolvedValue(product())
+    mocks.productService.findByIds.mockResolvedValue([product()])
+    mocks.cartService.replaceItems.mockResolvedValue(cart({ total: 200 }))
+  }
+
+  it('cambia la cantidad y recalcula el total', async () => {
+    const mocks = makeOrchestrator()
+    primeUpdate(mocks)
+
+    await mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 })
+
+    expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
+      'cart1',
+      [{ productId: 'p1', quantity: 3, observations: null, optionIds: [] }],
+      300,
+    )
+  })
+
+  it('cambia las observaciones sin tocar cantidad ni total', async () => {
+    const mocks = makeOrchestrator()
+    primeUpdate(mocks)
+
+    await mocks.orchestrator.updateItem('c1', 'i1', { observations: 'sin hielo' })
+
+    expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
+      'cart1',
+      [{ productId: 'p1', quantity: 2, observations: 'sin hielo', optionIds: [] }],
+      200,
+    )
+  })
+
+  it('cambia las opciones y suma sus adicionales al total', async () => {
+    const mocks = makeOrchestrator()
+    primeUpdate(mocks)
+
+    await mocks.orchestrator.updateItem('c1', 'i1', { optionIds: ['opt1'] })
+
+    expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
+      'cart1',
+      [{ productId: 'p1', quantity: 2, observations: null, optionIds: ['opt1'] }],
+      300,
+    )
+  })
+
+  it('permite limpiar las observaciones con null', async () => {
+    const mocks = makeOrchestrator()
+    mocks.cartService.findActiveByClient.mockResolvedValue(
+      cart({ items: [{ ...existingItem, observations: 'sin sal' }], total: 200 }),
+    )
+    mocks.productService.findById.mockResolvedValue(product())
+    mocks.productService.findByIds.mockResolvedValue([product()])
+    mocks.cartService.replaceItems.mockResolvedValue(cart({ total: 200 }))
+
+    await mocks.orchestrator.updateItem('c1', 'i1', { observations: null })
+
+    expect(mocks.cartService.replaceItems.mock.calls[0][1][0].observations).toBeNull()
+  })
+
+  it('rechaza si el ítem no existe', async () => {
+    const mocks = makeOrchestrator()
+    mocks.cartService.findActiveByClient.mockResolvedValue(cart())
+
+    await expect(
+      mocks.orchestrator.updateItem('c1', 'missing', { quantity: 1 }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.cartItemNotFound, status: 404 })
+    expect(mocks.cartService.replaceItems).not.toHaveBeenCalled()
+  })
+
+  it('rechaza si el producto dejó de estar disponible', async () => {
+    const mocks = makeOrchestrator()
+    mocks.cartService.findActiveByClient.mockResolvedValue(
+      cart({ items: [existingItem], total: 200 }),
+    )
+    mocks.productService.findById.mockResolvedValue(product({ available: false }))
+
+    await expect(mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 })).rejects.toMatchObject({
+      code: ERROR_CODES.productUnavailable,
+      status: 400,
+    })
+  })
+
+  it('rechaza una opción inexistente al actualizar', async () => {
+    const mocks = makeOrchestrator()
+    primeUpdate(mocks)
+
+    await expect(
+      mocks.orchestrator.updateItem('c1', 'i1', { optionIds: ['missing'] }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.productUnavailable,
+      message: 'Configuración no disponible',
+    })
+  })
+
+  it('rechaza con CART_NOT_FOUND si el carrito desaparece al persistir', async () => {
+    const mocks = makeOrchestrator()
+    primeUpdate(mocks)
+    mocks.cartService.replaceItems.mockResolvedValue(null)
+
+    await expect(mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 })).rejects.toMatchObject({
+      code: ERROR_CODES.cartNotFound,
+      status: 404,
+    })
+  })
+})
+
+describe('CartOrchestrator.replaceItems (RQ-ORD-17)', () => {
+  it('reemplaza ítems y total sobre el carrito activo', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart())
+    productService.findByIds.mockResolvedValue([product()])
+    cartService.replaceItems.mockResolvedValue(cart({ total: 400 }))
+
+    const result = await orchestrator.replaceItems('c1', [
+      { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
+      { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
+    ])
+
+    expect(cartService.replaceItems).toHaveBeenCalledWith(
+      'cart1',
+      [
+        { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
+        { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
+      ],
+      400,
+    )
+    expect(result.total).toBe(400)
+  })
+
+  it('crea el carrito activo si el cliente no tiene uno', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(null)
+    cartService.createActive.mockResolvedValue(cart({ id: 'cart-new' }))
+    productService.findByIds.mockResolvedValue([])
+    cartService.replaceItems.mockResolvedValue(cart({ id: 'cart-new' }))
+
+    await orchestrator.replaceItems('c1', [])
+
+    expect(cartService.createActive).toHaveBeenCalledWith('c1')
+    expect(cartService.replaceItems).toHaveBeenCalledWith('cart-new', [], 0)
+  })
+
+  it('con una lista vacía deja el total en 0', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart({ total: 500 }))
+    cartService.replaceItems.mockResolvedValue(cart({ total: 0 }))
+
+    await orchestrator.replaceItems('c1', [])
+
+    expect(cartService.replaceItems).toHaveBeenCalledWith('cart1', [], 0)
+  })
+})
+
+describe('CartOrchestrator.confirmCart (RQ-CART-08/09)', () => {
+  it('confirma el carrito activo', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart())
+    cartService.confirm.mockResolvedValue(cart({ status: 'confirmed' }))
+
+    const result = await orchestrator.confirmCart('c1')
+
+    expect(cartService.confirm).toHaveBeenCalledWith('cart1')
+    expect(result.status).toBe('confirmed')
+  })
+
+  it('rechaza con CART_NOT_FOUND si el carrito no puede confirmarse', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart())
+    cartService.confirm.mockResolvedValue(null)
+
+    await expect(orchestrator.confirmCart('c1')).rejects.toMatchObject({
+      code: ERROR_CODES.cartNotFound,
+      status: 404,
+    })
+  })
 })

@@ -25,6 +25,11 @@ export class OrderStateService {
     return serializeOrderState(doc)
   }
 
+  async upsertByCode(data: CreateOrderStateData): Promise<PublicOrderState> {
+    const doc = await this.repository.upsertByCode(data)
+    return serializeOrderState(doc!)
+  }
+
   async update(code: string, patch: UpdateOrderStateData): Promise<PublicOrderState | null> {
     const doc = await this.repository.update(code, patch)
     return doc ? serializeOrderState(doc) : null

@@ -49,4 +49,34 @@ describe('buildContext', () => {
     expect(ctx.userId).toBe('u1')
     expect(ctx.roles).toEqual(['rider'])
   })
+
+  it('toma el primer x-request-id si llega como array', () => {
+    const ctx = contextBuilder(buildParams({ 'x-request-id': ['rid-1', 'rid-2'] }))
+
+    expect(ctx.requestId).toBe('rid-1')
+  })
+
+  it('sin x-request-id el contexto queda con requestId null', () => {
+    const ctx = contextBuilder(buildParams({}))
+
+    expect(ctx.requestId).toBeNull()
+  })
+
+  it('token inválido → contexto anónimo pero conserva authorization', () => {
+    const ctx = contextBuilder(buildParams({ authorization: 'Bearer no-es-un-jwt' }))
+
+    expect(ctx.authenticated).toBe(false)
+    expect(ctx.userId).toBeNull()
+    expect(ctx.roles).toEqual([])
+    expect(ctx.branchId).toBeNull()
+    expect(ctx.authorization).toBe('Bearer no-es-un-jwt')
+  })
+
+  it('preserva req y res dentro del contexto', () => {
+    const params = buildParams({})
+    const ctx = contextBuilder(params)
+
+    expect(ctx.req).toBe(params.req)
+    expect(ctx.res).toBe(params.res)
+  })
 })

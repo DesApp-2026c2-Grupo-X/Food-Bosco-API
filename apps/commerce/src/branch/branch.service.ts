@@ -40,6 +40,11 @@ export class BranchService {
     return serializeBranch(doc)
   }
 
+  async upsertByName(data: CreateBranchData): Promise<PublicBranch> {
+    const doc = await this.repository.upsertByName(data)
+    return serializeBranch(doc!)
+  }
+
   async update(id: string, patch: UpdateBranchData): Promise<PublicBranch | null> {
     const doc = await this.repository.update(id, patch)
     return doc ? serializeBranch(doc) : null

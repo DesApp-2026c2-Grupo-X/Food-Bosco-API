@@ -12,6 +12,7 @@ import type { OrderStatusChangedEvent } from '../config/messaging/events'
 import type { AuthContext } from '../config/security/jwt.service'
 import type { PublicBranch } from '../branch/branch.model'
 import { BranchService } from '../branch/branch.service'
+import { CategoryService } from '../category/category.service'
 import { ParameterService } from '../parameter/parameter.service'
 import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
@@ -39,6 +40,7 @@ export class OrderOrchestrator {
     private readonly cartOrchestrator: CartOrchestrator,
     private readonly productService: ProductService,
     private readonly branchService: BranchService,
+    private readonly categoryService: CategoryService,
     private readonly stockService: StockService,
     private readonly parameterService: ParameterService,
     private readonly eventBus: EventBus,
@@ -63,9 +65,16 @@ export class OrderOrchestrator {
     }
     const branch = branches[0]
 
-    const availability = await this.branchService.getAvailabilityMap(branch.id)
+    const [availability, activeCategoryIds] = await Promise.all([
+      this.branchService.getAvailabilityMap(branch.id),
+      this.categoryService.listActiveIds(),
+    ])
 
-    const { items, requirements } = await this.buildOrderItems(cart.items, availability)
+    const { items, requirements } = await this.buildOrderItems(
+      cart.items,
+      availability,
+      activeCategoryIds,
+    )
 
     await this.stockService.validateAvailability(branch.id, requirements)
 
@@ -116,6 +125,25 @@ export class OrderOrchestrator {
     return result.order
   }
 
+  async releaseRider(actor: AuthContext, orderId: string): Promise<PublicOrder> {
+    const order = await this.orderService.findById(orderId)
+    if (!order) {
+      throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
+    }
+    this.assertCanRelease(actor, order)
+
+    const isRider = !actor.internal && actor.roles.includes(ROLES.rider)
+    const result = await this.orderService.releaseRider(orderId, { allowAfterPickup: !isRider })
+    if (!result) {
+      throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
+    }
+
+    const branch = await this.branchService.findById(order.branchId)
+    await this.eventBus.publish(this.toStatusChangedEvent(result.order, branch))
+
+    return result.order
+  }
+
   async repeat(clientId: string, orderId: string): Promise<RepeatOrderResult> {
     const order = await this.orderService.findById(orderId)
     if (!order || order.clientId !== clientId) {
@@ -150,6 +178,7 @@ export class OrderOrchestrator {
   private async buildOrderItems(
     cartItems: CartItemData[],
     availability: Map<string, boolean>,
+    activeCategoryIds: Set<string>,
   ): Promise<{ items: PublicOrder['items']; requirements: IngredientRequirements }> {
     const productIds = cartItems.map((item) => item.productId)
     const products = await this.productService.findByIds(productIds)
@@ -160,7 +189,7 @@ export class OrderOrchestrator {
 
     for (const cartItem of cartItems) {
       const product = productById.get(cartItem.productId)
-      if (!product || !product.available) {
+      if (!product || !product.available || !activeCategoryIds.has(product.categoryId)) {
         throw new DomainException(ERROR_CODES.productUnavailable, 'Producto no disponible', 400)
       }
       if (availability.get(product.id) === false) {
@@ -247,6 +276,28 @@ export class OrderOrchestrator {
     const distanceKm = haversineDistanceKm(branch, deliveryAddress)
     const etaMinutes = basePrepMin + estimateMinutes(distanceKm, avgSpeedKmh)
     return new Date(Date.now() + etaMinutes * 60 * 1000)
+  }
+
+  private assertCanRelease(actor: AuthContext, order: PublicOrder): void {
+    if (actor.internal) {
+      return
+    }
+    if (actor.roles.includes(ROLES.superAdmin)) {
+      return
+    }
+    if (actor.roles.includes(ROLES.branchAdmin)) {
+      if (actor.branchId !== order.branchId) {
+        throw new DomainException(ERROR_CODES.forbidden, 'Sin acceso a esta sucursal', 403)
+      }
+      return
+    }
+    if (actor.roles.includes(ROLES.rider)) {
+      if (order.riderId !== actor.userId) {
+        throw new DomainException(ERROR_CODES.forbidden, 'Este pedido no te pertenece', 403)
+      }
+      return
+    }
+    throw new DomainException(ERROR_CODES.forbidden, 'Sin permiso para liberar el pedido', 403)
   }
 
   private assertBranchAccess(actor: AuthContext, order: PublicOrder): void {

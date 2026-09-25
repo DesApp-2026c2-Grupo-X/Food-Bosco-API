@@ -46,6 +46,12 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [ORDER_STATUS.cancelled]: [],
 }
 
+export const CANCEL_REASON = {
+  lost: 'lost',
+} as const
+
+export type CancelReason = (typeof CANCEL_REASON)[keyof typeof CANCEL_REASON]
+
 export const CART_STATUS = {
   active: 'active',
   confirmed: 'confirmed',
@@ -102,6 +108,11 @@ export const ERROR_CODES = {
   parameterNotFound: 'PARAMETER_NOT_FOUND',
   invalidParameterValue: 'INVALID_PARAMETER_VALUE',
   orderStateNotFound: 'ORDER_STATE_NOT_FOUND',
+  imageRequired: 'IMAGE_REQUIRED',
+  invalidImageType: 'INVALID_IMAGE_TYPE',
+  imageTooLarge: 'IMAGE_TOO_LARGE',
+  imageUploadFailed: 'IMAGE_UPLOAD_FAILED',
+  payloadTooLarge: 'PAYLOAD_TOO_LARGE',
   validationError: 'VALIDATION_ERROR',
   forbidden: 'FORBIDDEN',
   unauthenticated: 'UNAUTHENTICATED',

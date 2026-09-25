@@ -29,9 +29,19 @@ export class CategoryService {
     return doc ? serializeCategory(doc) : null
   }
 
+  async listActiveIds(): Promise<Set<string>> {
+    const ids = await this.repository.findActiveIds()
+    return new Set(ids)
+  }
+
   async create(data: CreateCategoryData): Promise<PublicCategory> {
     const doc = await this.repository.create(data)
     return serializeCategory(doc)
+  }
+
+  async upsertByName(name: string): Promise<PublicCategory> {
+    const doc = await this.repository.upsertByName(name)
+    return serializeCategory(doc!)
   }
 
   async update(id: string, patch: UpdateCategoryData): Promise<PublicCategory | null> {

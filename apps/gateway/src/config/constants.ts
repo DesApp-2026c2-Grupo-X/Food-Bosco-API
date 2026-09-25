@@ -11,6 +11,8 @@ export const ERROR_CODES = {
   unauthenticated: 'UNAUTHENTICATED',
   forbidden: 'FORBIDDEN',
   badRequest: 'BAD_REQUEST',
+  imageRequired: 'IMAGE_REQUIRED',
+  payloadTooLarge: 'PAYLOAD_TOO_LARGE',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

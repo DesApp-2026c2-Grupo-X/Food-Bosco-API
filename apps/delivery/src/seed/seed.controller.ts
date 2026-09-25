@@ -1,9 +1,12 @@
 import { Body, Controller, Post } from '@nestjs/common'
+
 import { Type } from 'class-transformer'
 import { IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
+
 import { VEHICLE_TYPE_VALUES } from '../config/constants'
 import type { VehicleType } from '../config/constants'
 import { Internal } from '../config/security/internal.decorator'
+
 import { SeedService, type SeedResult } from './seed.service'
 
 class SeedVehicle {

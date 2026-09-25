@@ -40,6 +40,16 @@ export class IngredientRepository {
     return this.model.create({ ...data, active: data.active ?? true })
   }
 
+  upsertByName(data: CreateIngredientData): Promise<IngredientDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { name: data.name },
+        { $setOnInsert: { ...data, active: true } },
+        { new: true, upsert: true },
+      )
+      .exec()
+  }
+
   async list(query: IngredientListQuery): Promise<{ data: IngredientDocument[]; total: number }> {
     const filter: Record<string, unknown> = {}
     if (query.activeOnly) filter.active = true

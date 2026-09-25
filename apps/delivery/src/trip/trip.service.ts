@@ -107,16 +107,74 @@ export class TripService {
 
     order.status = ORDER_STATUS.delivered
     order.deliveredAt = new Date()
-
-    const allDelivered = doc.orders.every((entry) => entry.status === ORDER_STATUS.delivered)
-    if (allDelivered) {
-      doc.status = TRIP_STATUS.completed
-      doc.completedAt = new Date()
-      doc.earnings = doc.estimatedEarnings
-    }
+    this.completeIfSettled(doc)
 
     await this.repository.save(doc)
     return serializeTrip(doc)
+  }
+
+  async cancelOrder(orderId: string): Promise<string[]> {
+    const docs = await this.repository.findByOrderId(orderId, [
+      TRIP_STATUS.offered,
+      TRIP_STATUS.active,
+    ])
+    const freedRiderIds: string[] = []
+
+    for (const doc of docs) {
+      let changed = false
+
+      for (const order of doc.orders) {
+        if (order.orderId === orderId && !this.isSettled(order.status)) {
+          order.status = ORDER_STATUS.cancelled
+          changed = true
+        }
+      }
+
+      if (!changed) continue
+
+      if (this.completeIfSettled(doc)) {
+        freedRiderIds.push(doc.riderId)
+      }
+
+      await this.repository.save(doc)
+    }
+
+    return freedRiderIds
+  }
+
+  async releaseOrder(orderId: string): Promise<{ riderId: string; finished: boolean } | null> {
+    const [doc] = await this.repository.findByOrderId(orderId, [
+      TRIP_STATUS.offered,
+      TRIP_STATUS.active,
+    ])
+    if (!doc) return null
+
+    doc.orders = doc.orders.filter((order) => order.orderId !== orderId)
+
+    let finished = false
+    if (doc.orders.length === 0) {
+      doc.status = TRIP_STATUS.cancelled
+      finished = true
+    } else if (this.completeIfSettled(doc)) {
+      finished = true
+    }
+
+    await this.repository.save(doc)
+    return { riderId: doc.riderId, finished }
+  }
+
+  private isSettled(status: string): boolean {
+    return status === ORDER_STATUS.delivered || status === ORDER_STATUS.cancelled
+  }
+
+  private completeIfSettled(doc: TripDocument): boolean {
+    const settled = doc.orders.every((entry) => this.isSettled(entry.status))
+    if (!settled) return false
+
+    doc.status = TRIP_STATUS.completed
+    doc.completedAt = new Date()
+    doc.earnings = doc.estimatedEarnings
+    return true
   }
 
   private async requireDocument(id: string): Promise<TripDocument> {
