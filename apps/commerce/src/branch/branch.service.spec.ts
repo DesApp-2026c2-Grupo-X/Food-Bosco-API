@@ -41,6 +41,7 @@ const makeService = (repository: Partial<BranchRepository> = {}, maxDistanceKm =
     setActive: jest.fn(),
     updateHours: jest.fn(),
     findActive: jest.fn(),
+    findAll: jest.fn(),
     listAvailability: jest.fn(),
     upsertAvailability: jest.fn(),
     ...repository,
@@ -299,6 +300,60 @@ describe('BranchService.findAvailable (RQ-BRN-04/05/06/08)', () => {
     const result = await service.findAvailable(origin.latitude, origin.longitude)
 
     expect(result.map((branch) => branch.id)).toEqual(['near', 'mid', 'far'])
+  })
+})
+
+describe('BranchService.findInZone (sucursales en zona, incluye cerradas)', () => {
+  const origin = { latitude: 0, longitude: 0 }
+
+  beforeEach(() => jest.useFakeTimers({ now: NOW }))
+  afterEach(() => jest.useRealTimers())
+
+  it('lee la distancia máxima y consulta todas las sucursales', async () => {
+    const { service, repo, parameterService } = makeService({
+      findAll: jest.fn().mockResolvedValue([]),
+    })
+
+    const result = await service.findInZone(origin.latitude, origin.longitude)
+
+    expect(result).toEqual([])
+    expect(parameterService.getValue).toHaveBeenCalledWith(PARAMETER_KEYS.maxDistanceKm)
+    expect(repo.findAll).toHaveBeenCalledTimes(1)
+  })
+
+  it('excluye las sucursales fuera de la zona', async () => {
+    const distanceToHalfDegree = haversineDistanceKm(origin, { latitude: 0.5, longitude: 0 })
+    const { service } = makeService(
+      { findAll: jest.fn().mockResolvedValue([branchAt('out', 0.5)]) },
+      distanceToHalfDegree - 0.0001,
+    )
+
+    const result = await service.findInZone(origin.latitude, origin.longitude)
+
+    expect(result.map((branch) => branch.id)).toEqual([])
+  })
+
+  it('incluye cerradas e inactivas y ordena las abiertas primero (por cercanía)', async () => {
+    const docs = [
+      branchAt('far', 0.5),
+      buildDoc({
+        _id: { toString: () => 'closed-near' },
+        latitude: 0.05,
+        longitude: 0,
+        hours: [hourFor(DAY, { closed: true })],
+      }),
+      branchAt('mid', 0.3),
+      branchAt('near', 0.1),
+      buildDoc({ _id: { toString: () => 'inactive' }, latitude: 0.02, longitude: 0, active: false }),
+    ]
+    const { service } = makeService(
+      { findAll: jest.fn().mockResolvedValue(docs) },
+      100,
+    )
+
+    const result = await service.findInZone(origin.latitude, origin.longitude)
+
+    expect(result.map((branch) => branch.id)).toEqual(['near', 'mid', 'far', 'inactive', 'closed-near'])
   })
 })
 

@@ -526,6 +526,7 @@ type Query {
   branch(id: ID!): Branch!
   branchHours(branchId: ID!): [BranchHours!]!
   availableBranches(lat: Float!, lng: Float!): [Branch!]!
+  nearbyBranches(lat: Float!, lng: Float!): [Branch!]!
   branchProducts(branchId: ID!): [Product!]!
 
   # Carrito
@@ -1152,6 +1153,7 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | GET    | `/v1/branches/{branchId}/hours`                             | Público / admin              | Obtener horarios de la sucursal                                        |
 | PUT    | `/v1/branches/{branchId}/hours`                             | `super_admin`                | Actualizar horarios (por día, apertura/cierre/cerrado)                 |
 | GET    | `/v1/branches/available?lat=&lng=`                          | Público                      | Listar sucursales activas, abiertas y dentro de la distancia máxima    |
+| GET    | `/v1/branches/nearby?lat=&lng=`                             | Público                      | Listar sucursales de la zona (abiertas y cerradas), abiertas primero   |
 | GET    | `/v1/branches/{branchId}/products`                          | `branch_admin` (su sucursal) | Listar productos con disponibilidad en la sucursal                     |
 | PATCH  | `/v1/branches/{branchId}/products/{productId}/availability` | `branch_admin` (su sucursal) | Pausar/reactivar producto en la sucursal (`branchProductAvailability`) |
 

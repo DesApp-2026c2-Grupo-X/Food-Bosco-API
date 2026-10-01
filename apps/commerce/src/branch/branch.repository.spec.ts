@@ -85,6 +85,20 @@ describe('BranchRepository.findActive (RQ-BRN-06)', () => {
   })
 })
 
+describe('BranchRepository.findAll', () => {
+  it('consulta todas las sucursales sin filtro', async () => {
+    const { repository, model } = makeRepository()
+    const query = makeQuery([buildDoc()])
+    model.find.mockReturnValue(query)
+
+    const result = await repository.findAll()
+
+    expect(model.find).toHaveBeenCalledWith({})
+    expect(query.exec).toHaveBeenCalledTimes(1)
+    expect(result).toHaveLength(1)
+  })
+})
+
 describe('BranchRepository.create', () => {
   it.each([
     {

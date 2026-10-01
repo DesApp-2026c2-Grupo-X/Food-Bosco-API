@@ -250,6 +250,19 @@ export class CommerceResolver {
     return raw.map(mapBranch)
   }
 
+  @Query(() => [Branch])
+  async nearbyBranches(
+    @Args('lat') lat: number,
+    @Args('lng') lng: number,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Branch[]> {
+    const raw = await this.rest.get<RawRecord[]>('/v1/branches/nearby', {
+      context: toRestContext(ctx),
+      query: { lat, lng },
+    })
+    return raw.map(mapBranch)
+  }
+
   @Query(() => [Product])
   @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async branchProducts(

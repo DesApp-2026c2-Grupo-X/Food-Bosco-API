@@ -461,6 +461,18 @@ describe('CommerceResolver — listas planas', () => {
     expect(result[0].id).toBe('b1')
   })
 
+  it('nearbyBranches → GET /v1/branches/nearby con lat/lng', async () => {
+    restMock.get.mockResolvedValue([rawBranch])
+
+    const result = await resolver.nearbyBranches(-34.6, -58.4, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/branches/nearby', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: { lat: -34.6, lng: -58.4 },
+    })
+    expect(result[0].id).toBe('b1')
+  })
+
   it('myCart → GET /v1/carts y mapea el carrito', async () => {
     restMock.get.mockResolvedValue(rawCart)
 

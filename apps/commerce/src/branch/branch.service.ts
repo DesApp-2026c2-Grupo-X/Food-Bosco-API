@@ -73,6 +73,23 @@ export class BranchService {
       .sort((a, b) => haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b))
   }
 
+  async findInZone(latitude: number, longitude: number): Promise<PublicBranch[]> {
+    const maxDistanceKm = await this.parameterService.getValue(PARAMETER_KEYS.maxDistanceKm)
+    const docs = await this.repository.findAll()
+
+    const origin = { latitude, longitude }
+    const isOpen = (branch: PublicBranch): boolean => branch.active && isBranchOpenNow(branch.hours)
+
+    return docs
+      .map(serializeBranch)
+      .filter((branch) => haversineDistanceKm(origin, branch) <= maxDistanceKm)
+      .sort((a, b) => {
+        const openDiff = Number(isOpen(b)) - Number(isOpen(a))
+        if (openDiff !== 0) return openDiff
+        return haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b)
+      })
+  }
+
   async getAvailabilityMap(branchId: string): Promise<Map<string, boolean>> {
     const docs = await this.repository.listAvailability(branchId)
     return new Map(docs.map((doc) => [doc.productId, doc.available]))
