@@ -21,6 +21,7 @@ import {
   mapProductReportRow,
   mapPromotion,
   mapRecipeItem,
+  mapReportsOverview,
   mapStockMovement,
 } from './commerce.types'
 
@@ -404,10 +405,7 @@ describe('mapOrder', () => {
     expect(result.deliveryAddress).toEqual({ text: 'Av 1', latitude: -34, longitude: -58 })
     expect(result.items).toHaveLength(1)
     expect(result.statusHistory[0].newStatus).toBe(OrderStatus.CONFIRMED)
-    expect(result.availableTransitions).toEqual([
-      OrderStatus.DELIVERED,
-      OrderStatus.CANCELLED,
-    ])
+    expect(result.availableTransitions).toEqual([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
   })
 
   it('aplica defaults cuando faltan campos y la dirección', () => {
@@ -422,9 +420,9 @@ describe('mapOrder', () => {
   })
 
   it('descarta transiciones que no son arreglo', () => {
-    expect(mapOrder({ status: 'pending', availableTransitions: null }).availableTransitions).toEqual(
-      [],
-    )
+    expect(
+      mapOrder({ status: 'pending', availableTransitions: null }).availableTransitions,
+    ).toEqual([])
   })
 
   it('lanza error si un elemento de availableTransitions es desconocido', () => {
@@ -541,5 +539,48 @@ describe('mapOutOfStockRow', () => {
 
     expect(result.category).toBeNull()
     expect(result.quantity).toBe(3)
+  })
+})
+
+describe('mapReportsOverview', () => {
+  const raw = {
+    period: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+    kpis: {
+      totalRevenue: 1500,
+      totalOrders: 30,
+      averageTicket: 50,
+      cancelledOrders: 5,
+      bestSellingProduct: { productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 },
+      topBranch: { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
+    },
+    variation: { revenuePct: 50, ordersPct: 25, averageTicketPct: null },
+    salesSeries: [{ bucket: '2026-01-01', revenue: 1000, orders: 20 }],
+    ordersByStatus: [{ status: 'delivered', count: 25 }],
+    topProducts: [{ productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 }],
+    branchPerformance: [{ branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 }],
+  }
+
+  it('mapea el reporte completo incluyendo enums y variación nullable', () => {
+    const result = mapReportsOverview(raw)
+
+    expect(result.period).toEqual({ from: raw.period.from, to: raw.period.to })
+    expect(result.kpis.bestSellingProduct?.productId).toBe('p1')
+    expect(result.kpis.topBranch?.branchName).toBe('Centro')
+    expect(result.variation).toEqual({ revenuePct: 50, ordersPct: 25, averageTicketPct: null })
+    expect(result.salesSeries).toEqual([{ bucket: '2026-01-01', revenue: 1000, orders: 20 }])
+    expect(result.ordersByStatus).toEqual([{ status: OrderStatus.DELIVERED, count: 25 }])
+    expect(result.topProducts).toHaveLength(1)
+    expect(result.branchPerformance).toHaveLength(1)
+  })
+
+  it('tolera payloads vacíos o sin KPI destacado', () => {
+    const result = mapReportsOverview({})
+
+    expect(result.kpis.totalRevenue).toBe(0)
+    expect(result.kpis.bestSellingProduct).toBeNull()
+    expect(result.kpis.topBranch).toBeNull()
+    expect(result.salesSeries).toEqual([])
+    expect(result.ordersByStatus).toEqual([])
+    expect(result.variation).toEqual({ revenuePct: null, ordersPct: null, averageTicketPct: null })
   })
 })

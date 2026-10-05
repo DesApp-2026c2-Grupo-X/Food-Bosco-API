@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
+import { Branch, BranchSchema } from '../branch/branch.model'
 import { Category, CategorySchema } from '../category/category.model'
 import { Order, OrderSchema } from '../order/order.model'
 import { Product, ProductSchema } from '../product/product.model'
@@ -15,6 +16,7 @@ import { ReportingService } from './reporting.service'
       { name: Product.name, schema: ProductSchema },
       { name: Category.name, schema: CategorySchema },
       { name: BranchStock.name, schema: BranchStockSchema },
+      { name: Branch.name, schema: BranchSchema },
     ]),
   ],
   controllers: [ReportingController],
