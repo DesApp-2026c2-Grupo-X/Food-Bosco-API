@@ -1,10 +1,13 @@
 import type { CategoryDocument } from '../category/category.model'
 import type { ProductDocument } from '../product/product.model'
-import type { SalesAggregate } from './reporting.repository'
+import type { OverviewAggregateRaw, SalesAggregate } from './reporting.repository'
 import { ReportingRepository } from './reporting.repository'
 import { ReportingService } from './reporting.service'
 
-const productDoc = (id: string, overrides: Partial<Record<string, unknown>> = {}): ProductDocument =>
+const productDoc = (
+  id: string,
+  overrides: Partial<Record<string, unknown>> = {},
+): ProductDocument =>
   ({
     _id: { toString: () => id },
     categoryId: 'cat1',
@@ -32,12 +35,23 @@ const categoryDoc = (
 const salesMap = (entries: Array<[string, number, number]>): Map<string, SalesAggregate> =>
   new Map(entries.map(([productId, quantity, revenue]) => [productId, { quantity, revenue }]))
 
+const rawOverview = (overrides: Partial<OverviewAggregateRaw> = {}): OverviewAggregateRaw => ({
+  sales: [],
+  status: [],
+  series: [],
+  topProducts: [],
+  branchPerformance: [],
+  ...overrides,
+})
+
 const makeService = (
   data: {
     products?: ProductDocument[]
     categories?: CategoryDocument[]
     sales?: Map<string, SalesAggregate>
     stock?: Array<{ ingredientId: string; quantity: number }>
+    overviews?: OverviewAggregateRaw[]
+    branchNames?: Map<string, string>
   } = {},
 ) => {
   const repository = {
@@ -45,11 +59,18 @@ const makeService = (
     listCategories: jest.fn().mockResolvedValue(data.categories ?? []),
     aggregateSales: jest.fn().mockResolvedValue(data.sales ?? new Map()),
     listStock: jest.fn().mockResolvedValue(data.stock ?? []),
+    aggregateOverview: jest.fn(),
+    listBranchNames: jest.fn().mockResolvedValue(data.branchNames ?? new Map()),
   }
+
+  const overviews = data.overviews ?? []
+  overviews.forEach((overview) => repository.aggregateOverview.mockResolvedValueOnce(overview))
+
   return { repository, service: new ReportingService(repository as unknown as ReportingRepository) }
 }
 
-const ids = (rows: Array<{ product: { id: string } }>): string[] => rows.map((row) => row.product.id)
+const ids = (rows: Array<{ product: { id: string } }>): string[] =>
+  rows.map((row) => row.product.id)
 const positions = (rows: Array<{ position: number }>): number[] => rows.map((row) => row.position)
 
 describe('ReportingService.bestSellers (RQ-REP-01)', () => {
@@ -95,23 +116,25 @@ describe('ReportingService.bestSellers (RQ-REP-01)', () => {
   it.each(cases)('$name → $expected', async ({ products, sales, expected }) => {
     const { service } = makeService({ products, sales })
 
-    const rows = await service.bestSellers('b1')
+    const rows = await service.bestSellers({ branchId: 'b1' })
 
     expect(ids(rows)).toEqual(expected)
     expect(positions(rows)).toEqual(expected.map((_id, index) => index + 1))
     expect(rows.every((row) => row.revenue === null)).toBe(true)
   })
 
-  it('mapea producto, categoría y propaga la sucursal al repositorio', async () => {
+  it('mapea producto, categoría y propaga el filtro al repositorio', async () => {
     const { repository, service } = makeService({
       products: [productDoc('p1', { categoryId: 'cat1' })],
       categories: [categoryDoc('cat1')],
       sales: salesMap([['p1', 4, 400]]),
     })
 
-    const rows = await service.bestSellers('b1')
+    const rows = await service.bestSellers({ branchId: 'b1' })
 
-    expect(repository.aggregateSales).toHaveBeenCalledWith('b1')
+    expect(repository.aggregateSales).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'b1' }),
+    )
     expect(rows[0]).toMatchObject({
       position: 1,
       quantity: 4,
@@ -167,7 +190,7 @@ describe('ReportingService.leastSold (RQ-REP-02)', () => {
   it.each(cases)('$name → $expected', async ({ products, sales, expected }) => {
     const { service } = makeService({ products, sales })
 
-    const rows = await service.leastSold('b1')
+    const rows = await service.leastSold({ branchId: 'b1' })
 
     expect(ids(rows)).toEqual(expected)
     expect(positions(rows)).toEqual(expected.map((_id, index) => index + 1))
@@ -231,7 +254,7 @@ describe('ReportingService.highestRevenue (RQ-REP-04)', () => {
   it.each(cases)('$name → $expected', async ({ products, sales, expected }) => {
     const { service } = makeService({ products, sales })
 
-    const rows = await service.highestRevenue('b1')
+    const rows = await service.highestRevenue({ branchId: 'b1' })
 
     expect(ids(rows)).toEqual(expected)
     expect(positions(rows)).toEqual(expected.map((_id, index) => index + 1))
@@ -349,5 +372,137 @@ describe('ReportingService.outOfStock (RQ-REP-03/06)', () => {
     const { service } = makeService({ products: [], stock: [] })
 
     await expect(service.outOfStock()).resolves.toEqual([])
+  })
+})
+
+describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
+  it('calcula los KPIs y la variación contra el período anterior', async () => {
+    const { repository, service } = makeService({
+      overviews: [
+        rawOverview({
+          sales: [{ revenue: 1500, orders: 30 }],
+          status: [
+            { _id: 'delivered', count: 25 },
+            { _id: 'cancelled', count: 5 },
+          ],
+          topProducts: [{ _id: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 }],
+          branchPerformance: [
+            { _id: 'b1', revenue: 1500, orders: 30 },
+            { _id: 'b2', revenue: 0, orders: 0 },
+          ],
+        }),
+        rawOverview({ sales: [{ revenue: 1000, orders: 20 }] }),
+      ],
+      branchNames: new Map([
+        ['b1', 'Centro'],
+        ['b2', 'Norte'],
+      ]),
+    })
+
+    const result = await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z', groupBy: 'day' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.kpis).toEqual({
+      totalRevenue: 1500,
+      totalOrders: 30,
+      averageTicket: 50,
+      cancelledOrders: 5,
+      bestSellingProduct: { productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 },
+      topBranch: { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
+    })
+    expect(result.variation).toEqual({ revenuePct: 50, ordersPct: 50, averageTicketPct: 0 })
+    expect(result.branchPerformance).toHaveLength(2)
+    expect(repository.listBranchNames).toHaveBeenCalledWith(['b1', 'b2'])
+  })
+
+  it('completa los estados faltantes con 0', async () => {
+    const { service } = makeService({
+      overviews: [rawOverview({ status: [{ _id: 'delivered', count: 3 }] }), rawOverview()],
+    })
+
+    const result = await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.ordersByStatus).toHaveLength(7)
+    expect(result.ordersByStatus.find((row) => row.status === 'delivered')?.count).toBe(3)
+    expect(result.ordersByStatus.find((row) => row.status === 'pending')?.count).toBe(0)
+  })
+
+  it('devuelve variación null cuando el período anterior no tiene ventas', async () => {
+    const { service } = makeService({
+      overviews: [rawOverview({ sales: [{ revenue: 500, orders: 10 }] }), rawOverview()],
+    })
+
+    const result = await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.variation).toEqual({
+      revenuePct: null,
+      ordersPct: null,
+      averageTicketPct: null,
+    })
+  })
+
+  it('sin datos devuelve ceros, listas vacías y sin mejor producto ni sucursal', async () => {
+    const { service } = makeService({ overviews: [rawOverview(), rawOverview()] })
+
+    const result = await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.kpis).toEqual({
+      totalRevenue: 0,
+      totalOrders: 0,
+      averageTicket: 0,
+      cancelledOrders: 0,
+      bestSellingProduct: null,
+      topBranch: null,
+    })
+    expect(result.salesSeries).toEqual([])
+    expect(result.topProducts).toEqual([])
+    expect(result.branchPerformance).toEqual([])
+  })
+
+  it('usa los últimos 30 días como rango por defecto', async () => {
+    const { repository, service } = makeService({ overviews: [rawOverview(), rawOverview()] })
+    const now = new Date('2026-02-01T00:00:00.000Z')
+
+    const result = await service.overview({}, now)
+
+    const to = new Date('2026-02-01T00:00:00.000Z')
+    const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000)
+    expect(result.period).toEqual({ from: from.toISOString(), to: to.toISOString() })
+    expect(repository.aggregateOverview).toHaveBeenCalledWith(expect.objectContaining({ from, to }))
+  })
+
+  it('lanza error de validación cuando el rango está invertido', async () => {
+    const { service } = makeService({})
+
+    await expect(
+      service.overview(
+        { from: '2026-02-01T00:00:00.000Z', to: '2026-01-01T00:00:00.000Z' },
+        new Date('2026-02-02T00:00:00.000Z'),
+      ),
+    ).rejects.toThrow('Rango de fechas inválido')
+  })
+
+  it('consulta el período anterior con la misma duración', async () => {
+    const { repository, service } = makeService({ overviews: [rawOverview(), rawOverview()] })
+
+    await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T00:00:00.000Z' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    const [, previousFilter] = repository.aggregateOverview.mock.calls
+    expect(previousFilter[0].to.getTime()).toBe(new Date('2025-12-31T23:59:59.999Z').getTime())
+    expect(previousFilter[0].from.getTime()).toBe(new Date('2025-12-01T23:59:59.999Z').getTime())
   })
 })

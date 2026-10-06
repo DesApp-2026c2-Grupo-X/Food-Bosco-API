@@ -2,6 +2,7 @@ import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { ConfigGroupType } from '../common/config-group-type.enum'
 import { OrderStatus } from '../common/order-status.enum'
+import { ReportGroupBy } from '../common/report-group.enum'
 import { CommerceResolver } from './commerce.resolver'
 
 type RawRecord = Record<string, unknown>
@@ -198,17 +199,20 @@ describe('CommerceResolver — lookups por id', () => {
     },
   ]
 
-  it.each(cases)('$name → GET $path y mapea la entidad', async ({ path, raw, expectedId, invoke }) => {
-    restMock.get.mockResolvedValue(raw)
+  it.each(cases)(
+    '$name → GET $path y mapea la entidad',
+    async ({ path, raw, expectedId, invoke }) => {
+      restMock.get.mockResolvedValue(raw)
 
-    const result = (await invoke(resolver)) as { id: string }
+      const result = (await invoke(resolver)) as { id: string }
 
-    expect(restMock.get).toHaveBeenCalledTimes(1)
-    expect(restMock.get).toHaveBeenCalledWith(path, {
-      context: expect.objectContaining({ userId: 'u1', authorization: 'Bearer xyz' }),
-    })
-    expect(result.id).toBe(expectedId)
-  })
+      expect(restMock.get).toHaveBeenCalledTimes(1)
+      expect(restMock.get).toHaveBeenCalledWith(path, {
+        context: expect.objectContaining({ userId: 'u1', authorization: 'Bearer xyz' }),
+      })
+      expect(result.id).toBe(expectedId)
+    },
+  )
 
   it('order → convierte status y availableTransitions', async () => {
     restMock.get.mockResolvedValue(rawOrder)
@@ -952,11 +956,7 @@ describe('CommerceResolver — changeOrderStatus y repeatOrder', () => {
   it('changeOrderStatus traduce el estado GraphQL al REST en snake_case', async () => {
     restMock.patch.mockResolvedValue({ ...rawOrder, status: 'ready_for_delivery' })
 
-    const result = await resolver.changeOrderStatus(
-      'o1',
-      OrderStatus.READY_FOR_DELIVERY,
-      ctx,
-    )
+    const result = await resolver.changeOrderStatus('o1', OrderStatus.READY_FOR_DELIVERY, ctx)
 
     expect(restMock.patch).toHaveBeenCalledWith('/v1/orders/o1/status', {
       body: { status: 'ready_for_delivery' },
@@ -1060,6 +1060,84 @@ describe('CommerceResolver — contexto REST y errores', () => {
         limit: undefined,
         offset: undefined,
       },
+    })
+  })
+})
+
+describe('CommerceResolver — reportes', () => {
+  const rawOverview = {
+    period: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+    kpis: {
+      totalRevenue: 1500,
+      totalOrders: 30,
+      averageTicket: 50,
+      cancelledOrders: 5,
+      bestSellingProduct: { productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 },
+      topBranch: { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
+    },
+    variation: { revenuePct: 50, ordersPct: 25, averageTicketPct: null },
+    salesSeries: [{ bucket: '2026-01-01', revenue: 1000, orders: 20 }],
+    ordersByStatus: [{ status: 'delivered', count: 25 }],
+    topProducts: [{ productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 }],
+    branchPerformance: [{ branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 }],
+  }
+
+  it('reportsOverview → GET /v1/reporting/overview mapeando el resultado', async () => {
+    restMock.get.mockResolvedValue(rawOverview)
+
+    const result = await resolver.reportsOverview(null, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/overview', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        from: undefined,
+        to: undefined,
+        branchId: undefined,
+        groupBy: undefined,
+        categoryId: undefined,
+        status: undefined,
+      },
+    })
+    expect(result.kpis.totalRevenue).toBe(1500)
+    expect(result.branchPerformance[0].branchName).toBe('Centro')
+  })
+
+  it('traduce los filtros del reporte (fechas, sucursal, agrupación, categoría y estado)', async () => {
+    restMock.get.mockResolvedValue(rawOverview)
+
+    await resolver.reportsOverview(
+      {
+        from: '2026-01-01T00:00:00.000Z',
+        to: '2026-01-31T23:59:59.999Z',
+        branchId: 'b1',
+        groupBy: ReportGroupBy.MONTH,
+        categoryId: 'c1',
+        status: OrderStatus.DELIVERED,
+      },
+      ctx,
+    )
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/overview', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        from: '2026-01-01T00:00:00.000Z',
+        to: '2026-01-31T23:59:59.999Z',
+        branchId: 'b1',
+        groupBy: 'month',
+        categoryId: 'c1',
+        status: 'delivered',
+      },
+    })
+  })
+
+  it('los reportes de productos reenvían el filtro al servicio', async () => {
+    restMock.get.mockResolvedValue([rawReportRow])
+
+    await resolver.bestSellingProducts({ branchId: 'b1', status: OrderStatus.DELIVERED }, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/products/best-sellers', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: expect.objectContaining({ branchId: 'b1', status: 'delivered' }),
     })
   })
 })

@@ -1,6 +1,7 @@
 import { Field, Float, ID, InputType, Int } from '@nestjs/graphql'
 import { ConfigGroupType } from '../common/config-group-type.enum'
 import { OrderStatus } from '../common/order-status.enum'
+import { ReportGroupBy } from '../common/report-group.enum'
 
 @InputType()
 export class CategoryInput {
@@ -228,4 +229,25 @@ export class OrderFilterInput {
 
   @Field({ nullable: true })
   search?: string
+}
+
+@InputType()
+export class ReportFilterInput {
+  @Field({ nullable: true })
+  from?: string
+
+  @Field({ nullable: true })
+  to?: string
+
+  @Field(() => ID, { nullable: true })
+  branchId?: string
+
+  @Field(() => ReportGroupBy, { nullable: true })
+  groupBy?: ReportGroupBy
+
+  @Field(() => ID, { nullable: true })
+  categoryId?: string
+
+  @Field(() => OrderStatus, { nullable: true })
+  status?: OrderStatus
 }

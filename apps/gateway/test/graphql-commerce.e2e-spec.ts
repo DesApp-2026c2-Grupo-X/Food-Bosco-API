@@ -66,7 +66,13 @@ const rawBranch = {
   hours: [rawBranchHour],
 }
 
-const rawCartItem = { id: 'ci1', productId: 'p1', quantity: 2, observations: null, optionIds: ['op1'] }
+const rawCartItem = {
+  id: 'ci1',
+  productId: 'p1',
+  quantity: 2,
+  observations: null,
+  optionIds: ['op1'],
+}
 
 const rawCart = {
   id: 'cart1',
@@ -105,7 +111,13 @@ const rawOrder = {
 
 const rawStock = { branchId: 'b1', ingredientId: 'i1', quantity: 5 }
 
-const rawReportRow = { position: 1, product: rawProduct, category: rawCategory, quantity: 3, revenue: 30 }
+const rawReportRow = {
+  position: 1,
+  product: rawProduct,
+  category: rawCategory,
+  quantity: 3,
+  revenue: 30,
+}
 
 const rawOutOfStock = { product: rawProduct, category: rawCategory, quantity: 0 }
 
@@ -115,12 +127,10 @@ const rawOrderState = { code: 'PENDING', name: 'Pendiente', order: 1, active: tr
 
 type HandlerMap = Record<string, unknown>
 
-const respondWith =
-  (handlers: HandlerMap) =>
-  (call: { method: string; path: string }) => {
-    const key = `${call.method} ${call.path}`
-    return key in handlers ? okResponse(handlers[key]) : undefined
-  }
+const respondWith = (handlers: HandlerMap) => (call: { method: string; path: string }) => {
+  const key = `${call.method} ${call.path}`
+  return key in handlers ? okResponse(handlers[key]) : undefined
+}
 
 describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
   let app: INestApplication<App>
@@ -162,7 +172,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
 
   describe('catálogo, sucursales y configuración (queries)', () => {
     it('categories mapea data y envía activeOnly + page', async () => {
-      downstream.setResponder(respondWith({ 'GET /v1/catalog/categories': { data: [rawCategory] } }))
+      downstream.setResponder(
+        respondWith({ 'GET /v1/catalog/categories': { data: [rawCategory] } }),
+      )
 
       const res = await run(
         'query { categories(activeOnly: true, page: { limit: 2, offset: 1 }) { id name active } }',
@@ -183,7 +195,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
 
       const res = await run('query { category(id: "c1") { id name } }', 'customer').expect(200)
 
-      expect((res.body as GraphQLBody).data).toEqual({ category: { id: 'c1', name: 'Hamburguesas' } })
+      expect((res.body as GraphQLBody).data).toEqual({
+        category: { id: 'c1', name: 'Hamburguesas' },
+      })
     })
 
     it('products mapea enums de configuración, receta y filtros/página', async () => {
@@ -226,13 +240,16 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     it('products con lat/lng usa /v1/branches/available/products y availableInBranch', async () => {
       downstream.setResponder(
         respondWith({
-          'GET /v1/branches/available/products': { data: [{ ...rawProduct, availableInBranch: false }] },
+          'GET /v1/branches/available/products': {
+            data: [{ ...rawProduct, availableInBranch: false }],
+          },
         }),
       )
 
-      const res = await run('query { products(filter: { lat: -34.6, lng: -58.4 }) { id available } }', 'customer').expect(
-        200,
-      )
+      const res = await run(
+        'query { products(filter: { lat: -34.6, lng: -58.4 }) { id available } }',
+        'customer',
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({ products: [{ id: 'p1', available: false }] })
       const params = queryParams(callFor('GET', '/v1/branches/available/products').url)
@@ -241,7 +258,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     })
 
     it('ingredients pagina y filtra activeOnly (super_admin)', async () => {
-      downstream.setResponder(respondWith({ 'GET /v1/catalog/ingredients': { data: [rawIngredient] } }))
+      downstream.setResponder(
+        respondWith({ 'GET /v1/catalog/ingredients': { data: [rawIngredient] } }),
+      )
 
       const res = await run(
         'query { ingredients(activeOnly: true, page: { limit: 4, offset: 0 }) { id name unit active } }',
@@ -257,7 +276,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     })
 
     it('promotions pagina y mapea fechas (super_admin)', async () => {
-      downstream.setResponder(respondWith({ 'GET /v1/catalog/promotions': { data: [rawPromotion] } }))
+      downstream.setResponder(
+        respondWith({ 'GET /v1/catalog/promotions': { data: [rawPromotion] } }),
+      )
 
       const res = await run(
         'query { promotions(activeOnly: false, page: { limit: 1, offset: 0 }) { id name startDate endDate active } }',
@@ -265,7 +286,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
-        promotions: [{ id: 'pr1', name: '2x1', startDate: '2026-01-01', endDate: '2026-02-01', active: true }],
+        promotions: [
+          { id: 'pr1', name: '2x1', startDate: '2026-01-01', endDate: '2026-02-01', active: true },
+        ],
       })
       const params = queryParams(callFor('GET', '/v1/catalog/promotions').url)
       expect(params.get('activeOnly')).toBe('false')
@@ -312,9 +335,14 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     it('availableBranches envía lat/lng', async () => {
       downstream.setResponder(respondWith({ 'GET /v1/branches/available': [rawBranch] }))
 
-      const res = await run('query { availableBranches(lat: -34.6, lng: -58.4) { id name } }', 'customer').expect(200)
+      const res = await run(
+        'query { availableBranches(lat: -34.6, lng: -58.4) { id name } }',
+        'customer',
+      ).expect(200)
 
-      expect((res.body as GraphQLBody).data).toEqual({ availableBranches: [{ id: 'b1', name: 'Centro' }] })
+      expect((res.body as GraphQLBody).data).toEqual({
+        availableBranches: [{ id: 'b1', name: 'Centro' }],
+      })
       const params = queryParams(callFor('GET', '/v1/branches/available').url)
       expect(params.get('lat')).toBe('-34.6')
       expect(params.get('lng')).toBe('-58.4')
@@ -323,9 +351,14 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     it('nearbyBranches envía lat/lng', async () => {
       downstream.setResponder(respondWith({ 'GET /v1/branches/nearby': [rawBranch] }))
 
-      const res = await run('query { nearbyBranches(lat: -34.6, lng: -58.4) { id name } }', 'customer').expect(200)
+      const res = await run(
+        'query { nearbyBranches(lat: -34.6, lng: -58.4) { id name } }',
+        'customer',
+      ).expect(200)
 
-      expect((res.body as GraphQLBody).data).toEqual({ nearbyBranches: [{ id: 'b1', name: 'Centro' }] })
+      expect((res.body as GraphQLBody).data).toEqual({
+        nearbyBranches: [{ id: 'b1', name: 'Centro' }],
+      })
       const params = queryParams(callFor('GET', '/v1/branches/nearby').url)
       expect(params.get('lat')).toBe('-34.6')
       expect(params.get('lng')).toBe('-58.4')
@@ -333,20 +366,28 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
 
     it('branchProducts usa availableInBranch (branch_admin)', async () => {
       downstream.setResponder(
-        respondWith({ 'GET /v1/branches/b1/products': { data: [{ ...rawProduct, availableInBranch: false }] } }),
+        respondWith({
+          'GET /v1/branches/b1/products': { data: [{ ...rawProduct, availableInBranch: false }] },
+        }),
       )
 
-      const res = await run('query { branchProducts(branchId: "b1") { id available } }', 'branch_admin').expect(200)
+      const res = await run(
+        'query { branchProducts(branchId: "b1") { id available } }',
+        'branch_admin',
+      ).expect(200)
 
-      expect((res.body as GraphQLBody).data).toEqual({ branchProducts: [{ id: 'p1', available: false }] })
+      expect((res.body as GraphQLBody).data).toEqual({
+        branchProducts: [{ id: 'p1', available: false }],
+      })
     })
 
     it('branchStock filtra por branchId (branch_admin)', async () => {
       downstream.setResponder(respondWith({ 'GET /v1/stock': [rawStock] }))
 
-      const res = await run('query { branchStock(branchId: "b1") { branchId ingredientId quantity } }', 'branch_admin').expect(
-        200,
-      )
+      const res = await run(
+        'query { branchStock(branchId: "b1") { branchId ingredientId quantity } }',
+        'branch_admin',
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
         branchStock: [{ branchId: 'b1', ingredientId: 'i1', quantity: 5 }],
@@ -362,12 +403,17 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         }),
       )
 
-      const parameters = await run('query { parameters { key value unit } }', 'super_admin').expect(200)
+      const parameters = await run('query { parameters { key value unit } }', 'super_admin').expect(
+        200,
+      )
       expect((parameters.body as GraphQLBody).data).toEqual({
         parameters: [{ key: 'deliveryFee', value: 200, unit: 'ARS' }],
       })
 
-      const states = await run('query { orderStates { code name order active } }', 'customer').expect(200)
+      const states = await run(
+        'query { orderStates { code name order active } }',
+        'customer',
+      ).expect(200)
       expect((states.body as GraphQLBody).data).toEqual({
         orderStates: [{ code: 'PENDING', name: 'Pendiente', order: 1, active: true }],
       })
@@ -376,7 +422,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     const reportCases: Array<{ name: string; query: string; path: string }> = [
       {
         name: 'bestSellingProducts',
-        query: 'query { bestSellingProducts { position product { id name } category { id name } quantity revenue } }',
+        query:
+          'query { bestSellingProducts { position product { id name } category { id name } quantity revenue } }',
         path: '/v1/reporting/products/best-sellers',
       },
       {
@@ -402,7 +449,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     })
 
     it('outOfStockProducts mapea quantity flotante', async () => {
-      downstream.setResponder(respondWith({ 'GET /v1/reporting/products/out-of-stock': [rawOutOfStock] }))
+      downstream.setResponder(
+        respondWith({ 'GET /v1/reporting/products/out-of-stock': [rawOutOfStock] }),
+      )
 
       const res = await run(
         'query { outOfStockProducts { product { id name } category { id } quantity } }',
@@ -410,8 +459,58 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
-        outOfStockProducts: [{ product: { id: 'p1', name: 'Burger' }, category: { id: 'c1' }, quantity: 0 }],
+        outOfStockProducts: [
+          { product: { id: 'p1', name: 'Burger' }, category: { id: 'c1' }, quantity: 0 },
+        ],
       })
+    })
+
+    it('reportsOverview mapea KPIs, variación, series, estados y sucursales', async () => {
+      downstream.setResponder(
+        respondWith({
+          'GET /v1/reporting/overview': {
+            period: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+            kpis: {
+              totalRevenue: 1500,
+              totalOrders: 30,
+              averageTicket: 50,
+              cancelledOrders: 5,
+              bestSellingProduct: { productId: 'p1', name: 'Burger', quantity: 10, revenue: 1000 },
+              topBranch: { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
+            },
+            variation: { revenuePct: 50, ordersPct: 25, averageTicketPct: null },
+            salesSeries: [{ bucket: '2026-01-01', revenue: 1000, orders: 20 }],
+            ordersByStatus: [{ status: 'delivered', count: 25 }],
+            topProducts: [{ productId: 'p1', name: 'Burger', quantity: 10, revenue: 1000 }],
+            branchPerformance: [
+              { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
+            ],
+          },
+        }),
+      )
+
+      const res = await run(
+        'query { reportsOverview(filter: { groupBy: MONTH, status: DELIVERED }) { kpis { totalRevenue bestSellingProduct { productId quantity } topBranch { branchName } } variation { revenuePct averageTicketPct } salesSeries { bucket revenue orders } ordersByStatus { status count } branchPerformance { branchId branchName revenue } } }',
+        'super_admin',
+      ).expect(200)
+
+      expect((res.body as GraphQLBody).data).toEqual({
+        reportsOverview: {
+          kpis: {
+            totalRevenue: 1500,
+            bestSellingProduct: { productId: 'p1', quantity: 10 },
+            topBranch: { branchName: 'Centro' },
+          },
+          variation: { revenuePct: 50, averageTicketPct: null },
+          salesSeries: [{ bucket: '2026-01-01', revenue: 1000, orders: 20 }],
+          ordersByStatus: [{ status: 'DELIVERED', count: 25 }],
+          branchPerformance: [{ branchId: 'b1', branchName: 'Centro', revenue: 1500 }],
+        },
+      })
+
+      const params = queryParams(callFor('GET', '/v1/reporting/overview').url)
+      expect(params.get('groupBy')).toBe('month')
+      expect(params.get('status')).toBe('delivered')
     })
   })
 
@@ -455,7 +554,9 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         'customer',
       ).expect(200)
 
-      expect((res.body as GraphQLBody).data).toEqual({ myOrders: [{ id: 'o1', status: 'CONFIRMED' }] })
+      expect((res.body as GraphQLBody).data).toEqual({
+        myOrders: [{ id: 'o1', status: 'CONFIRMED' }],
+      })
       const params = queryParams(callFor('GET', '/v1/orders').url)
       expect(params.get('status')).toBe('confirmed')
       expect(params.get('branchId')).toBe('b1')
@@ -497,20 +598,37 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       downstream.setResponder(
         respondWith({
           'GET /v1/orders/o1/history': [
-            { previousStatus: 'pending', newStatus: 'confirmed', changedAt: '2026-01-01T00:00:00.000Z' },
-            { previousStatus: 'confirmed', newStatus: 'preparing', changedAt: '2026-01-01T00:05:00.000Z' },
+            {
+              previousStatus: 'pending',
+              newStatus: 'confirmed',
+              changedAt: '2026-01-01T00:00:00.000Z',
+            },
+            {
+              previousStatus: 'confirmed',
+              newStatus: 'preparing',
+              changedAt: '2026-01-01T00:05:00.000Z',
+            },
           ],
         }),
       )
 
-      const res = await run('query { orderHistory(id: "o1") { previousStatus newStatus changedAt } }', 'customer').expect(
-        200,
-      )
+      const res = await run(
+        'query { orderHistory(id: "o1") { previousStatus newStatus changedAt } }',
+        'customer',
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
         orderHistory: [
-          { previousStatus: 'PENDING', newStatus: 'CONFIRMED', changedAt: '2026-01-01T00:00:00.000Z' },
-          { previousStatus: 'CONFIRMED', newStatus: 'PREPARING', changedAt: '2026-01-01T00:05:00.000Z' },
+          {
+            previousStatus: 'PENDING',
+            newStatus: 'CONFIRMED',
+            changedAt: '2026-01-01T00:00:00.000Z',
+          },
+          {
+            previousStatus: 'CONFIRMED',
+            newStatus: 'PREPARING',
+            changedAt: '2026-01-01T00:05:00.000Z',
+          },
         ],
       })
     })
@@ -572,7 +690,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'updateProduct',
-        query: 'mutation { updateProduct(id: "p1", input: { categoryId: "c1", name: "X", description: "d", price: 9 }) { id price } }',
+        query:
+          'mutation { updateProduct(id: "p1", input: { categoryId: "c1", name: "X", description: "d", price: 9 }) { id price } }',
         role: 'super_admin',
         method: 'PATCH',
         path: '/v1/catalog/products/p1',
@@ -606,7 +725,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       // KNOWN BUG: mismo caso que createConfigGroup; Commerce valida type con @IsIn(['single','multiple']).
       {
         name: 'updateConfigGroup',
-        query: 'mutation { updateConfigGroup(productId: "p1", groupId: "g1", input: { name: "E", type: SINGLE, required: false }) { id } }',
+        query:
+          'mutation { updateConfigGroup(productId: "p1", groupId: "g1", input: { name: "E", type: SINGLE, required: false }) { id } }',
         role: 'super_admin',
         method: 'PATCH',
         path: '/v1/catalog/products/p1/configurations/g1',
@@ -625,7 +745,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'createConfigOption',
-        query: 'mutation { createConfigOption(productId: "p1", groupId: "g1", input: { name: "Q", extraPrice: 2 }) { id extraPrice } }',
+        query:
+          'mutation { createConfigOption(productId: "p1", groupId: "g1", input: { name: "Q", extraPrice: 2 }) { id extraPrice } }',
         role: 'super_admin',
         method: 'POST',
         path: '/v1/catalog/products/p1/configurations/g1/options',
@@ -655,7 +776,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'setProductRecipe',
-        query: 'mutation { setProductRecipe(productId: "p1", items: [{ ingredientId: "i1", quantity: 0.5 }]) { id } }',
+        query:
+          'mutation { setProductRecipe(productId: "p1", items: [{ ingredientId: "i1", quantity: 0.5 }]) { id } }',
         role: 'super_admin',
         method: 'PUT',
         path: '/v1/catalog/products/p1/recipe',
@@ -665,7 +787,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'addRecipeItem',
-        query: 'mutation { addRecipeItem(productId: "p1", input: { ingredientId: "i1", quantity: 0.5 }) { id } }',
+        query:
+          'mutation { addRecipeItem(productId: "p1", input: { ingredientId: "i1", quantity: 0.5 }) { id } }',
         role: 'super_admin',
         method: 'POST',
         path: '/v1/catalog/products/p1/recipe/items',
@@ -675,7 +798,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'updateRecipeItem',
-        query: 'mutation { updateRecipeItem(productId: "p1", itemId: "ri1", input: { ingredientId: "i1", quantity: 0.7 }) { id } }',
+        query:
+          'mutation { updateRecipeItem(productId: "p1", itemId: "ri1", input: { ingredientId: "i1", quantity: 0.7 }) { id } }',
         role: 'super_admin',
         method: 'PATCH',
         path: '/v1/catalog/products/p1/recipe/items/ri1',
@@ -704,7 +828,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'updateIngredient',
-        query: 'mutation { updateIngredient(id: "i1", input: { name: "Queso", unit: "g" }) { id unit } }',
+        query:
+          'mutation { updateIngredient(id: "i1", input: { name: "Queso", unit: "g" }) { id unit } }',
         role: 'super_admin',
         method: 'PATCH',
         path: '/v1/catalog/ingredients/i1',
@@ -799,7 +924,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'setBranchProductAvailability',
-        query: 'mutation { setBranchProductAvailability(branchId: "b1", productId: "p1", available: false) }',
+        query:
+          'mutation { setBranchProductAvailability(branchId: "b1", productId: "p1", available: false) }',
         role: 'branch_admin',
         method: 'PATCH',
         path: '/v1/branches/b1/products/p1/availability',
@@ -869,7 +995,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'createOrderState',
-        query: 'mutation { createOrderState(input: { name: "Nuevo", order: 9 }) { code name order } }',
+        query:
+          'mutation { createOrderState(input: { name: "Nuevo", order: 9 }) { code name order } }',
         role: 'super_admin',
         method: 'POST',
         path: '/v1/config/order-states',
@@ -879,7 +1006,8 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
       {
         name: 'updateOrderState',
-        query: 'mutation { updateOrderState(code: "PENDING", input: { name: "En espera", order: 2 }) { code name order } }',
+        query:
+          'mutation { updateOrderState(code: "PENDING", input: { name: "En espera", order: 2 }) { code name order } }',
         role: 'super_admin',
         method: 'PUT',
         path: '/v1/config/order-states/PENDING',
@@ -899,19 +1027,22 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       },
     ]
 
-    it.each(cases)('$name → $method $path', async ({ query, role, method, path, body, response, expected }) => {
-      downstream.setResponder(respondWith({ [`${method} ${path}`]: response }))
+    it.each(cases)(
+      '$name → $method $path',
+      async ({ query, role, method, path, body, response, expected }) => {
+        downstream.setResponder(respondWith({ [`${method} ${path}`]: response }))
 
-      const res = await run(query, role).expect(200)
-      const graphql = res.body as GraphQLBody
+        const res = await run(query, role).expect(200)
+        const graphql = res.body as GraphQLBody
 
-      expect(graphql.errors).toBeUndefined()
-      expect(graphql.data).toMatchObject(expected)
-      const call = callFor(method, path)
-      if (body !== undefined) {
-        expect(call.body).toEqual(body)
-      }
-    })
+        expect(graphql.errors).toBeUndefined()
+        expect(graphql.data).toMatchObject(expected)
+        const call = callFor(method, path)
+        if (body !== undefined) {
+          expect(call.body).toEqual(body)
+        }
+      },
+    )
 
     it('createOrder toma la dirección de Auth y confirma el pedido en Commerce', async () => {
       downstream.setResponder(
@@ -926,7 +1057,10 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         }),
       )
 
-      const res = await run('mutation { createOrder(addressId: "a1") { id number } }', 'customer').expect(200)
+      const res = await run(
+        'mutation { createOrder(addressId: "a1") { id number } }',
+        'customer',
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({ createOrder: { id: 'o1', number: '0001' } })
       expect(callFor('GET', '/v1/addresses/a1').headers['x-user-id']).toBe('u1')
@@ -939,7 +1073,10 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
     it('repeatOrder mapea cart y skippedProducts', async () => {
       downstream.setResponder(
         respondWith({
-          'POST /v1/orders/o1/repeat': { cart: rawCart, skippedProducts: [{ ...rawProduct, id: 'p9' }] },
+          'POST /v1/orders/o1/repeat': {
+            cart: rawCart,
+            skippedProducts: [{ ...rawProduct, id: 'p9' }],
+          },
         }),
       )
 
@@ -949,7 +1086,10 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
-        repeatOrder: { cart: { id: 'cart1', total: 20 }, skippedProducts: [{ id: 'p9', name: 'Burger' }] },
+        repeatOrder: {
+          cart: { id: 'cart1', total: 20 },
+          skippedProducts: [{ id: 'p9', name: 'Burger' }],
+        },
       })
     })
   })

@@ -10,6 +10,7 @@ import { Roles } from '../../security/roles.decorator'
 import { PageInput } from '../common/page'
 import { toRestContext } from '../common/rest-context'
 import { OrderStatus, orderStatusToRest } from '../common/order-status.enum'
+import { reportGroupByToRest } from '../common/report-group.enum'
 import {
   AddCartItemInput,
   AdjustStockInput,
@@ -26,6 +27,7 @@ import {
   ProductInput,
   PromotionInput,
   RecipeItemInput,
+  ReportFilterInput,
   UpdateCartItemInput,
 } from './commerce.inputs'
 import {
@@ -46,6 +48,7 @@ import {
   ProductReportRow,
   Promotion,
   RepeatOrderResult,
+  ReportsOverview,
   mapBranch,
   mapBranchHour,
   mapBranchStock,
@@ -62,6 +65,7 @@ import {
   mapProduct,
   mapProductReportRow,
   mapPromotion,
+  mapReportsOverview,
 } from './commerce.types'
 
 type RawRecord = Record<string, unknown>
@@ -344,15 +348,30 @@ export class CommerceResolver {
     return raw.map(mapBranchStock)
   }
 
+  @Query(() => ReportsOverview)
+  @Roles(ROLES.branchAdmin, ROLES.superAdmin)
+  async reportsOverview(
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<ReportsOverview> {
+    const raw = await this.rest.get<RawRecord>('/v1/reporting/overview', {
+      context: toRestContext(ctx),
+      query: this.reportQuery(filter),
+    })
+    return mapReportsOverview(raw)
+  }
+
   @Query(() => [ProductReportRow])
   @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async bestSellingProducts(
-    @Args('branchId', { type: () => ID, nullable: true }) branchId: string | null,
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<ProductReportRow[]> {
     const raw = await this.rest.get<RawRecord[]>('/v1/reporting/products/best-sellers', {
       context: toRestContext(ctx),
-      query: { branchId: branchId ?? undefined },
+      query: this.reportQuery(filter),
     })
     return raw.map(mapProductReportRow)
   }
@@ -360,12 +379,13 @@ export class CommerceResolver {
   @Query(() => [ProductReportRow])
   @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async leastSoldProducts(
-    @Args('branchId', { type: () => ID, nullable: true }) branchId: string | null,
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<ProductReportRow[]> {
     const raw = await this.rest.get<RawRecord[]>('/v1/reporting/products/least-sold', {
       context: toRestContext(ctx),
-      query: { branchId: branchId ?? undefined },
+      query: this.reportQuery(filter),
     })
     return raw.map(mapProductReportRow)
   }
@@ -373,12 +393,13 @@ export class CommerceResolver {
   @Query(() => [OutOfStockRow])
   @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async outOfStockProducts(
-    @Args('branchId', { type: () => ID, nullable: true }) branchId: string | null,
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<OutOfStockRow[]> {
     const raw = await this.rest.get<RawRecord[]>('/v1/reporting/products/out-of-stock', {
       context: toRestContext(ctx),
-      query: { branchId: branchId ?? undefined },
+      query: this.reportQuery(filter),
     })
     return raw.map(mapOutOfStockRow)
   }
@@ -386,12 +407,13 @@ export class CommerceResolver {
   @Query(() => [ProductReportRow])
   @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async highestRevenueProducts(
-    @Args('branchId', { type: () => ID, nullable: true }) branchId: string | null,
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
     @Context() ctx: GraphQLContext,
   ): Promise<ProductReportRow[]> {
     const raw = await this.rest.get<RawRecord[]>('/v1/reporting/products/highest-revenue', {
       context: toRestContext(ctx),
-      query: { branchId: branchId ?? undefined },
+      query: this.reportQuery(filter),
     })
     return raw.map(mapProductReportRow)
   }
@@ -953,6 +975,17 @@ export class CommerceResolver {
       context: toRestContext(ctx),
     })
     return mapOrderState(raw)
+  }
+
+  private reportQuery(filter: ReportFilterInput | null): Record<string, string | undefined> {
+    return {
+      from: filter?.from ?? undefined,
+      to: filter?.to ?? undefined,
+      branchId: filter?.branchId ?? undefined,
+      groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
+      categoryId: filter?.categoryId ?? undefined,
+      status: filter?.status ? orderStatusToRest(filter.status) : undefined,
+    }
   }
 
   private async listOrders(

@@ -8,6 +8,7 @@ import {
   asString,
   asStringList,
   idOf,
+  nullableNumber,
   nullableString,
 } from '../common/mappers'
 import type { RawRecord } from '../common/mappers'
@@ -445,6 +446,123 @@ export class OutOfStockRow {
   quantity!: number
 }
 
+@ObjectType()
+export class ReportPeriod {
+  @Field()
+  from!: string
+
+  @Field()
+  to!: string
+}
+
+@ObjectType()
+export class ProductSalesRow {
+  @Field(() => ID)
+  productId!: string
+
+  @Field()
+  name!: string
+
+  @Field(() => Int)
+  quantity!: number
+
+  @Field(() => Float)
+  revenue!: number
+}
+
+@ObjectType()
+export class BranchPerformanceRow {
+  @Field(() => ID)
+  branchId!: string
+
+  @Field()
+  branchName!: string
+
+  @Field(() => Float)
+  revenue!: number
+
+  @Field(() => Int)
+  orders!: number
+}
+
+@ObjectType()
+export class ReportKpis {
+  @Field(() => Float)
+  totalRevenue!: number
+
+  @Field(() => Int)
+  totalOrders!: number
+
+  @Field(() => Float)
+  averageTicket!: number
+
+  @Field(() => Int)
+  cancelledOrders!: number
+
+  @Field(() => ProductSalesRow, { nullable: true })
+  bestSellingProduct!: ProductSalesRow | null
+
+  @Field(() => BranchPerformanceRow, { nullable: true })
+  topBranch!: BranchPerformanceRow | null
+}
+
+@ObjectType()
+export class ReportVariation {
+  @Field(() => Float, { nullable: true })
+  revenuePct!: number | null
+
+  @Field(() => Float, { nullable: true })
+  ordersPct!: number | null
+
+  @Field(() => Float, { nullable: true })
+  averageTicketPct!: number | null
+}
+
+@ObjectType()
+export class SalesSeriesPoint {
+  @Field()
+  bucket!: string
+
+  @Field(() => Float)
+  revenue!: number
+
+  @Field(() => Int)
+  orders!: number
+}
+
+@ObjectType()
+export class OrderStatusCount {
+  @Field(() => OrderStatus)
+  status!: OrderStatus
+
+  @Field(() => Int)
+  count!: number
+}
+
+@ObjectType()
+export class ReportsOverview {
+  @Field(() => ReportPeriod)
+  period!: ReportPeriod
+
+  @Field(() => ReportKpis)
+  kpis!: ReportKpis
+
+  @Field(() => ReportVariation)
+  variation!: ReportVariation
+
+  @Field(() => [SalesSeriesPoint])
+  salesSeries!: SalesSeriesPoint[]
+
+  @Field(() => [OrderStatusCount])
+  ordersByStatus!: OrderStatusCount[]
+
+  @Field(() => [ProductSalesRow])
+  topProducts!: ProductSalesRow[]
+
+  @Field(() => [BranchPerformanceRow])
+  branchPerformance!: BranchPerformanceRow[]
+}
+
 const asStatusList = (value: unknown): OrderStatus[] =>
   Array.isArray(value) ? value.map((entry) => orderStatusFromRest(asString(entry))) : []
 
@@ -624,3 +742,54 @@ export const mapOutOfStockRow = (raw: RawRecord): OutOfStockRow => ({
   category: raw.category ? mapCategory(raw.category as RawRecord) : null,
   quantity: asNumber(raw.quantity),
 })
+
+export const mapProductSalesRow = (raw: RawRecord): ProductSalesRow => ({
+  productId: asString(raw.productId),
+  name: asString(raw.name),
+  quantity: asNumber(raw.quantity),
+  revenue: asNumber(raw.revenue),
+})
+
+export const mapBranchPerformanceRow = (raw: RawRecord): BranchPerformanceRow => ({
+  branchId: asString(raw.branchId),
+  branchName: asString(raw.branchName),
+  revenue: asNumber(raw.revenue),
+  orders: asNumber(raw.orders),
+})
+
+export const mapReportVariation = (raw: RawRecord): ReportVariation => ({
+  revenuePct: nullableNumber(raw.revenuePct),
+  ordersPct: nullableNumber(raw.ordersPct),
+  averageTicketPct: nullableNumber(raw.averageTicketPct),
+})
+
+export const mapReportsOverview = (raw: RawRecord): ReportsOverview => {
+  const period = (raw.period as RawRecord | undefined) ?? {}
+  const kpis = (raw.kpis as RawRecord | undefined) ?? {}
+
+  return {
+    period: { from: asString(period.from), to: asString(period.to) },
+    kpis: {
+      totalRevenue: asNumber(kpis.totalRevenue),
+      totalOrders: asNumber(kpis.totalOrders),
+      averageTicket: asNumber(kpis.averageTicket),
+      cancelledOrders: asNumber(kpis.cancelledOrders),
+      bestSellingProduct: kpis.bestSellingProduct
+        ? mapProductSalesRow(kpis.bestSellingProduct as RawRecord)
+        : null,
+      topBranch: kpis.topBranch ? mapBranchPerformanceRow(kpis.topBranch as RawRecord) : null,
+    },
+    variation: mapReportVariation((raw.variation as RawRecord | undefined) ?? {}),
+    salesSeries: asRecordList(raw.salesSeries).map((entry) => ({
+      bucket: asString(entry.bucket),
+      revenue: asNumber(entry.revenue),
+      orders: asNumber(entry.orders),
+    })),
+    ordersByStatus: asRecordList(raw.ordersByStatus).map((entry) => ({
+      status: orderStatusFromRest(asString(entry.status)),
+      count: asNumber(entry.count),
+    })),
+    topProducts: asRecordList(raw.topProducts).map(mapProductSalesRow),
+    branchPerformance: asRecordList(raw.branchPerformance).map(mapBranchPerformanceRow),
+  }
+}
