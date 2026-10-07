@@ -37,11 +37,23 @@ describe('CreateIngredientDto (RQ-CAT-09)', () => {
     },
     { name: 'sin nombre', payload: { unit: 'kg' }, valid: false },
     { name: 'nombre vacío', payload: { name: '', unit: 'kg' }, valid: false },
-    { name: 'nombre de 101 caracteres', payload: { name: 'a'.repeat(101), unit: 'kg' }, valid: false },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { name: 'a'.repeat(101), unit: 'kg' },
+      valid: false,
+    },
     { name: 'sin unidad', payload: { name: 'Papa' }, valid: false },
     { name: 'unidad vacía', payload: { name: 'Papa', unit: '' }, valid: false },
-    { name: 'unidad de 51 caracteres', payload: { name: 'Papa', unit: 'u'.repeat(51) }, valid: false },
-    { name: 'active no booleano', payload: { name: 'Papa', unit: 'kg', active: 'si' }, valid: false },
+    {
+      name: 'unidad de 51 caracteres',
+      payload: { name: 'Papa', unit: 'u'.repeat(51) },
+      valid: false,
+    },
+    {
+      name: 'active no booleano',
+      payload: { name: 'Papa', unit: 'kg', active: 'si' },
+      valid: false,
+    },
   ])('$name → $valid', async ({ payload, valid }) => {
     const { invalid } = await check(CreateIngredientDto, payload)
     expect(invalid.length === 0).toBe(valid)

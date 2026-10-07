@@ -19,12 +19,10 @@ export class RefreshTokenRepository {
     return this.model.create({ ...data, revoked: false })
   }
 
-  findByTokenHash(tokenHash: string): Promise<RefreshTokenDocument | null> {
-    return this.model.findOne({ tokenHash }).exec()
-  }
-
-  async markRevokedByHash(tokenHash: string): Promise<void> {
-    await this.model.updateOne({ tokenHash }, { $set: { revoked: true } }).exec()
+  async revokeIfActive(tokenHash: string): Promise<RefreshTokenDocument | null> {
+    return this.model
+      .findOneAndUpdate({ tokenHash, revoked: false }, { $set: { revoked: true } }, { new: false })
+      .exec()
   }
 
   async revokeAllForUser(userId: string): Promise<void> {

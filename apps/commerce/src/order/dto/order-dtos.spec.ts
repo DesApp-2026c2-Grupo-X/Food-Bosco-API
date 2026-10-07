@@ -17,20 +17,72 @@ const validAddress = { text: 'Av 1', latitude: 0, longitude: 0 }
 
 describe('CreateOrderDto (RQ-ORD-02/05)', () => {
   const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean }> = [
-    { name: 'dirección válida', payload: { addressId: 'a1', deliveryAddress: validAddress }, valid: true },
-    { name: 'latitud 90 (límite)', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: 90 } }, valid: true },
-    { name: 'latitud -90 (límite)', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: -90 } }, valid: true },
-    { name: 'longitud 180 (límite)', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: 180 } }, valid: true },
-    { name: 'longitud -180 (límite)', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: -180 } }, valid: true },
-    { name: 'texto de 200 caracteres (límite)', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: 'a'.repeat(200) } }, valid: true },
+    {
+      name: 'dirección válida',
+      payload: { addressId: 'a1', deliveryAddress: validAddress },
+      valid: true,
+    },
+    {
+      name: 'latitud 90 (límite)',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: 90 } },
+      valid: true,
+    },
+    {
+      name: 'latitud -90 (límite)',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: -90 } },
+      valid: true,
+    },
+    {
+      name: 'longitud 180 (límite)',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: 180 } },
+      valid: true,
+    },
+    {
+      name: 'longitud -180 (límite)',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: -180 } },
+      valid: true,
+    },
+    {
+      name: 'texto de 200 caracteres (límite)',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: 'a'.repeat(200) } },
+      valid: true,
+    },
     { name: 'sin addressId', payload: { deliveryAddress: validAddress }, valid: false },
-    { name: 'addressId vacío', payload: { addressId: '', deliveryAddress: validAddress }, valid: false },
-    { name: 'texto de la dirección vacío', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: '' } }, valid: false },
-    { name: 'texto de 201 caracteres', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: 'a'.repeat(201) } }, valid: false },
-    { name: 'latitud fuera de rango', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: 91 } }, valid: false },
-    { name: 'longitud fuera de rango', payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: 181 } }, valid: false },
-    { name: 'sin latitud', payload: { addressId: 'a1', deliveryAddress: { text: 'Av 1', longitude: 0 } }, valid: false },
-    { name: 'sin longitud', payload: { addressId: 'a1', deliveryAddress: { text: 'Av 1', latitude: 0 } }, valid: false },
+    {
+      name: 'addressId vacío',
+      payload: { addressId: '', deliveryAddress: validAddress },
+      valid: false,
+    },
+    {
+      name: 'texto de la dirección vacío',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: '' } },
+      valid: false,
+    },
+    {
+      name: 'texto de 201 caracteres',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: 'a'.repeat(201) } },
+      valid: false,
+    },
+    {
+      name: 'latitud fuera de rango',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, latitude: 91 } },
+      valid: false,
+    },
+    {
+      name: 'longitud fuera de rango',
+      payload: { addressId: 'a1', deliveryAddress: { ...validAddress, longitude: 181 } },
+      valid: false,
+    },
+    {
+      name: 'sin latitud',
+      payload: { addressId: 'a1', deliveryAddress: { text: 'Av 1', longitude: 0 } },
+      valid: false,
+    },
+    {
+      name: 'sin longitud',
+      payload: { addressId: 'a1', deliveryAddress: { text: 'Av 1', latitude: 0 } },
+      valid: false,
+    },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid }) => {
@@ -51,11 +103,23 @@ describe('CreateOrderDto (RQ-ORD-02/05)', () => {
 describe('DeliveryAddressDto (RQ-ORD-05)', () => {
   it.each([
     { name: 'coordenadas en 0', payload: validAddress, valid: true },
-    { name: 'coordenadas límite', payload: { text: 'Av', latitude: -90, longitude: 180 }, valid: true },
+    {
+      name: 'coordenadas límite',
+      payload: { text: 'Av', latitude: -90, longitude: 180 },
+      valid: true,
+    },
     { name: 'texto vacío', payload: { text: '', latitude: 0, longitude: 0 }, valid: false },
     { name: 'sin texto', payload: { latitude: 0, longitude: 0 }, valid: false },
-    { name: 'latitud 90.0001', payload: { text: 'Av', latitude: 90.0001, longitude: 0 }, valid: false },
-    { name: 'longitud -180.0001', payload: { text: 'Av', latitude: 0, longitude: -180.0001 }, valid: false },
+    {
+      name: 'latitud 90.0001',
+      payload: { text: 'Av', latitude: 90.0001, longitude: 0 },
+      valid: false,
+    },
+    {
+      name: 'longitud -180.0001',
+      payload: { text: 'Av', latitude: 0, longitude: -180.0001 },
+      valid: false,
+    },
   ])('$name → $valid', async ({ payload, valid }) => {
     const invalid = await check(DeliveryAddressDto, payload)
 
@@ -86,7 +150,11 @@ describe('OrderQueryDto (RQ-ORD-11/19)', () => {
     { name: 'vacío', payload: {}, valid: true },
     { name: 'estado válido', payload: { status: 'pending' }, valid: true },
     { name: 'sucursal', payload: { branchId: 'b1' }, valid: true },
-    { name: 'search de 100 caracteres (límite)', payload: { search: 'a'.repeat(100) }, valid: true },
+    {
+      name: 'search de 100 caracteres (límite)',
+      payload: { search: 'a'.repeat(100) },
+      valid: true,
+    },
     { name: 'limit 1 (mínimo)', payload: { limit: 1 }, valid: true },
     { name: 'limit 100 (máximo)', payload: { limit: 100 }, valid: true },
     { name: 'offset 0', payload: { offset: 0 }, valid: true },

@@ -139,12 +139,30 @@ describe('ProductRepository.create (RQ-CAT-04)', () => {
     },
     {
       name: 'respeta image, precio 0 y available false',
-      input: { categoryId: 'cat1', name: 'Agua', description: 'Fría', price: 0, image: 'https://cdn.test/agua.png', available: false },
-      expected: { image: 'https://cdn.test/agua.png', available: false, configGroups: [], recipe: [] },
+      input: {
+        categoryId: 'cat1',
+        name: 'Agua',
+        description: 'Fría',
+        price: 0,
+        image: 'https://cdn.test/agua.png',
+        available: false,
+      },
+      expected: {
+        image: 'https://cdn.test/agua.png',
+        available: false,
+        configGroups: [],
+        recipe: [],
+      },
     },
     {
       name: 'available true explícito',
-      input: { categoryId: 'cat1', name: 'Jugo', description: 'Natural', price: 50, available: true },
+      input: {
+        categoryId: 'cat1',
+        name: 'Jugo',
+        description: 'Natural',
+        price: 50,
+        available: true,
+      },
       expected: { image: null, available: true, configGroups: [], recipe: [] },
     },
   ])('$name', async ({ input, expected }) => {
@@ -162,10 +180,26 @@ describe('ProductRepository.create (RQ-CAT-04)', () => {
 describe('ProductRepository.list — filtros (RQ-CAT-05)', () => {
   it.each([
     { name: 'sin filtros', query: { limit: 20, offset: 0 }, expected: {} },
-    { name: 'por categoría', query: { categoryId: 'cat1', limit: 20, offset: 0 }, expected: { categoryId: 'cat1' } },
-    { name: 'solo disponibles', query: { available: true, limit: 20, offset: 0 }, expected: { available: true } },
-    { name: 'solo no disponibles (false no se descarta)', query: { available: false, limit: 20, offset: 0 }, expected: { available: false } },
-    { name: 'por búsqueda', query: { search: 'pizza', limit: 20, offset: 0 }, expected: { name: /pizza/i } },
+    {
+      name: 'por categoría',
+      query: { categoryId: 'cat1', limit: 20, offset: 0 },
+      expected: { categoryId: 'cat1' },
+    },
+    {
+      name: 'solo disponibles',
+      query: { available: true, limit: 20, offset: 0 },
+      expected: { available: true },
+    },
+    {
+      name: 'solo no disponibles (false no se descarta)',
+      query: { available: false, limit: 20, offset: 0 },
+      expected: { available: false },
+    },
+    {
+      name: 'por búsqueda',
+      query: { search: 'pizza', limit: 20, offset: 0 },
+      expected: { name: /pizza/i },
+    },
     {
       name: 'combinando categoría, disponibilidad y búsqueda',
       query: { categoryId: 'cat1', available: false, search: 'bur', limit: 5, offset: 10 },
@@ -346,14 +380,19 @@ describe('ProductRepository.updateConfigGroup (RQ-CAT-07)', () => {
     { name: 'el producto no existe', productId: 'missing', groupId: 'g1', missingProduct: true },
   ]
 
-  it.each(notFoundCases)('devuelve null y no guarda cuando $name', async ({ productId = 'p1', groupId, missingProduct }) => {
-    const { model, repository } = makeRepository()
-    const doc = buildDoc({ configGroups: [buildGroup()] })
-    model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
+  it.each(notFoundCases)(
+    'devuelve null y no guarda cuando $name',
+    async ({ productId = 'p1', groupId, missingProduct }) => {
+      const { model, repository } = makeRepository()
+      const doc = buildDoc({ configGroups: [buildGroup()] })
+      model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
 
-    await expect(repository.updateConfigGroup(productId, groupId, { name: 'X' })).resolves.toBeNull()
-    expect(doc.save).not.toHaveBeenCalled()
-  })
+      await expect(
+        repository.updateConfigGroup(productId, groupId, { name: 'X' }),
+      ).resolves.toBeNull()
+      expect(doc.save).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('ProductRepository.removeConfigGroup (RQ-CAT-06)', () => {
@@ -391,8 +430,16 @@ describe('ProductRepository.removeConfigGroup (RQ-CAT-06)', () => {
 
 describe('ProductRepository.addConfigOption (RQ-CAT-06/08)', () => {
   it.each([
-    { name: 'aplica available true por defecto', data: { name: 'Sin cebolla', extraPrice: 0 }, expected: { available: true } },
-    { name: 'respeta available false', data: { name: 'Extra bacon', extraPrice: 25, available: false }, expected: { available: false } },
+    {
+      name: 'aplica available true por defecto',
+      data: { name: 'Sin cebolla', extraPrice: 0 },
+      expected: { available: true },
+    },
+    {
+      name: 'respeta available false',
+      data: { name: 'Extra bacon', extraPrice: 25, available: false },
+      expected: { available: false },
+    },
   ])('agrega la opción ($name)', async ({ data, expected }) => {
     const { model, repository } = makeRepository()
     const group = buildGroup({ options: [] })
@@ -456,17 +503,28 @@ describe('ProductRepository.updateConfigOption (RQ-CAT-06/08)', () => {
   }> = [
     { name: 'la opción no existe', optionId: 'missing' },
     { name: 'el grupo no existe', groupId: 'missing', optionId: 'opt1' },
-    { name: 'el producto no existe', productId: 'missing', groupId: 'g1', optionId: 'opt1', missingProduct: true },
+    {
+      name: 'el producto no existe',
+      productId: 'missing',
+      groupId: 'g1',
+      optionId: 'opt1',
+      missingProduct: true,
+    },
   ]
 
-  it.each(notFoundCases)('devuelve null y no guarda cuando $name', async ({ productId = 'p1', groupId = 'g1', optionId, missingProduct }) => {
-    const { model, repository } = makeRepository()
-    const doc = buildDoc()
-    model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
+  it.each(notFoundCases)(
+    'devuelve null y no guarda cuando $name',
+    async ({ productId = 'p1', groupId = 'g1', optionId, missingProduct }) => {
+      const { model, repository } = makeRepository()
+      const doc = buildDoc()
+      model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
 
-    await expect(repository.updateConfigOption(productId, groupId, optionId, { name: 'X' })).resolves.toBeNull()
-    expect(doc.save).not.toHaveBeenCalled()
-  })
+      await expect(
+        repository.updateConfigOption(productId, groupId, optionId, { name: 'X' }),
+      ).resolves.toBeNull()
+      expect(doc.save).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('ProductRepository.removeConfigOption (RQ-CAT-06)', () => {
@@ -488,14 +546,17 @@ describe('ProductRepository.removeConfigOption (RQ-CAT-06)', () => {
     { name: 'el grupo no existe', groupId: 'missing', optionId: 'opt1' },
   ]
 
-  it.each(notFoundCases)('devuelve false y no guarda cuando $name', async ({ groupId = 'g1', optionId }) => {
-    const { model, repository } = makeRepository()
-    const doc = buildDoc()
-    model.findById.mockReturnValue(chainable(doc))
+  it.each(notFoundCases)(
+    'devuelve false y no guarda cuando $name',
+    async ({ groupId = 'g1', optionId }) => {
+      const { model, repository } = makeRepository()
+      const doc = buildDoc()
+      model.findById.mockReturnValue(chainable(doc))
 
-    await expect(repository.removeConfigOption('p1', groupId, optionId)).resolves.toBe(false)
-    expect(doc.save).not.toHaveBeenCalled()
-  })
+      await expect(repository.removeConfigOption('p1', groupId, optionId)).resolves.toBe(false)
+      expect(doc.save).not.toHaveBeenCalled()
+    },
+  )
 
   it('devuelve false si el producto no existe', async () => {
     const { model, repository } = makeRepository()
@@ -610,16 +671,19 @@ describe('ProductRepository.updateRecipeItem (RQ-CAT-11/12)', () => {
     { name: 'el producto no existe', itemId: 'r1', missingProduct: true },
   ]
 
-  it.each(notFoundCases)('devuelve null y no guarda cuando $name', async ({ itemId, missingProduct }) => {
-    const { model, repository } = makeRepository()
-    const doc = buildDoc()
-    model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
+  it.each(notFoundCases)(
+    'devuelve null y no guarda cuando $name',
+    async ({ itemId, missingProduct }) => {
+      const { model, repository } = makeRepository()
+      const doc = buildDoc()
+      model.findById.mockReturnValue(chainable(missingProduct ? null : doc))
 
-    await expect(
-      repository.updateRecipeItem('p1', itemId, { ingredientId: 'i1', quantity: 1 }),
-    ).resolves.toBeNull()
-    expect(doc.save).not.toHaveBeenCalled()
-  })
+      await expect(
+        repository.updateRecipeItem('p1', itemId, { ingredientId: 'i1', quantity: 1 }),
+      ).resolves.toBeNull()
+      expect(doc.save).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('ProductRepository.removeRecipeItem (RQ-CAT-11)', () => {

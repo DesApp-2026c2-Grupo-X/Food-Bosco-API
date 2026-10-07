@@ -1,6 +1,6 @@
 jest.mock('dotenv/config', () => ({}))
 
-type Env = typeof import('./env')['env']
+type Env = (typeof import('./env'))['env']
 
 const MANAGED_KEYS = [
   'PORT',

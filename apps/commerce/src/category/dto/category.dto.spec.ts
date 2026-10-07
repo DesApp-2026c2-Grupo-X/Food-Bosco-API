@@ -107,7 +107,11 @@ describe('CategoryQueryDto (RQ-CAT-05)', () => {
   it.each([
     { name: '"true" se transforma a true', input: 'true', expected: true },
     { name: '"false" se transforma a false', input: 'false', expected: false },
-    { name: 'un valor inesperado se coacciona a false (transform sin validación)', input: 'yes', expected: false },
+    {
+      name: 'un valor inesperado se coacciona a false (transform sin validación)',
+      input: 'yes',
+      expected: false,
+    },
   ])('activeOnly: $name', async ({ input, expected }) => {
     const { instance, invalid } = await check(CategoryQueryDto, { activeOnly: input })
 

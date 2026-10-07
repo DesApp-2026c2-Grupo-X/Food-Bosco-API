@@ -287,11 +287,23 @@ describe('DeliveryResolver — propagación exacta de contexto y errores', () =>
       method: 'patch',
       invoke: () => resolver.updateRiderVehicle({ type: 'moto' }, ctx),
     },
-    { name: 'setRiderAvailability', method: 'patch', invoke: () => resolver.setRiderAvailability(true, ctx) },
-    { name: 'updateRiderLocation', method: 'patch', invoke: () => resolver.updateRiderLocation(0, 0, ctx) },
+    {
+      name: 'setRiderAvailability',
+      method: 'patch',
+      invoke: () => resolver.setRiderAvailability(true, ctx),
+    },
+    {
+      name: 'updateRiderLocation',
+      method: 'patch',
+      invoke: () => resolver.updateRiderLocation(0, 0, ctx),
+    },
     { name: 'acceptTripOffer', method: 'post', invoke: () => resolver.acceptTripOffer('o1', ctx) },
     { name: 'rejectTripOffer', method: 'post', invoke: () => resolver.rejectTripOffer('o1', ctx) },
-    { name: 'markOrderPickup', method: 'post', invoke: () => resolver.markOrderPickup('t1', 'ord-1', ctx) },
+    {
+      name: 'markOrderPickup',
+      method: 'post',
+      invoke: () => resolver.markOrderPickup('t1', 'ord-1', ctx),
+    },
     {
       name: 'markOrderDelivered',
       method: 'post',
@@ -299,10 +311,13 @@ describe('DeliveryResolver — propagación exacta de contexto y errores', () =>
     },
   ]
 
-  it.each(deliveryOps)('$name propaga el error del servicio tal cual', async ({ method, invoke }) => {
-    const failure = new Error('delivery service down')
-    rest[method].mockRejectedValueOnce(failure)
+  it.each(deliveryOps)(
+    '$name propaga el error del servicio tal cual',
+    async ({ method, invoke }) => {
+      const failure = new Error('delivery service down')
+      rest[method].mockRejectedValueOnce(failure)
 
-    await expect(invoke()).rejects.toBe(failure)
-  })
+      await expect(invoke()).rejects.toBe(failure)
+    },
+  )
 })

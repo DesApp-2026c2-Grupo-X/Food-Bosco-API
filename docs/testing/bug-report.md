@@ -30,41 +30,41 @@ interpretación; `Baja` = caso latente o deuda menor.
 
 ## Resumen
 
-| ID      | App      | Capability                                  | Confiabilidad |
-| ------- | -------- | ------------------------------------------- | ------------- |
-| AUTH-01 | auth     | Envelope de errores HTTP                    | Alta          |
-| AUTH-02 | auth     | Correlación por request id                  | Media         |
-| AUTH-03 | auth     | Alta de `branch_admin` (validar sucursal)   | Alta          |
-| AUTH-04 | auth     | Direcciones: scope de propietario activa    | Media         |
-| COM-01  | commerce | Ingredientes: no desactivar en uso          | Media         |
-| COM-02  | commerce | Promociones: rango de fechas                | Alta          |
-| COM-03  | commerce | Productos: validar categoría                | Alta          |
-| COM-04  | commerce | Receta: validar ingrediente                 | Alta          |
-| COM-05  | commerce | Receta: 404 al quitar ítem inexistente       | Alta          |
-| COM-06  | commerce | Config groups: required/min/max coherentes  | Media         |
-| COM-07  | commerce | Receta: cantidades > 0                      | Media         |
-| COM-08  | commerce | Opciones: `extraPrice` no negativo          | Media         |
-| COM-09  | commerce | Filtro `available` inválido                 | Media         |
-| COM-10  | commerce | Ids de subdocumentos                        | Baja          |
-| COM-11  | commerce | Horarios que cruzan medianoche              | Media         |
-| COM-12  | commerce | Horas de sucursal válidas                   | Media         |
-| COM-13  | commerce | Stock: motivo del movimiento                | Alta          |
-| COM-14  | commerce | Stock: delta vs cambio real                 | Media         |
-| COM-15  | commerce | Parámetros: not found silencioso            | Baja          |
-| COM-16  | commerce | Orden: `deliveryAddress` obligatorio        | Alta          |
-| COM-17  | commerce | Carrito: identidad del ítem                 | Alta          |
-| COM-18  | commerce | Categorías: nombre duplicado                | Baja          |
-| DLV-01  | delivery | Onboarding: conservar vehículo de Auth      | Alta          |
-| DLV-02  | delivery | Perfil: `phone` requerido                   | Alta          |
-| DLV-03  | delivery | Eventos: idempotencia por `eventId`         | Alta          |
-| DLV-04  | delivery | Reconexión del transporte RabbitMQ          | Media         |
-| GW-01   | gateway  | DataLoader: dedupe de keys (N+1)            | Alta          |
-| GW-02   | gateway  | RestClient: respuestas 2xx sin cuerpo       | Media         |
-| GW-03   | gateway  | Mapeo de direcciones: lat/lng faltantes     | Baja          |
-| GW-04   | gateway  | Formato de errores: propagar `path` REST    | Media         |
-| GW-05   | gateway  | Upload: propagar `path` downstream          | Baja          |
-| GW-06   | gateway  | `TripOrder.order` ausente del esquema       | Media         |
-| GW-07   | gateway  | `ConfigGroupType` con casing incorrecto     | Alta          |
+| ID      | App      | Capability                                 | Confiabilidad |
+| ------- | -------- | ------------------------------------------ | ------------- |
+| AUTH-01 | auth     | Envelope de errores HTTP                   | Alta          |
+| AUTH-02 | auth     | Correlación por request id                 | Media         |
+| AUTH-03 | auth     | Alta de `branch_admin` (validar sucursal)  | Alta          |
+| AUTH-04 | auth     | Direcciones: scope de propietario activa   | Media         |
+| COM-01  | commerce | Ingredientes: no desactivar en uso         | Media         |
+| COM-02  | commerce | Promociones: rango de fechas               | Alta          |
+| COM-03  | commerce | Productos: validar categoría               | Alta          |
+| COM-04  | commerce | Receta: validar ingrediente                | Alta          |
+| COM-05  | commerce | Receta: 404 al quitar ítem inexistente     | Alta          |
+| COM-06  | commerce | Config groups: required/min/max coherentes | Media         |
+| COM-07  | commerce | Receta: cantidades > 0                     | Media         |
+| COM-08  | commerce | Opciones: `extraPrice` no negativo         | Media         |
+| COM-09  | commerce | Filtro `available` inválido                | Media         |
+| COM-10  | commerce | Ids de subdocumentos                       | Baja          |
+| COM-11  | commerce | Horarios que cruzan medianoche             | Media         |
+| COM-12  | commerce | Horas de sucursal válidas                  | Media         |
+| COM-13  | commerce | Stock: motivo del movimiento               | Alta          |
+| COM-14  | commerce | Stock: delta vs cambio real                | Media         |
+| COM-15  | commerce | Parámetros: not found silencioso           | Baja          |
+| COM-16  | commerce | Orden: `deliveryAddress` obligatorio       | Alta          |
+| COM-17  | commerce | Carrito: identidad del ítem                | Alta          |
+| COM-18  | commerce | Categorías: nombre duplicado               | Baja          |
+| DLV-01  | delivery | Onboarding: conservar vehículo de Auth     | Alta          |
+| DLV-02  | delivery | Perfil: `phone` requerido                  | Alta          |
+| DLV-03  | delivery | Eventos: idempotencia por `eventId`        | Alta          |
+| DLV-04  | delivery | Reconexión del transporte RabbitMQ         | Media         |
+| GW-01   | gateway  | DataLoader: dedupe de keys (N+1)           | Alta          |
+| GW-02   | gateway  | RestClient: respuestas 2xx sin cuerpo      | Media         |
+| GW-03   | gateway  | Mapeo de direcciones: lat/lng faltantes    | Baja          |
+| GW-04   | gateway  | Formato de errores: propagar `path` REST   | Media         |
+| GW-05   | gateway  | Upload: propagar `path` downstream         | Baja          |
+| GW-06   | gateway  | `TripOrder.order` ausente del esquema      | Media         |
+| GW-07   | gateway  | `ConfigGroupType` con casing incorrecto    | Alta          |
 
 ---
 
@@ -78,7 +78,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** HTTP 409 pero `body.code = "INTERNAL_SERVER_ERROR"`.
 - **Impacto:** clientes y gateway que ramifican por `code` interpretan un conflicto de negocio como falla de servidor.
 - **Posible causa:** `codeForStatus` (`apps/auth/src/config/exceptions/http-exception.filter.ts:8-14`) devuelve `ERROR_CODES.internal` por defecto.
-- **Test:** `src/config/exceptions/http-exception.filter.spec.ts` › *KNOWN BUG: un HttpException 409 (Conflict) se etiqueta como INTERNAL_SERVER_ERROR*.
+- **Test:** `src/config/exceptions/http-exception.filter.spec.ts` › _KNOWN BUG: un HttpException 409 (Conflict) se etiqueta como INTERNAL_SERVER_ERROR_.
 - **Confiabilidad:** Alta.
 
 ### AUTH-02 — Un `x-request-id` vacío no se regenera
@@ -89,7 +89,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** conserva `''` y lo propaga en request y response.
 - **Impacto:** se pierde la correlación de logs/trazas para esos requests.
 - **Posible causa:** `request-id.middleware.ts:9-10` usa `incoming ?? randomUUID()`, que no cubre string vacío.
-- **Test:** `src/config/observability/request-id.middleware.spec.ts` › *KNOWN BUG: un x-request-id vacío se conserva en vez de generar uno nuevo*.
+- **Test:** `src/config/observability/request-id.middleware.spec.ts` › _KNOWN BUG: un x-request-id vacío se conserva en vez de generar uno nuevo_.
 - **Confiabilidad:** Media.
 
 ### AUTH-03 — `createStaff` no valida la sucursal contra Commerce
@@ -100,7 +100,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** el `branchId` se persiste tal cual; no existe llamada a Commerce en `apps/auth`.
 - **Impacto:** colaboradores vinculados a sucursales inexistentes.
 - **Posible causa:** `UserController.createStaff` delega en `createUser` sin validación (`user.controller.ts:58`).
-- **Test:** `src/user/user.service.spec.ts` › *acepta cualquier branchId sin validarlo contra Commerce (KNOWN BUG: RQ-AUTH-13)*.
+- **Test:** `src/user/user.service.spec.ts` › _acepta cualquier branchId sin validarlo contra Commerce (KNOWN BUG: RQ-AUTH-13)_.
 - **Confiabilidad:** Alta (requisito explícito). Nota: podría diferirse deliberadamente al gateway.
 
 ### AUTH-04 — `AddressRepository.updateOwned` no filtra por `active`
@@ -111,7 +111,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** la query es `{_id, userId}` sin `active:true`, por lo que la actualiza y la devuelve.
 - **Impacto:** una dirección eliminada puede mutarse; luego sigue oculta en el listado (inconsistencia).
 - **Posible causa:** `address.repository.ts:45` omite `active: true`.
-- **Test:** `src/address/address.repository.spec.ts` › *permite actualizar una dirección desactivada porque no filtra por active (KNOWN BUG)*.
+- **Test:** `src/address/address.repository.spec.ts` › _permite actualizar una dirección desactivada porque no filtra por active (KNOWN BUG)_.
 - **Confiabilidad:** Media.
 
 ---
@@ -126,7 +126,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** se desactiva siempre; `ERROR_CODES.ingredientInUse` no se referencia en ningún archivo.
 - **Impacto:** recetas/stock pueden referenciar ingredientes inactivos; inconsistencias de catálogo.
 - **Posible causa:** la regla requiere datos de recetas (otro dominio) y no se construyó el orchestrator que los coordine.
-- **Test:** `src/ingredient/ingredient.service.spec.ts` › *desactiva un ingrediente en uso porque la validación no existe (comportamiento actual)*.
+- **Test:** `src/ingredient/ingredient.service.spec.ts` › _desactiva un ingrediente en uso porque la validación no existe (comportamiento actual)_.
 - **Confiabilidad:** Media (la redacción de RQ-CAT-10 admite solo desactivar).
 
 ### COM-02 — No se valida `startDate <= endDate` en promociones
@@ -137,7 +137,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** se persiste tal cual.
 - **Impacto:** promociones que terminan antes de comenzar.
 - **Posible causa:** el DTO solo aplica `@IsDateString`; el servicio no compara fechas.
-- **Test:** `src/promotion/promotion.service.spec.ts` › *PromotionService.create — validación de rango de fechas (KNOWN BUG)*.
+- **Test:** `src/promotion/promotion.service.spec.ts` › _PromotionService.create — validación de rango de fechas (KNOWN BUG)_.
 - **Confiabilidad:** Alta.
 
 ### COM-03 — No se valida la categoría al crear/actualizar producto
@@ -148,7 +148,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** el producto se crea; `CATEGORY_NOT_FOUND` no se emite en el módulo product.
 - **Impacto:** productos huérfanos.
 - **Posible causa:** `ProductService` solo inyecta `ProductRepository`; no consulta categorías.
-- **Test:** `src/product/product.service.spec.ts` › *KNOWN BUG: crea un producto con categoría inexistente sin lanzar CATEGORY_NOT_FOUND*.
+- **Test:** `src/product/product.service.spec.ts` › _KNOWN BUG: crea un producto con categoría inexistente sin lanzar CATEGORY_NOT_FOUND_.
 - **Confiabilidad:** Alta.
 
 ### COM-04 — No se valida el ingrediente al armar la receta
@@ -159,7 +159,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** se guarda tal cual.
 - **Impacto:** recetas, reportes y descuentos de stock referencian ingredientes inexistentes.
 - **Posible causa:** `ProductService` no inyecta ingredientes.
-- **Test:** `src/product/product.service.spec.ts` › *KNOWN BUG: setRecipe acepta ingredientes inexistentes sin lanzar INGREDIENT_NOT_FOUND*.
+- **Test:** `src/product/product.service.spec.ts` › _KNOWN BUG: setRecipe acepta ingredientes inexistentes sin lanzar INGREDIENT_NOT_FOUND_.
 - **Confiabilidad:** Alta.
 
 ### COM-05 — Quitar un ítem de receta inexistente devuelve 200
@@ -170,7 +170,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** el repositorio guarda y responde 200 con el producto.
 - **Impacto:** el cliente cree haber borrado algo que no existía; se pierde la señal de idempotencia.
 - **Posible causa:** `ProductRepository.removeRecipeItem` no verifica longitud (a diferencia de `removeConfigGroup/Option`).
-- **Test:** `src/product/product.repository.spec.ts` y `src/product/product.controller.spec.ts` › *KNOWN BUG: removeRecipeItem de un ítem inexistente…*.
+- **Test:** `src/product/product.repository.spec.ts` y `src/product/product.controller.spec.ts` › _KNOWN BUG: removeRecipeItem de un ítem inexistente…_.
 - **Confiabilidad:** Alta.
 
 ### COM-06 — Grupos de configuración inconsistentes (`required`/`min`/`max`)
@@ -181,7 +181,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** se acepta.
 - **Impacto:** grupos insatisfacibles o rangos invertidos en el cliente.
 - **Posible causa:** validación de campos individuales, sin validador cruzado ni regla de servicio.
-- **Test:** `src/product/product.service.spec.ts` y `src/product/dto/product.dto.spec.ts` › *KNOWN BUG: acepta un grupo inconsistente*.
+- **Test:** `src/product/product.service.spec.ts` y `src/product/dto/product.dto.spec.ts` › _KNOWN BUG: acepta un grupo inconsistente_.
 - **Confiabilidad:** Media.
 
 ### COM-07 — Cantidades de receta `0`/negativas
@@ -191,7 +191,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** cantidad `> 0`.
 - **Actual:** `@Min(0)` acepta 0; sin guarda de servicio/repositorio.
 - **Impacto:** requerimientos de stock nulos/negativos en `accumulateRequirements`.
-- **Test:** `src/product/product.service.spec.ts` y `src/product/dto/product.dto.spec.ts` › *KNOWN BUG: acepta cantidad 0/no positiva*.
+- **Test:** `src/product/product.service.spec.ts` y `src/product/dto/product.dto.spec.ts` › _KNOWN BUG: acepta cantidad 0/no positiva_.
 - **Confiabilidad:** Media.
 
 ### COM-08 — `extraPrice` negativo en opciones de configuración
@@ -201,7 +201,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** rechazar / no negativo.
 - **Actual:** se acepta (sin `@Min`).
 - **Impacto:** opciones que reducen precio sin motor de promociones.
-- **Test:** `src/product/dto/product.dto.spec.ts` › *KNOWN BUG: acepta extraPrice negativo*.
+- **Test:** `src/product/dto/product.dto.spec.ts` › _KNOWN BUG: acepta extraPrice negativo_.
 - **Confiabilidad:** Media.
 
 ### COM-09 — El filtro `available` inválido se coacciona a `false`
@@ -212,7 +212,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** se coacciona a `false` y devuelve 200 con solo no disponibles.
 - **Impacto:** un request malformado oculta silenciosamente el catálogo.
 - **Posible causa:** `@Transform(({ value }) => value === 'true' || value === true)` sin rechazo.
-- **Test:** `src/product/dto/product.dto.spec.ts` › *KNOWN BUG: available con valor inválido se coacciona a false sin error*.
+- **Test:** `src/product/dto/product.dto.spec.ts` › _KNOWN BUG: available con valor inválido se coacciona a false sin error_.
 - **Confiabilidad:** Media.
 
 ### COM-10 — `id` de subdocumento queda `''` cuando falta `_id`
@@ -222,7 +222,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** identificador válido o error.
 - **Actual:** `subId` cae a `''`.
 - **Impacto:** colisiones de ids en respuestas.
-- **Test:** `src/product/product.model.spec.ts` › *KNOWN BUG: sin _id devuelve id vacío…*.
+- **Test:** `src/product/product.model.spec.ts` › _KNOWN BUG: sin \_id devuelve id vacío…_.
 - **Confiabilidad:** Baja.
 
 ### COM-11 — Horarios que cruzan medianoche no se soportan
@@ -232,7 +232,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** abierto.
 - **Actual:** `false` (la condición `current >= opening && current < closing` da intervalo vacío).
 - **Impacto:** sucursales nocturnas siempre “cerradas” → excluidas de la asignación → falla la confirmación.
-- **Test:** `src/branch/branch.model.spec.ts` › *isBranchOpenNow — rango nocturno…*
+- **Test:** `src/branch/branch.model.spec.ts` › _isBranchOpenNow — rango nocturno…_
 - **Confiabilidad:** Media (no exigido explícitamente por RQ-BRN-03).
 
 ### COM-12 — El DTO de horas no valida rangos válidos
@@ -242,7 +242,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** rechazar.
 - **Actual:** acepta formato `\d{2}:\d{2}` sin validar 00–23 / 00–59; `'08:99'` se interpreta como 09:39.
 - **Impacto:** ventanas de atención corruptas.
-- **Test:** `src/branch/dto/branch-dtos.spec.ts` › *acepta la hora fuera de rango*.
+- **Test:** `src/branch/dto/branch-dtos.spec.ts` › _acepta la hora fuera de rango_.
 - **Confiabilidad:** Media.
 
 ### COM-13 — El motivo del ajuste de stock se descarta
@@ -264,7 +264,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `delta` = solicitado (−5/−10) mientras `branchStock` se recorta a 0.
 - **Impacto:** el historial no concilia con `branchStock`.
 - **Posible causa:** `stock.service.ts:74` registra `-required` y `:31` el `delta` crudo sin recalcular.
-- **Test:** `src/stock/stock.service.spec.ts` › *registra el delta solicitado aunque no coincida con el recorte real*.
+- **Test:** `src/stock/stock.service.spec.ts` › _registra el delta solicitado aunque no coincida con el recorte real_.
 - **Confiabilidad:** Media.
 
 ### COM-15 — `ParameterService.update` con fallback silencioso
@@ -275,7 +275,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** devuelve `{ key, value, unit: '' }`.
 - **Impacto:** `parameterNotFound`/`invalidParameterValue` quedan muertos; se filtra una unidad falsa.
 - **Posible causa:** `parameter.service.ts:39` (el repositorio usa `upsert`, rara vez se alcanza).
-- **Test:** `src/parameter/parameter.service.spec.ts` › *ante ausencia de documento devuelve unit vacío…*
+- **Test:** `src/parameter/parameter.service.spec.ts` › _ante ausencia de documento devuelve unit vacío…_
 - **Confiabilidad:** Baja.
 
 ### COM-16 — `deliveryAddress` faltante en confirmar pedido → 500
@@ -286,7 +286,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** pasa el `ValidationPipe`; el orchestrator accede a `undefined.latitude` → `TypeError` → 500 `INTERNAL_SERVER_ERROR`.
 - **Impacto:** payloads malformados se ven como errores de servidor.
 - **Posible causa:** `deliveryAddress` con `@ValidateNested`/`@Type` pero sin `@IsNotEmpty`; `@ValidateNested` omite `undefined`.
-- **Test:** `src/order/dto/order-dtos.spec.ts` y `test/order-flow.e2e-spec.ts` › *KNOWN BUG: sin deliveryAddress responde 500 en lugar de 400*.
+- **Test:** `src/order/dto/order-dtos.spec.ts` y `test/order-flow.e2e-spec.ts` › _KNOWN BUG: sin deliveryAddress responde 500 en lugar de 400_.
 - **Confiabilidad:** Alta.
 
 ### COM-17 — El `id` del ítem del carrito cambia en cada mutación
@@ -296,7 +296,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** id estable por ítem.
 - **Actual:** `setItemsAndTotal` hace `$set:{items}`, Mongo regenera `_id` de cada subdocumento.
 - **Impacto:** los clientes deben releer el id tras cada cambio; tablas/races rompen.
-- **Test:** `test/order-flow.e2e-spec.ts` › *KNOWN BUG: el id del ítem cambia tras una actualización*.
+- **Test:** `test/order-flow.e2e-spec.ts` › _KNOWN BUG: el id del ítem cambia tras una actualización_.
 - **Confiabilidad:** Alta.
 
 ### COM-18 — Categorías: nombre duplicado sin manejo
@@ -306,7 +306,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado (según consigna):** error de dominio.
 - **Actual:** no hay índice único ni chequeo; puede propagarse un `E11000` crudo.
 - **Impacto:** categorías duplicadas.
-- **Test:** `src/category/category.repository.spec.ts` › *propaga el error crudo de Mongo ante un nombre duplicado*.
+- **Test:** `src/category/category.repository.spec.ts` › _propaga el error crudo de Mongo ante un nombre duplicado_.
 - **Confiabilidad:** Baja (los requisitos no exigen unicidad explícita).
 
 ---
@@ -321,7 +321,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `RiderOrchestrator.ensureProfile` llama a `create({ ..., vehicle: null })` (`rider.orchestrator.ts:79`).
 - **Impacto:** todo rider onboardeado lazy queda sin vehículo hasta un `PATCH /v1/riders/me/vehicle`; se pierde el dato.
 - **Contexto:** el commit #8 migró `vehicle` de `string` a objeto estructurado `{ type, brand?, model?, plate? }` y agregó `/me/vehicle`, pero no actualizó el onboarding ni el e2e. El tipo de Auth sigue siendo `string`, por lo que no hay mapeo directo.
-- **Test:** `src/rider/rider.orchestrator.spec.ts` › *ignora el vehículo de Auth al crear el rider (KNOWN BUG)*. El e2e `test/app.e2e-spec.ts` fue actualizado a la conducta vigente (vehículo `null` + alta por `/me/vehicle`).
+- **Test:** `src/rider/rider.orchestrator.spec.ts` › _ignora el vehículo de Auth al crear el rider (KNOWN BUG)_. El e2e `test/app.e2e-spec.ts` fue actualizado a la conducta vigente (vehículo `null` + alta por `/me/vehicle`).
 - **Confiabilidad:** Alta (inconsistencia de diseño introducida en #8).
 
 ### DLV-02 — `phone: null` en el perfil omite la validación y anula un requerido
@@ -332,7 +332,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `@IsOptional()` omite `null`/`undefined`; `updateProfile` hace `$set:{phone:null}` (sin `runValidators`).
 - **Impacto:** pérdida de integridad; `serializeRider` devuelve `phone:null` pese a `PublicRider.phone: string`.
 - **Posible causa:** `update-rider-profile.dto.ts:4-7` usa `@IsOptional()`.
-- **Test:** `src/rider/dto/update-rider-profile.dto.spec.ts` › *phone null pasa la validación (KNOWN BUG)*.
+- **Test:** `src/rider/dto/update-rider-profile.dto.spec.ts` › _phone null pasa la validación (KNOWN BUG)_.
 - **Confiabilidad:** Alta.
 
 ### DLV-03 — El consumo de eventos no es idempotente por `eventId`
@@ -343,7 +343,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `handleOrderStatusChanged` llama a `upsertReady` siempre; `$set { status:'ready', tripId:null, reservedUntil:null }` reintegra la orden reservada.
 - **Impacto:** una orden ya en un viaje puede ofrecerse/aceptarse por otro rider → doble asignación.
 - **Posible causa:** no hay store de dedupe por `eventId`; el upsert está keyed solo por `orderId`.
-- **Test:** `src/delivery-order/delivery-order.service.spec.ts` › *KNOWN BUG: no deduplica por eventId…*.
+- **Test:** `src/delivery-order/delivery-order.service.spec.ts` › _KNOWN BUG: no deduplica por eventId…_.
 - **Confiabilidad:** Alta.
 
 ### DLV-04 — El transporte RabbitMQ no reconecta tras `close()`
@@ -353,7 +353,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** reconectar o fallar explícitamente.
 - **Actual:** `close()` anula `channel`/`connection` pero no `connectPromise`; el siguiente `publish` reusa la promesa resuelta y publica sobre el canal cerrado.
 - **Impacto:** eventos perdidos/errores tras reapertura; sin recuperación.
-- **Test:** `src/config/messaging/rabbit.transport.spec.ts` › *KNOWN BUG: no reconecta tras close()…*.
+- **Test:** `src/config/messaging/rabbit.transport.spec.ts` › _KNOWN BUG: no reconecta tras close()…_.
 - **Confiabilidad:** Media.
 
 ---
@@ -368,7 +368,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** una llamada por parent.
 - **Impacto:** el N+1 persiste para ids repetidos; carga extra sobre Auth/Commerce.
 - **Posible causa:** `rest/data-loader.ts` y `commerce.dataloaders.ts` no mantienen caché por key.
-- **Test:** `src/rest/data-loader.spec.ts`, `src/graphql/commerce/commerce.dataloaders.spec.ts`, `test/graphql-dataloader.e2e-spec.ts` › *No deduplica keys repetidas dentro del mismo lote*.
+- **Test:** `src/rest/data-loader.spec.ts`, `src/graphql/commerce/commerce.dataloaders.spec.ts`, `test/graphql-dataloader.e2e-spec.ts` › _No deduplica keys repetidas dentro del mismo lote_.
 - **Confiabilidad:** Alta.
 
 ### GW-02 — El RestClient no maneja respuestas 2xx sin cuerpo
@@ -379,7 +379,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `response.json()` rechaza con `SyntaxError` crudo.
 - **Impacto:** latente: cualquier endpoint 204 rompería el gateway.
 - **Posible causa:** `request()` siempre parsea JSON; solo `postMultipart` está exceptuado.
-- **Test:** `src/rest/rest.client.spec.ts` › *204 con cuerpo vacío: response.json() rechaza…*.
+- **Test:** `src/rest/rest.client.spec.ts` › _204 con cuerpo vacío: response.json() rechaza…_.
 - **Confiabilidad:** Media.
 
 ### GW-03 — `mapAddress` produce `NaN` con lat/lng faltantes
@@ -389,7 +389,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Esperado:** default seguro (como `asNumber`) o error de dominio.
 - **Actual:** `Number(undefined) → NaN`, que GraphQL `Float` no puede serializar.
 - **Impacto:** latente ante datos upstream malformados.
-- **Test:** `src/graphql/auth/auth.types.spec.ts` › *lat/lng ausentes producen NaN*.
+- **Test:** `src/graphql/auth/auth.types.spec.ts` › _lat/lng ausentes producen NaN_.
 - **Confiabilidad:** Baja.
 
 ### GW-04 — El formatter de GraphQL descarta el `path` REST del downstream
@@ -400,7 +400,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** `errors[].path` es el path GraphQL (`['order']`) y `extensions` solo `{code}`.
 - **Impacto:** se pierde trazabilidad del error original.
 - **Posible causa:** `formatGraphQLError` devuelve `path: formattedError.path` y solo conserva `code`.
-- **Test:** `test/graphql-errors.e2e-spec.ts` › *HTTP 409 → errors[] con ORDER_STATE_CONFLICT*.
+- **Test:** `test/graphql-errors.e2e-spec.ts` › _HTTP 409 → errors[] con ORDER_STATE_CONFLICT_.
 - **Confiabilidad:** Media (interpretación de RQ-GW-07).
 
 ### GW-05 — El filtro de upload descarta el `path` downstream
@@ -409,7 +409,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Escenario:** Commerce devuelve envelope con `path:'/v1/catalog/uploads'`.
 - **Esperado:** propagarlo.
 - **Actual:** siempre usa la URL del gateway `/v1/uploads`.
-- **Test:** `test/gateway-upload.e2e-spec.ts` › *propaga error downstream 409 → DUPLICATE_IMAGE*.
+- **Test:** `test/gateway-upload.e2e-spec.ts` › _propaga error downstream 409 → DUPLICATE_IMAGE_.
 - **Confiabilidad:** Baja.
 
 ### GW-06 — `TripOrder.order` no existe en el esquema GraphQL
@@ -417,9 +417,9 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Capability:** unión cross-service `TripOrder.order` (RQ-GW-08/09, doc §4).
 - **Escenario:** `trip(id:"t1"){ orders { order { id } } }`.
 - **Esperado:** resolver Order vía Commerce/DataLoader.
-- **Actual:** 400 `GRAPHQL_VALIDATION_FAILED` — *Cannot query field "order" on type "TripOrder"*.
+- **Actual:** 400 `GRAPHQL_VALIDATION_FAILED` — _Cannot query field "order" on type "TripOrder"_.
 - **Impacto:** falta una capacidad documentada (dependiente del dominio Commerce, D8).
-- **Test:** `test/graphql-dataloader.e2e-spec.ts` › *TripOrder.order todavía no existe en el esquema*.
+- **Test:** `test/graphql-dataloader.e2e-spec.ts` › _TripOrder.order todavía no existe en el esquema_.
 - **Confiabilidad:** Media (gap documentado como pendiente).
 
 ### GW-07 — `ConfigGroupType` se envía a REST con casing incorrecto (rompe el flujo real)
@@ -430,7 +430,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 - **Actual:** el gateway envía `'MULTIPLE'`/`'SINGLE'`; con Commerce real devolvería 400.
 - **Impacto:** create/update de config groups roto end-to-end.
 - **Posible causa:** los resolvers pasan el input crudo; `configGroupTypeToRest` existe pero nunca se invoca (a diferencia de `orderStatusToRest`/`roleToRest`).
-- **Test:** `test/graphql-commerce.e2e-spec.ts` › *createConfigGroup → POST /v1/catalog/products/p1/configurations*.
+- **Test:** `test/graphql-commerce.e2e-spec.ts` › _createConfigGroup → POST /v1/catalog/products/p1/configurations_.
 - **Confiabilidad:** Alta.
 
 ---

@@ -106,7 +106,10 @@ describe('OfferController (RQ-DLV-13)', () => {
 
   it('list aplica los valores por defecto de paginación (limit 20, offset 0)', async () => {
     const { controller, tripService } = makeController()
-    tripService.listByRider.mockResolvedValue({ data: [], meta: { total: 0, limit: 20, offset: 0 } })
+    tripService.listByRider.mockResolvedValue({
+      data: [],
+      meta: { total: 0, limit: 20, offset: 0 },
+    })
 
     await controller.list(auth, {})
 
@@ -115,7 +118,10 @@ describe('OfferController (RQ-DLV-13)', () => {
 
   it('list respeta limit y offset provistos', async () => {
     const { controller, tripService } = makeController()
-    tripService.listByRider.mockResolvedValue({ data: [], meta: { total: 0, limit: 5, offset: 10 } })
+    tripService.listByRider.mockResolvedValue({
+      data: [],
+      meta: { total: 0, limit: 5, offset: 10 },
+    })
 
     await controller.list(auth, { limit: 5, offset: 10 })
 
@@ -148,24 +154,47 @@ describe('OfferController (RQ-DLV-13)', () => {
   })
 
   it.each([
-    { method: 'acceptOffer' as const, code: ERROR_CODES.offerNotFound, message: 'Oferta no encontrada', status: 404 },
-    { method: 'rejectOffer' as const, code: ERROR_CODES.offerExpired, message: 'La oferta venció', status: 409 },
-    { method: 'markPickup' as const, code: ERROR_CODES.tripNotFound, message: 'Viaje no encontrado', status: 404 },
-    { method: 'markDeliver' as const, code: ERROR_CODES.orderNotInTrip, message: 'La orden no pertenece al viaje', status: 404 },
-  ])('propaga el error de dominio de $method (código + mensaje + status)', async ({ method, code, message, status }) => {
-    const { controller, orchestrator } = makeController()
-    const failure = new DomainException(code, message, status)
-    orchestrator[method].mockRejectedValue(failure)
+    {
+      method: 'acceptOffer' as const,
+      code: ERROR_CODES.offerNotFound,
+      message: 'Oferta no encontrada',
+      status: 404,
+    },
+    {
+      method: 'rejectOffer' as const,
+      code: ERROR_CODES.offerExpired,
+      message: 'La oferta venció',
+      status: 409,
+    },
+    {
+      method: 'markPickup' as const,
+      code: ERROR_CODES.tripNotFound,
+      message: 'Viaje no encontrado',
+      status: 404,
+    },
+    {
+      method: 'markDeliver' as const,
+      code: ERROR_CODES.orderNotInTrip,
+      message: 'La orden no pertenece al viaje',
+      status: 404,
+    },
+  ])(
+    'propaga el error de dominio de $method (código + mensaje + status)',
+    async ({ method, code, message, status }) => {
+      const { controller, orchestrator } = makeController()
+      const failure = new DomainException(code, message, status)
+      orchestrator[method].mockRejectedValue(failure)
 
-    const invocation =
-      method === 'acceptOffer'
-        ? controller.accept(auth, 't1')
-        : method === 'rejectOffer'
-          ? controller.reject(auth, 't1')
-          : method === 'markPickup'
-            ? controller.pickup(auth, 't1', 'ord-1')
-            : controller.deliver(auth, 't1', 'ord-1')
+      const invocation =
+        method === 'acceptOffer'
+          ? controller.accept(auth, 't1')
+          : method === 'rejectOffer'
+            ? controller.reject(auth, 't1')
+            : method === 'markPickup'
+              ? controller.pickup(auth, 't1', 'ord-1')
+              : controller.deliver(auth, 't1', 'ord-1')
 
-    await expect(invocation).rejects.toMatchObject({ code, message, status })
-  })
+      await expect(invocation).rejects.toMatchObject({ code, message, status })
+    },
+  )
 })

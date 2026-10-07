@@ -42,12 +42,14 @@ export class AddressRepository {
     userId: string,
     patch: UpdateAddressData,
   ): Promise<AddressDocument | null> {
-    return this.model.findOneAndUpdate({ _id: id, userId }, { $set: patch }, { new: true }).exec()
+    return this.model
+      .findOneAndUpdate({ _id: id, userId, active: true }, { $set: patch }, { new: true })
+      .exec()
   }
 
   async softDeleteOwned(id: string, userId: string): Promise<boolean> {
     const result = await this.model
-      .updateOne({ _id: id, userId }, { $set: { active: false } })
+      .updateOne({ _id: id, userId, active: true }, { $set: { active: false } })
       .exec()
     return result.modifiedCount > 0
   }

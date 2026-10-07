@@ -45,25 +45,107 @@ const validProduct = {
 }
 
 describe('CreateProductDto (RQ-CAT-04)', () => {
-  const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean; failed?: string[] }> = [
+  const cases: Array<{
+    name: string
+    payload: Record<string, unknown>
+    valid: boolean
+    failed?: string[]
+  }> = [
     { name: 'producto válido', payload: validProduct, valid: true },
     { name: 'precio 0 (límite)', payload: { ...validProduct, price: 0 }, valid: true },
-    { name: 'nombre de 100 caracteres (límite)', payload: { ...validProduct, name: 'a'.repeat(100) }, valid: true },
-    { name: 'descripción de 500 caracteres (límite)', payload: { ...validProduct, description: 'a'.repeat(500) }, valid: true },
-    { name: 'imagen y available opcionales', payload: { ...validProduct, image: 'https://cdn.test/p.png', available: false }, valid: true },
-    { name: 'sin categoría', payload: { name: 'Burger', description: 'Rica', price: 1 }, valid: false, failed: ['categoryId'] },
-    { name: 'sin nombre', payload: { categoryId: 'cat1', description: 'Rica', price: 1 }, valid: false, failed: ['name'] },
-    { name: 'sin descripción', payload: { categoryId: 'cat1', name: 'Burger', price: 1 }, valid: false, failed: ['description'] },
-    { name: 'sin precio', payload: { categoryId: 'cat1', name: 'Burger', description: 'Rica' }, valid: false, failed: ['price'] },
-    { name: 'nombre vacío', payload: { ...validProduct, name: '' }, valid: false, failed: ['name'] },
-    { name: 'nombre de 101 caracteres', payload: { ...validProduct, name: 'a'.repeat(101) }, valid: false, failed: ['name'] },
-    { name: 'descripción vacía', payload: { ...validProduct, description: '' }, valid: false, failed: ['description'] },
-    { name: 'descripción de 501 caracteres', payload: { ...validProduct, description: 'a'.repeat(501) }, valid: false, failed: ['description'] },
-    { name: 'precio negativo', payload: { ...validProduct, price: -1 }, valid: false, failed: ['price'] },
-    { name: 'precio string', payload: { ...validProduct, price: '100' }, valid: false, failed: ['price'] },
-    { name: 'precio NaN', payload: { ...validProduct, price: Number.NaN }, valid: false, failed: ['price'] },
-    { name: 'imagen de 501 caracteres', payload: { ...validProduct, image: 'a'.repeat(501) }, valid: false, failed: ['image'] },
-    { name: 'available no booleano', payload: { ...validProduct, available: 'yes' }, valid: false, failed: ['available'] },
+    {
+      name: 'nombre de 100 caracteres (límite)',
+      payload: { ...validProduct, name: 'a'.repeat(100) },
+      valid: true,
+    },
+    {
+      name: 'descripción de 500 caracteres (límite)',
+      payload: { ...validProduct, description: 'a'.repeat(500) },
+      valid: true,
+    },
+    {
+      name: 'imagen y available opcionales',
+      payload: { ...validProduct, image: 'https://cdn.test/p.png', available: false },
+      valid: true,
+    },
+    {
+      name: 'sin categoría',
+      payload: { name: 'Burger', description: 'Rica', price: 1 },
+      valid: false,
+      failed: ['categoryId'],
+    },
+    {
+      name: 'sin nombre',
+      payload: { categoryId: 'cat1', description: 'Rica', price: 1 },
+      valid: false,
+      failed: ['name'],
+    },
+    {
+      name: 'sin descripción',
+      payload: { categoryId: 'cat1', name: 'Burger', price: 1 },
+      valid: false,
+      failed: ['description'],
+    },
+    {
+      name: 'sin precio',
+      payload: { categoryId: 'cat1', name: 'Burger', description: 'Rica' },
+      valid: false,
+      failed: ['price'],
+    },
+    {
+      name: 'nombre vacío',
+      payload: { ...validProduct, name: '' },
+      valid: false,
+      failed: ['name'],
+    },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { ...validProduct, name: 'a'.repeat(101) },
+      valid: false,
+      failed: ['name'],
+    },
+    {
+      name: 'descripción vacía',
+      payload: { ...validProduct, description: '' },
+      valid: false,
+      failed: ['description'],
+    },
+    {
+      name: 'descripción de 501 caracteres',
+      payload: { ...validProduct, description: 'a'.repeat(501) },
+      valid: false,
+      failed: ['description'],
+    },
+    {
+      name: 'precio negativo',
+      payload: { ...validProduct, price: -1 },
+      valid: false,
+      failed: ['price'],
+    },
+    {
+      name: 'precio string',
+      payload: { ...validProduct, price: '100' },
+      valid: false,
+      failed: ['price'],
+    },
+    {
+      name: 'precio NaN',
+      payload: { ...validProduct, price: Number.NaN },
+      valid: false,
+      failed: ['price'],
+    },
+    {
+      name: 'imagen de 501 caracteres',
+      payload: { ...validProduct, image: 'a'.repeat(501) },
+      valid: false,
+      failed: ['image'],
+    },
+    {
+      name: 'available no booleano',
+      payload: { ...validProduct, available: 'yes' },
+      valid: false,
+      failed: ['available'],
+    },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid, failed }) => {
@@ -89,7 +171,12 @@ describe('CreateProductDto (RQ-CAT-04)', () => {
 })
 
 describe('UpdateProductDto (RQ-CAT-03/04)', () => {
-  const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean; failed?: string[] }> = [
+  const cases: Array<{
+    name: string
+    payload: Record<string, unknown>
+    valid: boolean
+    failed?: string[]
+  }> = [
     { name: 'payload vacío (todo opcional)', payload: {}, valid: true },
     { name: 'precio 0 (límite)', payload: { price: 0 }, valid: true },
     { name: 'solo nombre', payload: { name: 'Nuevo' }, valid: true },
@@ -98,8 +185,18 @@ describe('UpdateProductDto (RQ-CAT-03/04)', () => {
     { name: 'nombre vacío', payload: { name: '' }, valid: false, failed: ['name'] },
     { name: 'precio negativo', payload: { price: -1 }, valid: false, failed: ['price'] },
     { name: 'precio string', payload: { price: '10' }, valid: false, failed: ['price'] },
-    { name: 'available no booleano', payload: { available: 'no' }, valid: false, failed: ['available'] },
-    { name: 'nombre de 101 caracteres', payload: { name: 'a'.repeat(101) }, valid: false, failed: ['name'] },
+    {
+      name: 'available no booleano',
+      payload: { available: 'no' },
+      valid: false,
+      failed: ['available'],
+    },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { name: 'a'.repeat(101) },
+      valid: false,
+      failed: ['name'],
+    },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid, failed }) => {
@@ -129,17 +226,51 @@ describe('SetAvailableDto (RQ-CAT-03)', () => {
 describe('CreateConfigGroupDto (RQ-CAT-07)', () => {
   const base = { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single, required: true }
 
-  const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean; failed?: string[] }> = [
+  const cases: Array<{
+    name: string
+    payload: Record<string, unknown>
+    valid: boolean
+    failed?: string[]
+  }> = [
     { name: 'grupo single válido', payload: base, valid: true },
-    { name: 'grupo multiple con min y max', payload: { ...base, type: CONFIG_GROUP_TYPE.multiple, required: false, min: 1, max: 3 }, valid: true },
+    {
+      name: 'grupo multiple con min y max',
+      payload: { ...base, type: CONFIG_GROUP_TYPE.multiple, required: false, min: 1, max: 3 },
+      valid: true,
+    },
     { name: 'min y max en 0 (límite)', payload: { ...base, min: 0, max: 0 }, valid: true },
-    { name: 'sin nombre', payload: { type: CONFIG_GROUP_TYPE.single, required: true }, valid: false, failed: ['name'] },
+    {
+      name: 'sin nombre',
+      payload: { type: CONFIG_GROUP_TYPE.single, required: true },
+      valid: false,
+      failed: ['name'],
+    },
     { name: 'nombre vacío', payload: { ...base, name: '' }, valid: false, failed: ['name'] },
-    { name: 'nombre de 101 caracteres', payload: { ...base, name: 'a'.repeat(101) }, valid: false, failed: ['name'] },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { ...base, name: 'a'.repeat(101) },
+      valid: false,
+      failed: ['name'],
+    },
     { name: 'tipo inválido', payload: { ...base, type: 'triple' }, valid: false, failed: ['type'] },
-    { name: 'sin tipo', payload: { name: 'Tamaño', required: true }, valid: false, failed: ['type'] },
-    { name: 'sin required', payload: { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single }, valid: false, failed: ['required'] },
-    { name: 'required no booleano', payload: { ...base, required: 'si' }, valid: false, failed: ['required'] },
+    {
+      name: 'sin tipo',
+      payload: { name: 'Tamaño', required: true },
+      valid: false,
+      failed: ['type'],
+    },
+    {
+      name: 'sin required',
+      payload: { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single },
+      valid: false,
+      failed: ['required'],
+    },
+    {
+      name: 'required no booleano',
+      payload: { ...base, required: 'si' },
+      valid: false,
+      failed: ['required'],
+    },
     { name: 'min negativo', payload: { ...base, min: -1 }, valid: false, failed: ['min'] },
     { name: 'min decimal', payload: { ...base, min: 1.5 }, valid: false, failed: ['min'] },
     { name: 'max negativo', payload: { ...base, max: -1 }, valid: false, failed: ['max'] },
@@ -188,17 +319,42 @@ describe('UpdateConfigGroupDto (RQ-CAT-07)', () => {
 describe('CreateConfigOptionDto (RQ-CAT-08)', () => {
   const base = { name: 'Bacon', extraPrice: 25 }
 
-  const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean; failed?: string[] }> = [
+  const cases: Array<{
+    name: string
+    payload: Record<string, unknown>
+    valid: boolean
+    failed?: string[]
+  }> = [
     { name: 'opción válida', payload: base, valid: true },
     { name: 'precio extra 0 (límite)', payload: { ...base, extraPrice: 0 }, valid: true },
     { name: 'available false', payload: { ...base, available: false }, valid: true },
     { name: 'sin nombre', payload: { extraPrice: 1 }, valid: false, failed: ['name'] },
     { name: 'nombre vacío', payload: { ...base, name: '' }, valid: false, failed: ['name'] },
-    { name: 'nombre de 101 caracteres', payload: { ...base, name: 'a'.repeat(101) }, valid: false, failed: ['name'] },
+    {
+      name: 'nombre de 101 caracteres',
+      payload: { ...base, name: 'a'.repeat(101) },
+      valid: false,
+      failed: ['name'],
+    },
     { name: 'sin precio extra', payload: { name: 'Bacon' }, valid: false, failed: ['extraPrice'] },
-    { name: 'precio extra string', payload: { ...base, extraPrice: '25' }, valid: false, failed: ['extraPrice'] },
-    { name: 'precio extra NaN', payload: { ...base, extraPrice: Number.NaN }, valid: false, failed: ['extraPrice'] },
-    { name: 'available no booleano', payload: { ...base, available: 'si' }, valid: false, failed: ['available'] },
+    {
+      name: 'precio extra string',
+      payload: { ...base, extraPrice: '25' },
+      valid: false,
+      failed: ['extraPrice'],
+    },
+    {
+      name: 'precio extra NaN',
+      payload: { ...base, extraPrice: Number.NaN },
+      valid: false,
+      failed: ['extraPrice'],
+    },
+    {
+      name: 'available no booleano',
+      payload: { ...base, available: 'si' },
+      valid: false,
+      failed: ['available'],
+    },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid, failed }) => {
@@ -271,7 +427,11 @@ describe('RecipeItemDto (RQ-CAT-11/12)', () => {
     { name: 'cantidad decimal', payload: { ingredientId: 'ing1', quantity: 0.5 }, valid: true },
     {
       name: 'con ajustes por opción válidos',
-      payload: { ingredientId: 'ing1', quantity: 1, optionAdjustments: [{ optionId: 'opt1', quantity: 2 }] },
+      payload: {
+        ingredientId: 'ing1',
+        quantity: 1,
+        optionAdjustments: [{ optionId: 'opt1', quantity: 2 }],
+      },
       valid: true,
     },
     { name: 'sin ingredientId', payload: { quantity: 2 }, valid: false },
@@ -279,7 +439,11 @@ describe('RecipeItemDto (RQ-CAT-11/12)', () => {
     { name: 'sin cantidad', payload: { ingredientId: 'ing1' }, valid: false },
     { name: 'cantidad negativa', payload: { ingredientId: 'ing1', quantity: -1 }, valid: false },
     { name: 'cantidad string', payload: { ingredientId: 'ing1', quantity: '2' }, valid: false },
-    { name: 'optionAdjustments no es array', payload: { ingredientId: 'ing1', quantity: 1, optionAdjustments: 'x' }, valid: false },
+    {
+      name: 'optionAdjustments no es array',
+      payload: { ingredientId: 'ing1', quantity: 1, optionAdjustments: 'x' },
+      valid: false,
+    },
     {
       name: 'ajuste anidado sin optionId',
       payload: { ingredientId: 'ing1', quantity: 1, optionAdjustments: [{ quantity: 2 }] },
@@ -287,7 +451,11 @@ describe('RecipeItemDto (RQ-CAT-11/12)', () => {
     },
     {
       name: 'ajuste anidado con cantidad negativa',
-      payload: { ingredientId: 'ing1', quantity: 1, optionAdjustments: [{ optionId: 'opt1', quantity: -2 }] },
+      payload: {
+        ingredientId: 'ing1',
+        quantity: 1,
+        optionAdjustments: [{ optionId: 'opt1', quantity: -2 }],
+      },
       valid: false,
     },
   ])('$name → $valid', async ({ payload, valid }) => {
@@ -310,12 +478,20 @@ describe('RecipeItemDto (RQ-CAT-11/12)', () => {
 describe('SetRecipeDto (RQ-CAT-11)', () => {
   it.each([
     { name: 'lista vacía (limpiar receta)', payload: { items: [] }, valid: true },
-    { name: 'un ítem válido', payload: { items: [{ ingredientId: 'ing1', quantity: 2 }] }, valid: true },
+    {
+      name: 'un ítem válido',
+      payload: { items: [{ ingredientId: 'ing1', quantity: 2 }] },
+      valid: true,
+    },
     {
       name: 'varios ítems con ajustes',
       payload: {
         items: [
-          { ingredientId: 'ing1', quantity: 1, optionAdjustments: [{ optionId: 'opt1', quantity: 3 }] },
+          {
+            ingredientId: 'ing1',
+            quantity: 1,
+            optionAdjustments: [{ optionId: 'opt1', quantity: 3 }],
+          },
           { ingredientId: 'ing2', quantity: 2 },
         ],
       },
@@ -326,7 +502,15 @@ describe('SetRecipeDto (RQ-CAT-11)', () => {
     { name: 'ítem anidado inválido', payload: { items: [{ quantity: 2 }] }, valid: false },
     {
       name: 'ajuste anidado inválido',
-      payload: { items: [{ ingredientId: 'ing1', quantity: 1, optionAdjustments: [{ optionId: 'opt1', quantity: -1 }] }] },
+      payload: {
+        items: [
+          {
+            ingredientId: 'ing1',
+            quantity: 1,
+            optionAdjustments: [{ optionId: 'opt1', quantity: -1 }],
+          },
+        ],
+      },
       valid: false,
     },
   ])('$name → $valid', async ({ payload, valid }) => {
@@ -340,7 +524,11 @@ describe('ProductQueryDto (RQ-CAT-05)', () => {
   it.each([
     { name: 'vacío (defaults en el controller)', payload: {}, valid: true },
     { name: 'categoría', payload: { categoryId: 'cat1' }, valid: true },
-    { name: 'search de 100 caracteres (límite)', payload: { search: 'a'.repeat(100) }, valid: true },
+    {
+      name: 'search de 100 caracteres (límite)',
+      payload: { search: 'a'.repeat(100) },
+      valid: true,
+    },
     { name: 'available true', payload: { available: true }, valid: true },
     { name: 'available false', payload: { available: false }, valid: true },
     { name: 'limit 1 (mínimo)', payload: { limit: 1 }, valid: true },

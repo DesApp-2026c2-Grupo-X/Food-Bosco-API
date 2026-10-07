@@ -54,11 +54,14 @@ const rawOrder = {
 
 const responder = (path: string): ReturnType<typeof okResponse> | undefined => {
   if (path === '/v1/me') return okResponse(rawUser)
-  if (path === '/v1/users') return okResponse({ data: [], meta: { total: 0, limit: 20, offset: 0 } })
+  if (path === '/v1/users')
+    return okResponse({ data: [], meta: { total: 0, limit: 20, offset: 0 } })
   if (path === '/v1/users/u1') return okResponse(rawUser)
-  if (path === '/v1/carts') return okResponse({ id: 'c1', clientId: 'u1', status: 'active', items: [], total: 0 })
+  if (path === '/v1/carts')
+    return okResponse({ id: 'c1', clientId: 'u1', status: 'active', items: [], total: 0 })
   if (path === '/v1/riders/me') return okResponse(rawRider)
-  if (path === '/v1/riders/by-user/r1') return okResponse({ currentLocation: { latitude: -34.6, longitude: -58.4 } })
+  if (path === '/v1/riders/by-user/r1')
+    return okResponse({ currentLocation: { latitude: -34.6, longitude: -58.4 } })
   if (path === '/v1/stock') return okResponse([])
   if (path === '/v1/orders') return okResponse({ data: [] })
   if (path === '/v1/orders/o1') return okResponse(rawOrder)
@@ -124,12 +127,28 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
 
   describe('RQ-SEC-04: rol insuficiente', () => {
     const cases: Array<{ name: string; query: string; role: string }> = [
-      { name: 'ingredients con branch_admin', query: 'query { ingredients { id } }', role: 'branch_admin' },
+      {
+        name: 'ingredients con branch_admin',
+        query: 'query { ingredients { id } }',
+        role: 'branch_admin',
+      },
       { name: 'myCart con rider', query: 'query { myCart { id } }', role: 'rider' },
-      { name: 'myOrders con branch_admin', query: 'query { myOrders { id } }', role: 'branch_admin' },
-      { name: 'riderProfile con super_admin', query: 'query { riderProfile { id } }', role: 'super_admin' },
+      {
+        name: 'myOrders con branch_admin',
+        query: 'query { myOrders { id } }',
+        role: 'branch_admin',
+      },
+      {
+        name: 'riderProfile con super_admin',
+        query: 'query { riderProfile { id } }',
+        role: 'super_admin',
+      },
       { name: 'parameters con customer', query: 'query { parameters { key } }', role: 'customer' },
-      { name: 'branchStock con rider', query: 'query { branchStock { ingredientId } }', role: 'rider' },
+      {
+        name: 'branchStock con rider',
+        query: 'query { branchStock { ingredientId } }',
+        role: 'rider',
+      },
       {
         name: 'bestSellingProducts con customer',
         query: 'query { bestSellingProducts { position } }',
@@ -153,8 +172,14 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
   describe('token inválido o expirado', () => {
     const cases: Array<{ name: string; token: string }> = [
       { name: 'firma inválida', token: 'no-es-un-jwt' },
-      { name: 'firma ajena', token: signTokenWithSecret({ userId: 'u1', roles: ['customer'] }, 'otro-secreto') },
-      { name: 'expirado', token: signToken({ userId: 'u1', roles: ['customer'] }, { expiresIn: -10 }) },
+      {
+        name: 'firma ajena',
+        token: signTokenWithSecret({ userId: 'u1', roles: ['customer'] }, 'otro-secreto'),
+      },
+      {
+        name: 'expirado',
+        token: signToken({ userId: 'u1', roles: ['customer'] }, { expiresIn: -10 }),
+      },
     ]
 
     it.each(cases)('$name → UNAUTHENTICATED', async ({ token }) => {
@@ -168,12 +193,37 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
 
   describe('roles válidos', () => {
     const cases: Array<{ name: string; query: string; role: string; path: string }> = [
-      { name: 'ingredients', query: 'query { ingredients { id } }', role: 'super_admin', path: '/v1/catalog/ingredients' },
+      {
+        name: 'ingredients',
+        query: 'query { ingredients { id } }',
+        role: 'super_admin',
+        path: '/v1/catalog/ingredients',
+      },
       { name: 'myCart', query: 'query { myCart { id } }', role: 'customer', path: '/v1/carts' },
-      { name: 'riderProfile', query: 'query { riderProfile { id } }', role: 'rider', path: '/v1/riders/me' },
-      { name: 'branchStock', query: 'query { branchStock { ingredientId } }', role: 'branch_admin', path: '/v1/stock' },
-      { name: 'parameters', query: 'query { parameters { key } }', role: 'super_admin', path: '/v1/config/parameters' },
-      { name: 'myOrders', query: 'query { myOrders { id } }', role: 'customer', path: '/v1/orders' },
+      {
+        name: 'riderProfile',
+        query: 'query { riderProfile { id } }',
+        role: 'rider',
+        path: '/v1/riders/me',
+      },
+      {
+        name: 'branchStock',
+        query: 'query { branchStock { ingredientId } }',
+        role: 'branch_admin',
+        path: '/v1/stock',
+      },
+      {
+        name: 'parameters',
+        query: 'query { parameters { key } }',
+        role: 'super_admin',
+        path: '/v1/config/parameters',
+      },
+      {
+        name: 'myOrders',
+        query: 'query { myOrders { id } }',
+        role: 'customer',
+        path: '/v1/orders',
+      },
       {
         name: 'bestSellingProducts',
         query: 'query { bestSellingProducts { position } }',
@@ -224,7 +274,10 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
     it('propaga el internal token a Delivery al resolver Order.riderLocation', async () => {
       const token = signToken({ userId: 'u1', roles: ['customer'] })
 
-      const res = await post('query { order(id: "o1") { riderLocation { latitude } } }', token).expect(200)
+      const res = await post(
+        'query { order(id: "o1") { riderLocation { latitude } } }',
+        token,
+      ).expect(200)
       const body = res.body as GraphQLBody
 
       expect(body.data?.order).toMatchObject({ riderLocation: { latitude: -34.6 } })

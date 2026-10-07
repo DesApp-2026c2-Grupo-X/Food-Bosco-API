@@ -4,6 +4,10 @@
 
 **Fecha:** 2026-08-26
 
+> **Actualización 2026-10-06.** Documento de planificación (histórico). La implementación real es la
+> fuente de verdad. Ver el estado de implementación en `docs/requerimientos-backend-rest.md` y en
+> `README.md`.
+
 **Fuentes de verdad:**
 
 - `../requerimientos-backend-rest.md` §3, §4, §5, §7, §9, §10, §11.2, §12, §13, §15

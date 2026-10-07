@@ -21,3 +21,5 @@ export class RefreshToken {
 export type RefreshTokenDocument = HydratedDocument<RefreshToken>
 
 export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken)
+
+RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })

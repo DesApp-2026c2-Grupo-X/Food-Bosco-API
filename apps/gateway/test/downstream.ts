@@ -24,7 +24,10 @@ export interface DownstreamMock {
   restore(): void
 }
 
-export const jsonResponse = (status: number, body: unknown): DownstreamResponse => ({ status, body })
+export const jsonResponse = (status: number, body: unknown): DownstreamResponse => ({
+  status,
+  body,
+})
 
 export const okResponse = (body: unknown): DownstreamResponse => jsonResponse(200, body)
 

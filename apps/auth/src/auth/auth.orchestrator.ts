@@ -46,8 +46,7 @@ export class AuthOrchestrator {
   }
 
   async refresh(refreshToken: string): Promise<AuthTokensResponse> {
-    const { userId, refreshToken: newRefreshToken } =
-      await this.refreshTokenService.rotate(refreshToken)
+    const userId = await this.refreshTokenService.consume(refreshToken)
     const user = await this.userService.findById(userId)
 
     if (!user || !user.active) {
@@ -59,6 +58,7 @@ export class AuthOrchestrator {
       role: user.role,
       branchId: user.branchId,
     })
+    const newRefreshToken = await this.refreshTokenService.issue(user.id)
 
     return { accessToken, refreshToken: newRefreshToken }
   }

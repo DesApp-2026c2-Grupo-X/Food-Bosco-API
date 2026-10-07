@@ -35,7 +35,7 @@ const makeOrchestrator = () => {
   }
   const refreshTokenService = {
     issue: jest.fn(),
-    rotate: jest.fn(),
+    consume: jest.fn(),
     revokeAll: jest.fn(),
   }
   const passwordRecoveryService = {
@@ -238,14 +238,16 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
 })
 
 describe('AuthOrchestrator.refresh (RQ-AUTH-07/08)', () => {
-  it('rota un refresh token válido: invalida el anterior y emite un par nuevo', async () => {
+  it('consume un refresh token válido, emite un par nuevo y revoca el anterior', async () => {
     const { orchestrator, userService, refreshTokenService, jwtService } = makeOrchestrator()
-    refreshTokenService.rotate.mockResolvedValue({ userId: 'u1', refreshToken: 'nuevo-refresh' })
+    refreshTokenService.consume.mockResolvedValue('u1')
+    refreshTokenService.issue.mockResolvedValue('nuevo-refresh')
     userService.findById.mockResolvedValue(publicUser)
 
     const result = await orchestrator.refresh('refresh-viejo')
 
-    expect(refreshTokenService.rotate).toHaveBeenCalledWith('refresh-viejo')
+    expect(refreshTokenService.consume).toHaveBeenCalledWith('refresh-viejo')
+    expect(refreshTokenService.issue).toHaveBeenCalledWith('u1')
     expect(jwtService.signAccessToken).toHaveBeenCalledWith({
       id: 'u1',
       role: ROLES.customer,
@@ -257,10 +259,10 @@ describe('AuthOrchestrator.refresh (RQ-AUTH-07/08)', () => {
   it.each([
     { name: 'token inválido' },
     { name: 'token expirado' },
-    { name: 'token reutilizado (ya rotado)' },
+    { name: 'token reutilizado (ya consumido)' },
   ])('rechaza $name con INVALID_REFRESH_TOKEN 401', async () => {
     const { orchestrator, refreshTokenService, jwtService } = makeOrchestrator()
-    refreshTokenService.rotate.mockRejectedValue(invalidRefreshTokenError())
+    refreshTokenService.consume.mockRejectedValue(invalidRefreshTokenError())
 
     await expect(orchestrator.refresh('refresh-crudo')).rejects.toMatchObject({
       code: ERROR_CODES.invalidRefreshToken,
@@ -273,9 +275,9 @@ describe('AuthOrchestrator.refresh (RQ-AUTH-07/08)', () => {
   it.each([
     { name: 'usuario inexistente', user: null },
     { name: 'usuario inactivo', user: makeUser({ active: false }) },
-  ])('rechaza si el $name aunque el token rote', async ({ user }) => {
+  ])('rechaza si el $name sin emitir un refresh huérfano', async ({ user }) => {
     const { orchestrator, userService, refreshTokenService, jwtService } = makeOrchestrator()
-    refreshTokenService.rotate.mockResolvedValue({ userId: 'u1', refreshToken: 'nuevo-refresh' })
+    refreshTokenService.consume.mockResolvedValue('u1')
     userService.findById.mockResolvedValue(user)
 
     await expect(orchestrator.refresh('refresh-viejo')).rejects.toMatchObject({
@@ -284,6 +286,7 @@ describe('AuthOrchestrator.refresh (RQ-AUTH-07/08)', () => {
       status: 401,
     })
     expect(jwtService.signAccessToken).not.toHaveBeenCalled()
+    expect(refreshTokenService.issue).not.toHaveBeenCalled()
   })
 })
 

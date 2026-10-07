@@ -115,12 +115,22 @@ describe('RolesGuard (RQ-SEC)', () => {
     expect(jwtService.verify).not.toHaveBeenCalled()
   })
 
-  it('ignora el atajo interno cuando el token no coincide (cae a autenticación normal)', () => {
+  it('rechaza con 401 un endpoint interno cuando el token no coincide y no hay JWT', () => {
     const guard = makeGuard({ [INTERNAL_KEY]: true })
-    const { context, request } = makeContext({ [HEADERS.internalToken]: 'token-incorrecto' })
+    const { context } = makeContext({ [HEADERS.internalToken]: 'token-incorrecto' })
+
+    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException)
+  })
+
+  it('permite un endpoint interno con JWT válido cuando el token interno no coincide', () => {
+    const guard = makeGuard({ [INTERNAL_KEY]: true })
+    const { context, request } = makeContext({
+      [HEADERS.internalToken]: 'token-incorrecto',
+      [HEADERS.authorization]: `Bearer ${tokenFor('u1', ['super_admin'])}`,
+    })
 
     expect(guard.canActivate(context)).toBe(true)
-    expect(request.user).not.toMatchObject({ internal: true })
+    expect(request.user).toMatchObject({ authenticated: true, userId: 'u1' })
   })
 
   it('rechaza una solicitud interna cuando además se exige rol y no hay token', () => {

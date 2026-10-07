@@ -84,7 +84,12 @@ describe('RestClient.request', () => {
   })
 
   it.each([
-    { name: 'sin query', path: '/v1/me', query: undefined, expected: 'http://localhost:4202/v1/me' },
+    {
+      name: 'sin query',
+      path: '/v1/me',
+      query: undefined,
+      expected: 'http://localhost:4202/v1/me',
+    },
     {
       name: 'con query vacía',
       path: '/v1/me',
@@ -154,7 +159,14 @@ describe('RestClient.request', () => {
 
     fetchMock.mockResolvedValueOnce(jsonResponse(200, {}))
     await client.get('/v1/me', {
-      context: { authorization: '', userId: '', roles: [], branchId: null, requestId: '', internalToken: '' },
+      context: {
+        authorization: '',
+        userId: '',
+        roles: [],
+        branchId: null,
+        requestId: '',
+        internalToken: '',
+      },
     })
 
     const headers = (fetchMock.mock.calls[1][1] as RequestInit).headers as Record<string, string>
@@ -340,9 +352,7 @@ describe('RestClient.postMultipart', () => {
     { name: 'cuerpo sin code', status: 422, body: { message: 'x' } },
     { name: 'cuerpo no parseable', status: 500, body: null, unparsable: true },
   ])('$name → HttpException INTERNAL_SERVER_ERROR', async ({ status, body, unparsable }) => {
-    fetchMock.mockResolvedValue(
-      unparsable ? emptyBodyResponse(status) : jsonResponse(status, body),
-    )
+    fetchMock.mockResolvedValue(unparsable ? emptyBodyResponse(status) : jsonResponse(status, body))
 
     const error = await callAndCatch(client.postMultipart('/v1/catalog/uploads', new FormData()))
 

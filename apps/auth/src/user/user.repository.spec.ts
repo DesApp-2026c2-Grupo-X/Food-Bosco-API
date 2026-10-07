@@ -168,17 +168,18 @@ describe('UserRepository.list (filtros role/active/search + paginación)', () =>
   it.each([
     { name: 'activos', active: true },
     { name: 'inactivos', active: false },
-  ])('agrega el filtro active para usuarios $name (active:false no se descarta)', async ({
-    active,
-  }) => {
-    const { model, repository } = makeRepository()
-    model.find.mockReturnValue(chainable([]))
-    model.countDocuments.mockReturnValue(chainable(0))
+  ])(
+    'agrega el filtro active para usuarios $name (active:false no se descarta)',
+    async ({ active }) => {
+      const { model, repository } = makeRepository()
+      model.find.mockReturnValue(chainable([]))
+      model.countDocuments.mockReturnValue(chainable(0))
 
-    await repository.list({ active, limit: 20, offset: 0 })
+      await repository.list({ active, limit: 20, offset: 0 })
 
-    expect(model.find).toHaveBeenCalledWith({ active })
-  })
+      expect(model.find).toHaveBeenCalledWith({ active })
+    },
+  )
 
   it('construye un $or que busca en firstName, lastName y email', async () => {
     const { model, repository } = makeRepository()

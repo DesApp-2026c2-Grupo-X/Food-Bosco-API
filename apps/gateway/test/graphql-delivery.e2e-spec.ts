@@ -60,12 +60,10 @@ const rawTrip = {
 
 type HandlerMap = Record<string, unknown>
 
-const respondWith =
-  (handlers: HandlerMap) =>
-  (call: { method: string; path: string }) => {
-    const key = `${call.method} ${call.path}`
-    return key in handlers ? okResponse(handlers[key]) : undefined
-  }
+const respondWith = (handlers: HandlerMap) => (call: { method: string; path: string }) => {
+  const key = `${call.method} ${call.path}`
+  return key in handlers ? okResponse(handlers[key]) : undefined
+}
 
 describe('Gateway delivery extendido (e2e) — frontend → GraphQL → REST', () => {
   let app: INestApplication<App>
@@ -165,7 +163,9 @@ describe('Gateway delivery extendido (e2e) — frontend → GraphQL → REST', (
         }),
       )
 
-      const res = await run('query { myTrips(page: { limit: 5, offset: 10 }) { id status } }').expect(200)
+      const res = await run(
+        'query { myTrips(page: { limit: 5, offset: 10 }) { id status } }',
+      ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
         myTrips: [
@@ -212,11 +212,15 @@ describe('Gateway delivery extendido (e2e) — frontend → GraphQL → REST', (
       },
       {
         name: 'updateRiderVehicle',
-        query: 'mutation { updateRiderVehicle(input: { type: "bici", brand: "Vairo" }) { id vehicle { type brand } } }',
+        query:
+          'mutation { updateRiderVehicle(input: { type: "bici", brand: "Vairo" }) { id vehicle { type brand } } }',
         method: 'PATCH',
         path: '/v1/riders/me/vehicle',
         body: { type: 'bici', brand: 'Vairo' },
-        response: { ...rawRider, vehicle: { type: 'bici', brand: 'Vairo', model: null, plate: null } },
+        response: {
+          ...rawRider,
+          vehicle: { type: 'bici', brand: 'Vairo', model: null, plate: null },
+        },
         expected: { updateRiderVehicle: { id: 'r1', vehicle: { type: 'bici', brand: 'Vairo' } } },
       },
       {
@@ -230,7 +234,8 @@ describe('Gateway delivery extendido (e2e) — frontend → GraphQL → REST', (
       },
       {
         name: 'updateRiderLocation',
-        query: 'mutation { updateRiderLocation(lat: -34.6, lng: -58.4) { id currentLocation { latitude longitude } } }',
+        query:
+          'mutation { updateRiderLocation(lat: -34.6, lng: -58.4) { id currentLocation { latitude longitude } } }',
         method: 'PATCH',
         path: '/v1/riders/me/location',
         body: { lat: -34.6, lng: -58.4 },
@@ -255,18 +260,21 @@ describe('Gateway delivery extendido (e2e) — frontend → GraphQL → REST', (
       },
     ]
 
-    it.each(cases)('$name → $method $path', async ({ query, method, path, body, response, expected }) => {
-      downstream.setResponder(respondWith({ [`${method} ${path}`]: response }))
+    it.each(cases)(
+      '$name → $method $path',
+      async ({ query, method, path, body, response, expected }) => {
+        downstream.setResponder(respondWith({ [`${method} ${path}`]: response }))
 
-      const res = await run(query).expect(200)
-      const graphql = res.body as GraphQLBody
+        const res = await run(query).expect(200)
+        const graphql = res.body as GraphQLBody
 
-      expect(graphql.errors).toBeUndefined()
-      expect(graphql.data).toMatchObject(expected)
-      const call = callFor(method, path)
-      if (body !== undefined) {
-        expect(call.body).toEqual(body)
-      }
-    })
+        expect(graphql.errors).toBeUndefined()
+        expect(graphql.data).toMatchObject(expected)
+        const call = callFor(method, path)
+        if (body !== undefined) {
+          expect(call.body).toEqual(body)
+        }
+      },
+    )
   })
 })

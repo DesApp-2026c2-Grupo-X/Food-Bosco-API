@@ -292,10 +292,7 @@ describe('BranchService.findAvailable (RQ-BRN-04/05/06/08)', () => {
       branchAt('mid', 0.3),
       branchAt('near', 0.1),
     ]
-    const { service } = makeService(
-      { findActive: jest.fn().mockResolvedValue(branches) },
-      100,
-    )
+    const { service } = makeService({ findActive: jest.fn().mockResolvedValue(branches) }, 100)
 
     const result = await service.findAvailable(origin.latitude, origin.longitude)
 
@@ -344,16 +341,24 @@ describe('BranchService.findInZone (sucursales en zona, incluye cerradas)', () =
       }),
       branchAt('mid', 0.3),
       branchAt('near', 0.1),
-      buildDoc({ _id: { toString: () => 'inactive' }, latitude: 0.02, longitude: 0, active: false }),
+      buildDoc({
+        _id: { toString: () => 'inactive' },
+        latitude: 0.02,
+        longitude: 0,
+        active: false,
+      }),
     ]
-    const { service } = makeService(
-      { findAll: jest.fn().mockResolvedValue(docs) },
-      100,
-    )
+    const { service } = makeService({ findAll: jest.fn().mockResolvedValue(docs) }, 100)
 
     const result = await service.findInZone(origin.latitude, origin.longitude)
 
-    expect(result.map((branch) => branch.id)).toEqual(['near', 'mid', 'far', 'inactive', 'closed-near'])
+    expect(result.map((branch) => branch.id)).toEqual([
+      'near',
+      'mid',
+      'far',
+      'inactive',
+      'closed-near',
+    ])
   })
 })
 

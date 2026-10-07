@@ -5,7 +5,10 @@ describe('PageInput', () => {
     [{}, { limit: undefined, offset: undefined }],
     [{ limit: 10 }, { limit: 10, offset: undefined }],
     [{ offset: 5 }, { limit: undefined, offset: 5 }],
-    [{ limit: 0, offset: 0 }, { limit: 0, offset: 0 }],
+    [
+      { limit: 0, offset: 0 },
+      { limit: 0, offset: 0 },
+    ],
   ])('sin página se conservan los valores provistos: %p', (input, expected) => {
     const page = Object.assign(new PageInput(), input)
 

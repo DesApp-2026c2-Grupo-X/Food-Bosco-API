@@ -67,7 +67,10 @@ describe('isBranchOpenNow — horarios inválidos (RQ-BRN-03)', () => {
     { name: 'cierre con formato no numérico', hour: { closing: 'noche' } },
     { name: 'apertura vacía', hour: { opening: '' } },
     { name: 'cierre vacío', hour: { closing: '' } },
-    { name: 'apertura igual al cierre (rango vacío)', hour: { opening: '08:00', closing: '08:00' } },
+    {
+      name: 'apertura igual al cierre (rango vacío)',
+      hour: { opening: '08:00', closing: '08:00' },
+    },
   ])('$name → false', ({ hour: overrides }) => {
     expect(isBranchOpenNow([hour(overrides)], mondayAt('12:00'))).toBe(false)
   })

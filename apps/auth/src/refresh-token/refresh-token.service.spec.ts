@@ -37,16 +37,11 @@ const makeInMemoryRepository = () => {
       store.push(doc)
       return doc as never
     }),
-    findByTokenHash: jest.fn(
-      async (tokenHash: string) =>
-        (store.find((doc) => doc.tokenHash === tokenHash) as never) ?? null,
-    ),
-    markRevokedByHash: jest.fn(async (tokenHash: string) => {
-      store
-        .filter((doc) => doc.tokenHash === tokenHash)
-        .forEach((doc) => {
-          doc.revoked = true
-        })
+    revokeIfActive: jest.fn(async (tokenHash: string) => {
+      const doc = store.find((stored) => stored.tokenHash === tokenHash && !stored.revoked)
+      if (!doc) return null as never
+      doc.revoked = true
+      return { ...doc } as never
     }),
     revokeAllForUser: jest.fn(async (userId: string) => {
       store
@@ -111,85 +106,82 @@ describe('RefreshTokenService.issue (RQ-AUTH-05, RQ-SEC-08)', () => {
   })
 })
 
-describe('RefreshTokenService.rotate (RQ-AUTH-07/08)', () => {
+describe('RefreshTokenService.consume (RQ-AUTH-07/08)', () => {
   const makeService = (doc: ReturnType<typeof buildDoc> | null) => {
     const repository = {
-      findByTokenHash: jest.fn().mockResolvedValue(doc),
-      markRevokedByHash: jest.fn().mockResolvedValue(undefined),
+      revokeIfActive: jest.fn().mockResolvedValue(doc),
       create: jest.fn().mockResolvedValue(buildDoc()),
     }
     const service = new RefreshTokenService(repository as unknown as RefreshTokenRepository)
     return { repository, service }
   }
 
-  it('rota un token válido: revoca el anterior y emite uno nuevo', async () => {
+  it('consume un token válido: lo revoca atómicamente y devuelve el userId', async () => {
     const { repository, service } = makeService(buildDoc())
 
-    const result = await service.rotate('raw-token')
+    const userId = await service.consume('raw-token')
 
-    expect(result.userId).toBe('u1')
-    expect(repository.markRevokedByHash).toHaveBeenCalledWith(sha256('raw-token'))
-    expect(repository.create).toHaveBeenCalledTimes(1)
-    expect(result.refreshToken).toBeTruthy()
+    expect(userId).toBe('u1')
+    expect(repository.revokeIfActive).toHaveBeenCalledWith(sha256('raw-token'))
+    expect(repository.create).not.toHaveBeenCalled()
   })
 
   it('busca por hash, nunca por el token crudo', async () => {
     const { repository, service } = makeService(buildDoc())
 
-    await service.rotate('raw-token')
+    await service.consume('raw-token')
 
-    expect(repository.findByTokenHash).toHaveBeenCalledWith(sha256('raw-token'))
-    expect(repository.findByTokenHash).not.toHaveBeenCalledWith('raw-token')
+    expect(repository.revokeIfActive).toHaveBeenCalledWith(sha256('raw-token'))
+    expect(repository.revokeIfActive).not.toHaveBeenCalledWith('raw-token')
   })
 
   it.each([
     { name: 'token inexistente', doc: null },
-    { name: 'token revocado', doc: buildDoc({ revoked: true }) },
+    { name: 'token revocado o ya consumido', doc: null },
     { name: 'token expirado', doc: buildDoc({ expiresAt: new Date(Date.now() - 1_000) }) },
   ])('rechaza $name', async ({ doc }) => {
     const { service } = makeService(doc)
 
-    await expectInvalidRefreshToken(service.rotate('raw-token'))
+    await expectInvalidRefreshToken(service.consume('raw-token'))
   })
 
-  it('un token ya rotado no puede reutilizarse (single-use con repositorio real)', async () => {
+  it('un token ya consumido no puede reutilizarse (single-use con repositorio real)', async () => {
     const { repository } = makeInMemoryRepository()
     const service = new RefreshTokenService(repository as unknown as RefreshTokenRepository)
     const raw = await service.issue('u1')
 
-    const rotated = await service.rotate(raw)
+    const userId = await service.consume(raw)
 
-    expect(rotated.userId).toBe('u1')
-    await expectInvalidRefreshToken(service.rotate(raw))
+    expect(userId).toBe('u1')
+    await expectInvalidRefreshToken(service.consume(raw))
   })
 
-  it('el token nuevo emitido durante la rotación sí puede rotarse', async () => {
+  it('el token emitido después de consumir sí puede consumirse', async () => {
     const { repository } = makeInMemoryRepository()
     const service = new RefreshTokenService(repository as unknown as RefreshTokenRepository)
     const raw = await service.issue('u1')
 
-    const first = await service.rotate(raw)
-    const second = await service.rotate(first.refreshToken)
+    const userId = await service.consume(raw)
+    const next = await service.issue(userId)
 
-    expect(second.userId).toBe('u1')
-    expect(second.refreshToken).not.toBe(first.refreshToken)
+    await expect(service.consume(next)).resolves.toBe('u1')
   })
 
-  it('un token revocado en lote no puede rotarse', async () => {
+  it('un token revocado en lote no puede consumirse', async () => {
     const { repository } = makeInMemoryRepository()
     const service = new RefreshTokenService(repository as unknown as RefreshTokenRepository)
     const raw = await service.issue('u1')
 
     await service.revokeAll('u1')
 
-    await expectInvalidRefreshToken(service.rotate(raw))
+    await expectInvalidRefreshToken(service.consume(raw))
   })
 
-  it('propaga DomainException y no emite token nuevo cuando la rotación falla', async () => {
+  it('propaga DomainException y no emite token nuevo cuando el consumo falla', async () => {
     const { repository } = makeInMemoryRepository()
     const service = new RefreshTokenService(repository as unknown as RefreshTokenRepository)
 
-    await expectInvalidRefreshToken(service.rotate('token-inexistente'))
+    await expectInvalidRefreshToken(service.consume('token-inexistente'))
 
     expect(repository.create).not.toHaveBeenCalled()
   })

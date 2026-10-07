@@ -68,7 +68,11 @@ describe('HttpExceptionFilter — DomainException (RQ-REST-07, NFR-05)', () => {
     },
     {
       name: 'token inválido',
-      error: new DomainException(ERROR_CODES.invalidOrExpiredToken, 'Token inválido o expirado', 400),
+      error: new DomainException(
+        ERROR_CODES.invalidOrExpiredToken,
+        'Token inválido o expirado',
+        400,
+      ),
       status: 400,
       code: ERROR_CODES.invalidOrExpiredToken,
       message: 'Token inválido o expirado',

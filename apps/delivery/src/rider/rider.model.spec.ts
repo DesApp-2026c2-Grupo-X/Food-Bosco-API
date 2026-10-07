@@ -94,7 +94,11 @@ describe('isRiderStale (RQ-DLV-03)', () => {
 
   const cases: Array<{ name: string; lastSeenAt: string | null; expected: boolean }> = [
     { name: 'sin reporte de presencia', lastSeenAt: null, expected: true },
-    { name: 'justo en el umbral (no vencido)', lastSeenAt: '2025-12-31T23:59:59.000Z', expected: false },
+    {
+      name: 'justo en el umbral (no vencido)',
+      lastSeenAt: '2025-12-31T23:59:59.000Z',
+      expected: false,
+    },
     { name: '1 ms por debajo del umbral', lastSeenAt: '2025-12-31T23:59:59.001Z', expected: false },
     { name: '1 ms por encima del umbral', lastSeenAt: '2025-12-31T23:59:58.999Z', expected: true },
     { name: 'reporte futuro', lastSeenAt: '2026-01-01T00:00:01.000Z', expected: false },

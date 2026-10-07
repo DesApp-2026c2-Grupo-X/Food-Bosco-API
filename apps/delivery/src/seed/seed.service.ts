@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { envString, loadSeedData } from '@repo/seed-utils'
 
+import { VEHICLE_TYPE } from '../config/constants'
 import { RiderService } from '../rider/rider.service'
 import type { Vehicle } from '../rider/rider.model'
 import { ShiftService } from '../shift/shift.service'
@@ -34,17 +35,23 @@ interface AuthUserRow {
   firstName?: string
   lastName?: string
   phone?: string
-  vehicle?: Vehicle | null
+  vehicle?: string | null
 }
 
 const DATA_DIR = join(__dirname, 'data')
+
+const toVehicle = (vehicle: string | null | undefined): Vehicle | null => {
+  if (!vehicle) return null
+  const type = /bici/i.test(vehicle) ? VEHICLE_TYPE.bici : VEHICLE_TYPE.moto
+  return { type, model: vehicle }
+}
 
 export interface SeedRiderInput {
   userId: string
   firstName: string
   lastName: string
   phone: string
-  vehicle?: Vehicle | null
+  vehicle?: string | null
 }
 
 export interface SeedResult {
@@ -63,7 +70,7 @@ export class SeedService {
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
     @InjectConnection() private readonly connection: Connection,
-  ) { }
+  ) {}
 
   async seed(): Promise<SeedResult> {
     const zones = await this.seedZones()
@@ -136,13 +143,10 @@ export class SeedService {
       firstName: input.firstName,
       lastName: input.lastName,
       phone: input.phone,
-      vehicle: input.vehicle ?? null,
+      vehicle: toVehicle(input.vehicle),
     })
 
-    Logger.log(
-      `rider creado: ${input.firstName} ${input.lastName}`,
-      'Seed',
-    )
+    Logger.log(`rider creado: ${input.firstName} ${input.lastName}`, 'Seed')
 
     return {
       summary: {
@@ -161,10 +165,7 @@ export class SeedService {
     id: string
     userId: string
   } | null> {
-    const email = envString(
-      'SEED_RIDER_EMAIL',
-      this.loadData().rider.email,
-    )
+    const email = envString('SEED_RIDER_EMAIL', this.loadData().rider.email)
 
     const collection = this.connection.db?.collection('users')
 
@@ -173,10 +174,7 @@ export class SeedService {
     })) as AuthUserRow | null | undefined
 
     if (!user?._id) {
-      Logger.warn(
-        `usuario rider no encontrado en auth (${email}); perfil omitido`,
-        'Seed',
-      )
+      Logger.warn(`usuario rider no encontrado en auth (${email}); perfil omitido`, 'Seed')
       return null
     }
 

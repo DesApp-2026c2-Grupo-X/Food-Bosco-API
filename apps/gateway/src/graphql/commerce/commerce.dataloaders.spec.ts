@@ -7,8 +7,7 @@ const makeReq = (): Request => ({}) as unknown as Request
 
 const makeRest = () => ({ get: jest.fn() })
 
-const asClient = (mock: ReturnType<typeof makeRest>): RestClient =>
-  mock as unknown as RestClient
+const asClient = (mock: ReturnType<typeof makeRest>): RestClient => mock as unknown as RestClient
 
 describe('getCommerceLoaders', () => {
   it('cachea los loaders en el request para reutilizarlos', () => {
@@ -86,11 +85,7 @@ describe('getCommerceLoaders', () => {
     it('agrupa varias cargas del mismo tick en una sola tanda', async () => {
       const { commerce, loader } = build()
 
-      const results = await Promise.all([
-        loader.load('c1'),
-        loader.load('c2'),
-        loader.load('c3'),
-      ])
+      const results = await Promise.all([loader.load('c1'), loader.load('c2'), loader.load('c3')])
 
       expect(commerce.get).toHaveBeenCalledTimes(3)
       expect(commerce.get).toHaveBeenNthCalledWith(1, '/v1/catalog/categories/c1')
@@ -102,11 +97,7 @@ describe('getCommerceLoaders', () => {
     it('preserva el orden de las keys', async () => {
       const { loader } = build()
 
-      const results = await Promise.all([
-        loader.load('c3'),
-        loader.load('c1'),
-        loader.load('c2'),
-      ])
+      const results = await Promise.all([loader.load('c3'), loader.load('c1'), loader.load('c2')])
 
       expect(results.map((entry) => entry?.id)).toEqual(['c3', 'c1', 'c2'])
     })

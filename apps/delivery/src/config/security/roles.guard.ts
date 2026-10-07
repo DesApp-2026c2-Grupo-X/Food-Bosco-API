@@ -63,7 +63,7 @@ export class RolesGuard implements CanActivate {
     request.user = auth
 
     const rolesNeeded = requiredRoles ?? []
-    const needsAuth = requiresAuth || rolesNeeded.length > 0
+    const needsAuth = requiresAuth || rolesNeeded.length > 0 || Boolean(allowInternal)
 
     if (needsAuth && !auth.authenticated) {
       throw new UnauthorizedException()

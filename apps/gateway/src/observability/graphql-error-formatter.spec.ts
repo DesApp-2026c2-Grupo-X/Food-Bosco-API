@@ -67,10 +67,7 @@ describe('formatGraphQLError', () => {
   })
 
   it('sin code válido en ninguno de los dos → INTERNAL_SERVER_ERROR', () => {
-    const result = formatGraphQLError(
-      { message: 'x', extensions: { code: 1 } },
-      new Error('x'),
-    )
+    const result = formatGraphQLError({ message: 'x', extensions: { code: 1 } }, new Error('x'))
 
     expect(result.extensions?.code).toBe(ERROR_CODES.internal)
   })

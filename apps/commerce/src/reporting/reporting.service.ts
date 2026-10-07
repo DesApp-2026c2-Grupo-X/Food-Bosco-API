@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PublicCategory, serializeCategory } from '../category/category.model'
-import { ORDER_STATUS, ORDER_STATUS_VALUES } from '../config/constants'
+import { ERROR_CODES, ORDER_STATUS, ORDER_STATUS_VALUES } from '../config/constants'
 import type { OrderStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { PublicProduct, serializeProduct } from '../product/product.model'
@@ -222,7 +222,7 @@ export class ReportingService {
       : new Date(to.getTime() - DEFAULT_RANGE_DAYS * DAY_MS)
 
     if (from.getTime() > to.getTime()) {
-      throw new DomainException('VALIDATION_ERROR', 'Rango de fechas inválido', 400)
+      throw new DomainException(ERROR_CODES.validationError, 'Rango de fechas inválido', 400)
     }
 
     return { from, to }

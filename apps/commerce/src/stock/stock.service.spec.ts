@@ -117,24 +117,27 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
     },
   ]
 
-  it.each(cases)('$name → $expected', async ({ requirements, stock, expected, missingIngredientId }) => {
-    const { repository, service } = makeService({ list: jest.fn().mockResolvedValue(stock) })
+  it.each(cases)(
+    '$name → $expected',
+    async ({ requirements, stock, expected, missingIngredientId }) => {
+      const { repository, service } = makeService({ list: jest.fn().mockResolvedValue(stock) })
 
-    if (expected === 'ok') {
-      await expect(service.validateAvailability('b1', requirements)).resolves.toBeUndefined()
+      if (expected === 'ok') {
+        await expect(service.validateAvailability('b1', requirements)).resolves.toBeUndefined()
+        expect(repository.setQuantity).not.toHaveBeenCalled()
+        expect(repository.createMovement).not.toHaveBeenCalled()
+        return
+      }
+
+      const error = await catchDomainError(service.validateAvailability('b1', requirements))
+
+      expect(error.code).toBe(ERROR_CODES.insufficientStock)
+      expect(error.message).toBe(`Stock insuficiente para el ingrediente ${missingIngredientId}`)
+      expect(error.getStatus()).toBe(409)
       expect(repository.setQuantity).not.toHaveBeenCalled()
       expect(repository.createMovement).not.toHaveBeenCalled()
-      return
-    }
-
-    const error = await catchDomainError(service.validateAvailability('b1', requirements))
-
-    expect(error.code).toBe(ERROR_CODES.insufficientStock)
-    expect(error.message).toBe(`Stock insuficiente para el ingrediente ${missingIngredientId}`)
-    expect(error.getStatus()).toBe(409)
-    expect(repository.setQuantity).not.toHaveBeenCalled()
-    expect(repository.createMovement).not.toHaveBeenCalled()
-  })
+    },
+  )
 })
 
 describe('StockService.discount (RQ-STK-07/08)', () => {

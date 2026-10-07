@@ -55,7 +55,7 @@ describe('SeedService (delivery)', () => {
       firstName: 'Marcos',
       lastName: 'Peralta',
       phone: '3333333333',
-      vehicle: 'Moto Honda CG Titan',
+      vehicle: { type: 'moto', model: 'Moto Honda CG Titan' },
     })
   })
 
@@ -118,6 +118,41 @@ describe('SeedService (delivery)', () => {
 
     expect(riderService.create).not.toHaveBeenCalled()
     expect(result.rider).toEqual({ id: 'r1', userId: 'u1' })
+  })
+
+  it.each([
+    {
+      name: 'moto',
+      vehicle: 'Moto Honda CG Titan',
+      expected: { type: 'moto', model: 'Moto Honda CG Titan' },
+    },
+    {
+      name: 'bicicleta',
+      vehicle: 'Bici rodado 29',
+      expected: { type: 'bici', model: 'Bici rodado 29' },
+    },
+    { name: 'sin vehículo', vehicle: null, expected: null },
+  ])('normaliza el vehículo ($name) al crear el perfil', async ({ vehicle, expected }) => {
+    const riderService = {
+      findByUserId: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'r1', userId: 'u1' }),
+    }
+    const service = new SeedService(
+      riderService as unknown as RiderService,
+      { findByName: jest.fn(), create: jest.fn() } as unknown as ZoneService,
+      { findByName: jest.fn(), create: jest.fn() } as unknown as ShiftService,
+      buildConnection(),
+    )
+
+    await service.seedRiderProfile({
+      userId: 'u1',
+      firstName: 'A',
+      lastName: 'B',
+      phone: '1',
+      vehicle,
+    })
+
+    expect(riderService.create).toHaveBeenCalledWith(expect.objectContaining({ vehicle: expected }))
   })
 
   it('seedZones/seedShifts omiten los que ya existen', async () => {

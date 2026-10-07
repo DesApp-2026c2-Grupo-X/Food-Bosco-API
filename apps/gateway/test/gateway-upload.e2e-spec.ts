@@ -12,7 +12,8 @@ import {
   signToken,
 } from './downstream'
 
-const CLOUDINARY_URL = 'https://res.cloudinary.com/demo/image/upload/v1/fastfood/products/burger.png'
+const CLOUDINARY_URL =
+  'https://res.cloudinary.com/demo/image/upload/v1/fastfood/products/burger.png'
 
 describe('Gateway uploads extendido (e2e) — multipart → Commerce REST', () => {
   let app: INestApplication<App>
@@ -79,15 +80,18 @@ describe('Gateway uploads extendido (e2e) — multipart → Commerce REST', () =
     { status: 409, code: 'DUPLICATE_IMAGE', message: 'Imagen duplicada' },
   ]
 
-  it.each(statusCases)('propaga error downstream $status → $code', async ({ status, code, message }) => {
-    downstream.setResponder(() => errorResponse(status, code, message, '/v1/catalog/uploads'))
+  it.each(statusCases)(
+    'propaga error downstream $status → $code',
+    async ({ status, code, message }) => {
+      downstream.setResponder(() => errorResponse(status, code, message, '/v1/catalog/uploads'))
 
-    const res = await upload(admin()).expect(status)
+      const res = await upload(admin()).expect(status)
 
-    expect(res.body).toEqual({ code, message, path: '/v1/uploads' })
-    // KNOWN BUG (RQ-GW-07): UploadExceptionFilter sobreescribe el `path` con la URL del
-    // gateway; el `path` del servicio (`/v1/catalog/uploads`) no se propaga.
-  })
+      expect(res.body).toEqual({ code, message, path: '/v1/uploads' })
+      // KNOWN BUG (RQ-GW-07): UploadExceptionFilter sobreescribe el `path` con la URL del
+      // gateway; el `path` del servicio (`/v1/catalog/uploads`) no se propaga.
+    },
+  )
 
   it('500 sin code → INTERNAL_SERVER_ERROR con mensaje de servicio', async () => {
     downstream.setResponder(() => jsonResponse(500, { message: 'sin code' }))

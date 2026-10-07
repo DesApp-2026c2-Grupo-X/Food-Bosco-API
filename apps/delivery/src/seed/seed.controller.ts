@@ -1,36 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common'
 
-import { Type } from 'class-transformer'
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  ValidateNested,
-} from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator'
 
-import { VEHICLE_TYPE_VALUES } from '../config/constants'
-import type { VehicleType } from '../config/constants'
 import { Internal } from '../config/security/internal.decorator'
 
 import { SeedService, type SeedResult } from './seed.service'
-
-class SeedVehicle {
-  @IsEnum(VEHICLE_TYPE_VALUES)
-  type!: VehicleType
-
-  @IsOptional()
-  @IsString()
-  brand?: string
-
-  @IsOptional()
-  @IsString()
-  model?: string
-
-  @IsOptional()
-  @IsString()
-  plate?: string
-}
 
 class SeedBody {
   @IsString()
@@ -50,14 +24,13 @@ class SeedBody {
   phone!: string
 
   @IsOptional()
-  @ValidateNested()
-  @Type(() => SeedVehicle)
-  vehicle?: SeedVehicle | null
+  @IsString()
+  vehicle?: string | null
 }
 
 @Controller('v1/seed')
 export class SeedController {
-  constructor(private readonly seedService: SeedService) { }
+  constructor(private readonly seedService: SeedService) {}
 
   @Post()
   @Internal()
