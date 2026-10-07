@@ -5,6 +5,11 @@
 
 **Fecha:** 2026-08-18
 
+> **Actualización 2026-10-06.** Documento de planificación (histórico). La implementación real es la
+> fuente de verdad. Ver el estado de implementación en `docs/requerimientos-backend-rest.md` y en
+> `README.md`. La sección **§1.8** ya fue corregida para reflejar el seed actual (datos en
+> `src/seed/data/auth.json`; por entorno solo las contraseñas).
+
 **Fuentes de verdad:**
 
 - `../requerimientos-backend-rest.md` §3, §4, §6, §10, §11.1, §12, §13, §15
@@ -80,23 +85,23 @@ Se cubren los requerimientos `RQ-AUTH-01` a `RQ-AUTH-22`, más los transversales
 
 ## 1.3 Variables de entorno (las carga el usuario)
 
-| Variable                       | Default (dev)                        | Uso                                                           |
-| ------------------------------ | ------------------------------------ | ------------------------------------------------------------- |
-| `PORT`                         | `4201`                               | Puerto HTTP.                                                  |
-| `MONGODB_URI`                  | `mongodb://localhost:27017/fastfood` | Cadena de conexión a MongoDB (la provee el usuario).          |
-| `JWT_SECRET`                   | `dev-secret-change-me`               | Secreto compartido con el gateway.                            |
-| `JWT_ACCESS_EXPIRES_IN`        | `15m`                                | Vida del access token.                                        |
-| `JWT_REFRESH_EXPIRES_IN`       | `7d`                                 | Vida del refresh token.                                       |
-| `PASSWORD_RECOVERY_EXPIRES_IN` | `1h`                                 | Vida del token de recuperación.                               |
-| `PASSWORD_RECOVERY_MIN_INTERVAL` | `60s`                              | Intervalo mínimo entre solicitudes de recuperación del mismo usuario. |
-| `EMAIL_PROVIDER`               | `log`                                | Proveedor de correo: `log` (no envía) o `resend`.             |
-| `EMAIL_FROM`                   | `Food Bosco <no-reply@foodbosco.local>` | Remitente de los correos.                                  |
-| `RESEND_API_KEY`               | (vacío)                              | API key de Resend (obligatoria si `EMAIL_PROVIDER=resend`).   |
-| `FRONTEND_URL`                 | `http://localhost:3000`              | URL base del frontend para el enlace de recuperación.         |
-| `PASSWORD_RESET_PATH`          | `/reset-password`                    | Ruta del formulario de nueva contraseña.                      |
-| `COMMERCE_SERVICE_URL`         | `http://localhost:4202`              | Validación de sucursal (`RQ-AUTH-13`).                        |
-| `INTERNAL_API_TOKEN`           | `dev-internal-token`                 | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`. |
-| `SEED_SUPER_ADMIN_*`           | (ver §1.8)                           | Credenciales del `super_admin` inicial por seed.              |
+| Variable                         | Default (dev)                           | Uso                                                                   |
+| -------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| `PORT`                           | `4201`                                  | Puerto HTTP.                                                          |
+| `MONGODB_URI`                    | `mongodb://localhost:27017/fastfood`    | Cadena de conexión a MongoDB (la provee el usuario).                  |
+| `JWT_SECRET`                     | `dev-secret-change-me`                  | Secreto compartido con el gateway.                                    |
+| `JWT_ACCESS_EXPIRES_IN`          | `15m`                                   | Vida del access token.                                                |
+| `JWT_REFRESH_EXPIRES_IN`         | `7d`                                    | Vida del refresh token.                                               |
+| `PASSWORD_RECOVERY_EXPIRES_IN`   | `1h`                                    | Vida del token de recuperación.                                       |
+| `PASSWORD_RECOVERY_MIN_INTERVAL` | `60s`                                   | Intervalo mínimo entre solicitudes de recuperación del mismo usuario. |
+| `EMAIL_PROVIDER`                 | `log`                                   | Proveedor de correo: `log` (no envía) o `resend`.                     |
+| `EMAIL_FROM`                     | `Food Bosco <no-reply@foodbosco.local>` | Remitente de los correos.                                             |
+| `RESEND_API_KEY`                 | (vacío)                                 | API key de Resend (obligatoria si `EMAIL_PROVIDER=resend`).           |
+| `FRONTEND_URL`                   | `http://localhost:3000`                 | URL base del frontend para el enlace de recuperación.                 |
+| `PASSWORD_RESET_PATH`            | `/reset-password`                       | Ruta del formulario de nueva contraseña.                              |
+| `COMMERCE_SERVICE_URL`           | `http://localhost:4202`                 | Validación de sucursal (`RQ-AUTH-13`).                                |
+| `INTERNAL_API_TOKEN`             | `dev-internal-token`                    | Token para acceso "interno" (gateway) a `GET /v1/users/{id}`.         |
+| `SEED_SUPER_ADMIN_*`             | (ver §1.8)                              | Credenciales del `super_admin` inicial por seed.                      |
 
 Se documentará en un `../../apps/auth/.env.example` (no se versiona `.env`; ya está en `../../.gitignore`).
 También se actualizará `../../turbo.json` (`globalEnv`) con las variables nuevas que Turborepo
@@ -296,15 +301,21 @@ Notas:
 
 ## 1.8 Seed del `super_admin` inicial (`RQ-AUTH-12`)
 
-Script standalone `npm run seed` (idempotente: upsert por email), que lee:
+> **Actualizado a la implementación real.** Los datos de los usuarios (email, nombre, apellido,
+> teléfono y vehículo) viven en `src/seed/data/auth.json` (con override por `auth.<NODE_ENV>.json`).
+> Por variables de entorno **solo se configuran las contraseñas**.
 
-| Variable                      | Default (dev)           |
-| ----------------------------- | ----------------------- |
-| `SEED_SUPER_ADMIN_EMAIL`      | `admin@foodbosco.local` |
-| `SEED_SUPER_ADMIN_PASSWORD`   | `Admin123!` (solo dev)  |
-| `SEED_SUPER_ADMIN_FIRST_NAME` | `Super`                 |
-| `SEED_SUPER_ADMIN_LAST_NAME`  | `Admin`                 |
-| `SEED_SUPER_ADMIN_PHONE`      | `0000000000`            |
+Script standalone `npm run seed` (idempotente: crea el usuario si no existe por email), que lee:
+
+| Variable                     | Default (dev)               |
+| ---------------------------- | --------------------------- |
+| `SEED_SUPER_ADMIN_PASSWORD`  | `Admin123!` (solo dev)      |
+| `SEED_CUSTOMER_PASSWORD`     | `Cliente123!` (solo dev)    |
+| `SEED_BRANCH_ADMIN_PASSWORD` | `Sucursal123!` (solo dev)   |
+| `SEED_RIDER_PASSWORD`        | `Repartidor123!` (solo dev) |
+
+Los emails `admin@foodbosco.local`, `cliente@foodbosco.local`,
+`sucursal@foodbosco.local` y `repartidor@foodbosco.local` provienen del JSON de seed, no de env.
 
 No se ejecuta en el arranque de la app (mantiene NFR-02 stateless); se corre manualmente o
 por CI. En producción las credenciales vienen de secretos.
@@ -715,7 +726,7 @@ requerimiento o la decisión, y qué falta.
 | #   | Tema                                           | Referencia      | Qué falta                                                                                                                                                                                                                                                             |
 | --- | ---------------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Validación de sucursal al crear `branch_admin` | `RQ-AUTH-13`    | No se valida la sucursal contra Commerce Service vía REST por ahora (decisión del equipo). Cuando se active: extraer la creación de personal a un orchestrator + un cliente HTTP a `GET /v1/branches/{branchId}` (`COMMERCE_SERVICE_URL` ya está en `config/env.ts`). |
-| 2   | Envío de token de recuperación                 | `RQ-AUTH-09/10` | **Resuelto.** Se integró un dominio `email/` desacoplado (proveedor Resend vía `fetch` o `log` para desarrollo) y el `AuthOrchestrator` envía el enlace de recuperación. Ver `docs/auth/password-recovery.md`. |
+| 2   | Envío de token de recuperación                 | `RQ-AUTH-09/10` | **Resuelto.** Se integró un dominio `email/` desacoplado (proveedor Resend vía `fetch` o `log` para desarrollo) y el `AuthOrchestrator` envía el enlace de recuperación. Ver `docs/auth/password-recovery.md`.                                                        |
 | 3   | Acceso "interno" a `GET /v1/users/{id}`        | `RQ-AUTH-17`    | Soportado vía header `X-Internal-Token` (`INTERNAL_API_TOKEN`) además de `super_admin`. El gateway lo usará para resolver `Order.client` cuando exista Commerce.                                                                                                      |
 | 4   | Resolvers de Commerce/Delivery en el gateway   | Parte 4         | Solo se implementó el dominio auth del esquema GraphQL. Catalog/Branch/Cart/Order/Stock/Reporting/Config/Delivery quedan para cuando existan sus servicios.                                                                                                           |
 | 5   | `PageInfo` en GraphQL                          | §2.6            | Se expone `UserPage { data, pageInfo }` para `users`. `myAddresses` queda como lista simple (sin paginación).                                                                                                                                                         |

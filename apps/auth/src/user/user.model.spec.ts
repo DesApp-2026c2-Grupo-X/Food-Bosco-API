@@ -85,7 +85,9 @@ describe('UserSchema (invariantes de persistencia)', () => {
   })
 
   it('expone un índice único real sobre email', () => {
-    const indexes = UserSchema.indexes() as Array<[Record<string, unknown>, Record<string, unknown>?]>
+    const indexes = UserSchema.indexes() as Array<
+      [Record<string, unknown>, Record<string, unknown>?]
+    >
 
     const uniqueEmail = indexes.some(
       ([fields, options]) => fields.email === 1 && options?.unique === true,

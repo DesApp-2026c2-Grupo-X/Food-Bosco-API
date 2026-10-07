@@ -4,6 +4,11 @@
 
 **Fecha:** 2026-08-20
 
+> **Actualización 2026-10-06.** Documento de planificación (histórico). La implementación real es la
+> fuente de verdad. Ver el estado de implementación en `docs/requerimientos-backend-rest.md` y en
+> `README.md`. Recordá que `POST /v1/seed` y los endpoints de `zones`/`shifts` requieren el
+> `x-internal-token`, y que el `vehicle` del rider se normaliza desde el string legado de auth.
+
 **Fuentes de verdad:**
 
 - `../requerimientos-backend-rest.md` §3, §4, §8, §9, §10, §11.3, §12, §13, §15

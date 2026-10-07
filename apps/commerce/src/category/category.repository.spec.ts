@@ -23,7 +23,12 @@ const chainable = <T>(result: T): QueryChain<T> => {
 }
 
 const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): CategoryDocument =>
-  ({ _id: { toString: () => 'cat1' }, name: 'Bebidas', active: true, ...overrides }) as unknown as CategoryDocument
+  ({
+    _id: { toString: () => 'cat1' },
+    name: 'Bebidas',
+    active: true,
+    ...overrides,
+  }) as unknown as CategoryDocument
 
 const makeRepository = () => {
   const model = {

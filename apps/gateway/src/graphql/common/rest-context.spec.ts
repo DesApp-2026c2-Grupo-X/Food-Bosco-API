@@ -35,12 +35,31 @@ describe('toRestContext', () => {
 
   it.each<[Partial<GraphQLContext>, Record<string, unknown>]>([
     [
-      { authenticated: false, userId: null, roles: [], branchId: null, requestId: null, authorization: null },
+      {
+        authenticated: false,
+        userId: null,
+        roles: [],
+        branchId: null,
+        requestId: null,
+        authorization: null,
+      },
       { authorization: null, userId: null, roles: [], branchId: null, requestId: null },
     ],
     [
-      { userId: 'u2', roles: ['rider'], branchId: 'b2', requestId: 'r2', authorization: 'Bearer def' },
-      { authorization: 'Bearer def', userId: 'u2', roles: ['rider'], branchId: 'b2', requestId: 'r2' },
+      {
+        userId: 'u2',
+        roles: ['rider'],
+        branchId: 'b2',
+        requestId: 'r2',
+        authorization: 'Bearer def',
+      },
+      {
+        authorization: 'Bearer def',
+        userId: 'u2',
+        roles: ['rider'],
+        branchId: 'b2',
+        requestId: 'r2',
+      },
     ],
   ])('propaga los valores del contexto %#', (overrides, expected) => {
     expect(toRestContext(buildCtx(overrides))).toEqual(expected)

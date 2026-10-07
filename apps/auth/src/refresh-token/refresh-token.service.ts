@@ -5,11 +5,6 @@ import { env } from '../config/env'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { RefreshTokenRepository } from './refresh-token.repository'
 
-export interface RotatedRefreshToken {
-  userId: string
-  refreshToken: string
-}
-
 @Injectable()
 export class RefreshTokenService {
   constructor(private readonly repository: RefreshTokenRepository) {}
@@ -25,17 +20,15 @@ export class RefreshTokenService {
     return raw
   }
 
-  async rotate(raw: string): Promise<RotatedRefreshToken> {
+  async consume(raw: string): Promise<string> {
     const tokenHash = sha256(raw)
-    const doc = await this.repository.findByTokenHash(tokenHash)
+    const doc = await this.repository.revokeIfActive(tokenHash)
 
-    if (!doc || doc.revoked || doc.expiresAt.getTime() < Date.now()) {
+    if (!doc || doc.expiresAt.getTime() < Date.now()) {
       throw new DomainException(ERROR_CODES.invalidRefreshToken, 'Refresh token inválido', 401)
     }
 
-    await this.repository.markRevokedByHash(tokenHash)
-    const refreshToken = await this.issue(doc.userId)
-    return { userId: doc.userId, refreshToken }
+    return doc.userId
   }
 
   async revokeAll(userId: string): Promise<void> {

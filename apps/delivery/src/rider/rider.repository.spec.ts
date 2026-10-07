@@ -155,27 +155,35 @@ describe('RiderRepository.setAvailability (RQ-DLV-01)', () => {
     withLastSeen: boolean
   }> = [
     { name: 'se pone online', available: true, status: RIDER_STATUS.free, withLastSeen: true },
-    { name: 'se pone offline', available: false, status: RIDER_STATUS.offline, withLastSeen: false },
+    {
+      name: 'se pone offline',
+      available: false,
+      status: RIDER_STATUS.offline,
+      withLastSeen: false,
+    },
     { name: 'vuelve a online', available: true, status: RIDER_STATUS.free, withLastSeen: true },
   ]
 
-  it.each(cases)('$name → $set con estado derivado', async ({ available, status, withLastSeen }) => {
-    const { repository, model } = makeRepository()
-    const doc = { userId: 'u1' }
-    model.findOneAndUpdate.mockReturnValue(execQuery(doc))
+  it.each(cases)(
+    '$name → $set con estado derivado',
+    async ({ available, status, withLastSeen }) => {
+      const { repository, model } = makeRepository()
+      const doc = { userId: 'u1' }
+      model.findOneAndUpdate.mockReturnValue(execQuery(doc))
 
-    const result = await repository.setAvailability('u1', available, status)
+      const result = await repository.setAvailability('u1', available, status)
 
-    const expectedSet = withLastSeen
-      ? { available, status, lastSeenAt: expect.any(Date) }
-      : { available, status }
-    expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { userId: 'u1' },
-      { $set: expectedSet },
-      { new: true },
-    )
-    expect(result).toBe(doc)
-  })
+      const expectedSet = withLastSeen
+        ? { available, status, lastSeenAt: expect.any(Date) }
+        : { available, status }
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 'u1' },
+        { $set: expectedSet },
+        { new: true },
+      )
+      expect(result).toBe(doc)
+    },
+  )
 
   it('offline no registra lastSeenAt', async () => {
     const { repository, model } = makeRepository()

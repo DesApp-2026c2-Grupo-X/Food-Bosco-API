@@ -147,25 +147,24 @@ describe('GatewayThrottlerGuard.getRequestResponse', () => {
 })
 
 describe('GatewayThrottlerGuard.canActivate — límite por ventana', () => {
-  it.each([
-    { limit: 1 },
-    { limit: 2 },
-    { limit: 3 },
-  ])('permite $limit requests y bloquea el siguiente con 429', async ({ limit }) => {
-    const { guard } = makeGuard([{ ttl: 60_000, limit }])
-    await guard.onModuleInit()
-    const authorization = `Bearer token-${limit}`
-    const { context } = makeHttpContext({ headers: { [HEADERS.authorization]: authorization } })
+  it.each([{ limit: 1 }, { limit: 2 }, { limit: 3 }])(
+    'permite $limit requests y bloquea el siguiente con 429',
+    async ({ limit }) => {
+      const { guard } = makeGuard([{ ttl: 60_000, limit }])
+      await guard.onModuleInit()
+      const authorization = `Bearer token-${limit}`
+      const { context } = makeHttpContext({ headers: { [HEADERS.authorization]: authorization } })
 
-    for (let attempt = 0; attempt < limit; attempt += 1) {
-      await expect(guard.canActivate(context)).resolves.toBe(true)
-    }
+      for (let attempt = 0; attempt < limit; attempt += 1) {
+        await expect(guard.canActivate(context)).resolves.toBe(true)
+      }
 
-    const error = await guard.canActivate(context).catch((thrown: unknown) => thrown)
+      const error = await guard.canActivate(context).catch((thrown: unknown) => thrown)
 
-    expect(error).toBeInstanceOf(ThrottlerException)
-    expect((error as ThrottlerException).getStatus()).toBe(429)
-  })
+      expect(error).toBeInstanceOf(ThrottlerException)
+      expect((error as ThrottlerException).getStatus()).toBe(429)
+    },
+  )
 
   it('los tokens distintos tienen cupos independientes', async () => {
     const { guard } = makeGuard([{ ttl: 60_000, limit: 1 }])
@@ -192,7 +191,9 @@ describe('GatewayThrottlerGuard.canActivate — límite por ventana', () => {
   it('expone Retry-After y X-RateLimit-* en la respuesta', async () => {
     const { guard } = makeGuard([{ ttl: 60_000, limit: 1 }])
     await guard.onModuleInit()
-    const { context, response } = makeHttpContext({ headers: { [HEADERS.authorization]: 'Bearer a' } })
+    const { context, response } = makeHttpContext({
+      headers: { [HEADERS.authorization]: 'Bearer a' },
+    })
 
     await guard.canActivate(context)
     await guard.canActivate(context).catch(() => undefined)

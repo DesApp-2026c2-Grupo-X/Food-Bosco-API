@@ -4,9 +4,32 @@
 **Documento:** requerimientos funcionales y no funcionales del backend
 **Arquitectura:** Frontends → GraphQL Gateway → REST (HTTP/JSON) → 3 servicios + MongoDB
 **Fuente de verdad funcional:** `client/docs/requerimientos-funcionales.md`
-**Versión:** 3.2 (canónica)
+**Versión:** 3.3
+**Última revisión contra código:** 2026-10-06
 
-> Este documento es la **fuente de verdad del backend**. La capa de entrada es un **GraphQL Gateway** que expone un único esquema GraphQL a los cinco frontends y resuelve las consultas llamando a los servicios por **REST** (HTTP/JSON). La fundamentación de esta decisión está en `docs/fundamentacion-gateway-graphql-rest.md`.
+> **Estado de implementación (actualizado).** Este documento describe **requerimientos**; la
+> implementación real es la **fuente de verdad**. A fecha de la revisión:
+>
+> - La capa de entrada es un **GraphQL Gateway** (`apps/gateway`, puerto 4000) que resuelve llamando
+>   a los servicios por **REST**. Además del gateway hay **3 servicios**: `auth` (4201), `commerce`
+>   (4202) y `delivery` (4203).
+> - La autenticación **no es una app separada**: vive en `packages/auth` del repositorio de frontend.
+>   Los cinco frontends documentados son, en la práctica, **4 apps** + el paquete de auth:
+>   `apps/store` (5173), `apps/admin` (5174), `apps/branch` (5175) y `apps/rider` (5176), más
+>   `packages/auth`.
+> - El nombre `apps/admin-global` del documento corresponde a `apps/admin`.
+> - Los datos de seed de usuarios viven en `apps/auth/src/seed/data/auth.json`; por entorno solo se
+>   configuran las contraseñas (`SEED_*_PASSWORD`).
+> - **Fuera del alcance actual (documentado, no implementado):** paquete de contratos/OpenAPI +
+>   codegen, idempotencia/DLQ/retry del bus de eventos, DataLoader con batch real (solo deduplica por
+>   request), separación de base por servicio y motor de promociones. Promociones y stock se
+>   administran como **datos generales** (ABM), sin reglas automáticas.
+> - Endpoints implementados no listados en el catálogo original: `POST /v1/auth/register-rider`,
+>   `GET /v1/branches/available/products`, `GET /v1/reporting/overview`, `GET /v1/riders/by-user/:id`,
+>   `PATCH /v1/riders/me/vehicle`, `/v1/zones`, `/v1/shifts`, `POST /seed` (gateway, requiere
+>   `x-internal-token`).
+
+> Este documento es la **fuente de verdad del backend**. La capa de entrada es un **GraphQL Gateway** que expone un único esquema GraphQL a los frontends y resuelve las consultas llamando a los servicios por **REST** (HTTP/JSON). La fundamentación de esta decisión está en `docs/fundamentacion-gateway-graphql-rest.md`.
 
 > El **catálogo de endpoints** de las secciones 6–8 es **exhaustivo**: se derivó recorriendo cada pantalla del frontend (`requerimientos-frontend.md`, §6 Tienda, §8 Admin de sucursal, §10 Admin global, §12 Repartidor). La trazabilidad pantalla → endpoint está en la [sección 15](#15-trazabilidad-frontend--endpoints).
 
@@ -35,9 +58,9 @@
 
 # 1. Objetivo y alcance
 
-El backend da soporte a los cinco frontends (`apps/auth`, `apps/store`, `apps/admin`, `apps/admin-global`, `apps/rider`). Todos consumen un **único endpoint GraphQL** expuesto por el **GraphQL Gateway**.
+El backend da soporte a los frontends (`packages/auth`, `apps/store`, `apps/admin`, `apps/branch`, `apps/rider`). Todos consumen un **único endpoint GraphQL** expuesto por el **GraphQL Gateway**.
 
-Se implementa como un conjunto de **3 servicios** más una capa de entrada:
+Se implementa como **3 servicios** más una capa de entrada:
 
 1. **GraphQL Gateway** — punto de entrada único: esquema GraphQL propio, resolvers que traducen a REST, JWT, RBAC, rate limiting, DataLoader (N+1) y observabilidad. Sin lógica de negocio.
 2. **Auth Service** — identidad, autenticación, sesiones, roles, direcciones y recuperación de contraseña. Expone un API **REST**.

@@ -56,7 +56,11 @@ describe('TripEventsConsumer — trip.accepted', () => {
 
     await handlers.get(TRIP_ACCEPTED_EVENT)?.(event)
 
-    expect(orderService.markAssigned).toHaveBeenCalledWith(event.orderIds, event.tripId, event.riderId)
+    expect(orderService.markAssigned).toHaveBeenCalledWith(
+      event.orderIds,
+      event.tripId,
+      event.riderId,
+    )
   })
 })
 

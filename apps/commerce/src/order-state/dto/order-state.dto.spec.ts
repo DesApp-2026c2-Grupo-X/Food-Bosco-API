@@ -2,21 +2,27 @@ import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
 import { CreateOrderStateDto, SetActiveDto, UpdateOrderStateDto } from './order-state.dto'
 
-const errorProperties = async (
-  instance: object,
-): Promise<string[]> => {
+const errorProperties = async (instance: object): Promise<string[]> => {
   const errors = await validate(instance)
   return errors.map((error) => error.property)
 }
 
 describe('CreateOrderStateDto (RQ-CFG-05/06)', () => {
   const validCases: Array<{ name: string; payload: Record<string, unknown> }> = [
-    { name: 'todos los campos válidos', payload: { code: 'PREPARING', name: 'Preparando', order: 3 } },
-    { name: 'order en el mínimo permitido (límite)', payload: { code: 'PENDING', name: 'Pendiente', order: 0 } },
+    {
+      name: 'todos los campos válidos',
+      payload: { code: 'PREPARING', name: 'Preparando', order: 3 },
+    },
+    {
+      name: 'order en el mínimo permitido (límite)',
+      payload: { code: 'PENDING', name: 'Pendiente', order: 0 },
+    },
   ]
 
   it.each(validCases)('$name → válido', async ({ payload }) => {
-    await expect(errorProperties(plainToInstance(CreateOrderStateDto, payload))).resolves.toEqual([])
+    await expect(errorProperties(plainToInstance(CreateOrderStateDto, payload))).resolves.toEqual(
+      [],
+    )
   })
 
   const invalidCases: Array<{
@@ -45,9 +51,9 @@ describe('CreateOrderStateDto (RQ-CFG-05/06)', () => {
   ]
 
   it.each(invalidCases)('$name → inválido en $property', async ({ payload, property }) => {
-    await expect(
-      errorProperties(plainToInstance(CreateOrderStateDto, payload)),
-    ).resolves.toContain(property)
+    await expect(errorProperties(plainToInstance(CreateOrderStateDto, payload))).resolves.toContain(
+      property,
+    )
   })
 })
 
@@ -60,7 +66,9 @@ describe('UpdateOrderStateDto (RQ-CFG-06)', () => {
   ]
 
   it.each(validCases)('$name → válido', async ({ payload }) => {
-    await expect(errorProperties(plainToInstance(UpdateOrderStateDto, payload))).resolves.toEqual([])
+    await expect(errorProperties(plainToInstance(UpdateOrderStateDto, payload))).resolves.toEqual(
+      [],
+    )
   })
 
   const invalidCases: Array<{
@@ -79,9 +87,9 @@ describe('UpdateOrderStateDto (RQ-CFG-06)', () => {
   ]
 
   it.each(invalidCases)('$name → inválido en $property', async ({ payload, property }) => {
-    await expect(
-      errorProperties(plainToInstance(UpdateOrderStateDto, payload)),
-    ).resolves.toContain(property)
+    await expect(errorProperties(plainToInstance(UpdateOrderStateDto, payload))).resolves.toContain(
+      property,
+    )
   })
 })
 

@@ -65,7 +65,7 @@ export class OrderService {
       return { order: serializeOrder(doc), changed: false }
     }
 
-    const allowed = ORDER_TRANSITIONS[doc.status]
+    const allowed = ORDER_TRANSITIONS[doc.status] ?? []
     if (!allowed.includes(newStatus)) {
       throw new DomainException(
         ERROR_CODES.invalidTransition,

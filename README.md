@@ -2,9 +2,12 @@
 
 Monorepo Turborepo con los servicios backend NestJS:
 
+- `apps/gateway` — puerta de entrada GraphQL (puerto 4000).
 - `apps/auth` — autenticación (puerto 4201).
 - `apps/commerce` — catálogo/pedidos (puerto 4202).
 - `apps/delivery` — entrega/despacho (puerto 4203).
+
+> El comportamiento real y el estado de cada funcionalidad se documentan al inicio de [`docs/requerimientos-backend-rest.md`](docs/requerimientos-backend-rest.md).
 
 ## Requisitos
 
@@ -28,6 +31,7 @@ npm run format:check
 
 ```text
 apps/
+├── gateway/   # puerta de entrada GraphQL (puerto 4000)
 ├── auth/      # autenticación (puerto 4201)
 ├── commerce/  # catálogo/pedidos (puerto 4202)
 └── delivery/  # entrega/despacho (puerto 4203)

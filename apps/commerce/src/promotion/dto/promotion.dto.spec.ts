@@ -57,7 +57,11 @@ describe('CreatePromotionDto (RQ-CAT-13)', () => {
       valid: false,
     },
     { name: 'sin startDate', payload: { name: '2x1', endDate: validRange.endDate }, valid: false },
-    { name: 'sin endDate', payload: { name: '2x1', startDate: validRange.startDate }, valid: false },
+    {
+      name: 'sin endDate',
+      payload: { name: '2x1', startDate: validRange.startDate },
+      valid: false,
+    },
     {
       name: 'startDate no es fecha ISO',
       payload: { name: '2x1', startDate: 'ayer', endDate: validRange.endDate },
@@ -113,7 +117,11 @@ describe('UpdatePromotionDto', () => {
     { name: 'nombre de 101 caracteres', payload: { name: 'a'.repeat(101) }, valid: false },
     { name: 'startDate inválida', payload: { startDate: 'nope' }, valid: false },
     { name: 'endDate inválida', payload: { endDate: 'nope' }, valid: false },
-    { name: 'descripción de 501 caracteres', payload: { description: 'd'.repeat(501) }, valid: false },
+    {
+      name: 'descripción de 501 caracteres',
+      payload: { description: 'd'.repeat(501) },
+      valid: false,
+    },
   ])('$name → $valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdatePromotionDto, payload)
     expect(invalid.length === 0).toBe(valid)

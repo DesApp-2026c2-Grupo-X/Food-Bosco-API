@@ -40,8 +40,14 @@ describe('UpdateParameterDto (RQ-CFG-02)', () => {
 
 describe('CreateParameterDto (RQ-CFG-01/02)', () => {
   const validCases: Array<{ name: string; payload: Record<string, unknown> }> = [
-    { name: 'todos los campos válidos', payload: { key: 'MAX_DISTANCE_KM', value: 10, unit: 'km' } },
-    { name: 'valor en el mínimo permitido (límite)', payload: { key: 'K', value: 0.0001, unit: 'u' } },
+    {
+      name: 'todos los campos válidos',
+      payload: { key: 'MAX_DISTANCE_KM', value: 10, unit: 'km' },
+    },
+    {
+      name: 'valor en el mínimo permitido (límite)',
+      payload: { key: 'K', value: 0.0001, unit: 'u' },
+    },
   ]
 
   it.each(validCases)('$name → válido', async ({ payload }) => {

@@ -22,8 +22,8 @@ const MANAGED_KEYS = [
   'BRANCH_URL',
   'RIDER_URL',
   'PASSWORD_RESET_PATH',
-  'SEED_SUPER_ADMIN_EMAIL',
-  'SEED_CUSTOMER_EMAIL',
+  'SEED_SUPER_ADMIN_PASSWORD',
+  'SEED_CUSTOMER_PASSWORD',
 ] as const
 
 type ManagedKey = (typeof MANAGED_KEYS)[number]
@@ -196,18 +196,18 @@ describe('env — valores por defecto y override', () => {
     expect(pick(env)).toBe(expected)
   })
 
-  it('expone los seeds por defecto del super_admin y del cliente', async () => {
+  it('expone las contraseñas de seed por defecto', async () => {
     const env = await loadEnv()
 
-    expect(env.seed.superAdminEmail).toBe('admin@foodbosco.local')
-    expect(env.seed.customerEmail).toBe('cliente@foodbosco.local')
+    expect(env.seed.superAdminPassword).toBe('Admin123!')
+    expect(env.seed.customerPassword).toBe('Cliente123!')
   })
 
-  it('permite override de un seed sin afectar al resto', async () => {
-    const env = await loadEnv({ SEED_SUPER_ADMIN_EMAIL: 'root@test.local' })
+  it('permite override de una contraseña de seed sin afectar al resto', async () => {
+    const env = await loadEnv({ SEED_SUPER_ADMIN_PASSWORD: 'Root123!' })
 
-    expect(env.seed.superAdminEmail).toBe('root@test.local')
-    expect(env.seed.customerEmail).toBe('cliente@foodbosco.local')
+    expect(env.seed.superAdminPassword).toBe('Root123!')
+    expect(env.seed.customerPassword).toBe('Cliente123!')
   })
 })
 

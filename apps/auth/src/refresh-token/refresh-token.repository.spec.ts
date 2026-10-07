@@ -23,6 +23,7 @@ const makeRepository = () => {
   const model = {
     create: jest.fn(),
     findOne: jest.fn(),
+    findOneAndUpdate: jest.fn(),
     updateOne: jest.fn(),
     updateMany: jest.fn(),
   }
@@ -73,38 +74,32 @@ describe('RefreshTokenRepository.create (RQ-AUTH-05/08, RQ-SEC-08)', () => {
   })
 })
 
-describe('RefreshTokenRepository.findByTokenHash (lookup por hash)', () => {
-  it('consulta por tokenHash y ejecuta la query', async () => {
+describe('RefreshTokenRepository.revokeIfActive (RQ-AUTH-07, RQ-SEC-08)', () => {
+  it('revoca atómicamente solo si sigue vigente y devuelve el documento previo', async () => {
     const { model, repository } = makeRepository()
     const chain = chainable(buildDoc())
-    model.findOne.mockReturnValue(chain)
+    model.findOneAndUpdate.mockReturnValue(chain)
 
-    const result = await repository.findByTokenHash('hash-x')
+    const result = await repository.revokeIfActive('hash-x')
 
-    expect(model.findOne).toHaveBeenCalledWith({ tokenHash: 'hash-x' })
+    expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+      { tokenHash: 'hash-x', revoked: false },
+      { $set: { revoked: true } },
+      { new: false },
+    )
     expect(chain.exec).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({ userId: 'u1' })
   })
 
-  it('devuelve null cuando el hash no existe', async () => {
+  it('devuelve null cuando el token no existe o ya está revocado (filtro revoked:false)', async () => {
     const { model, repository } = makeRepository()
-    model.findOne.mockReturnValue(chainable(null))
+    model.findOneAndUpdate.mockReturnValue(chainable(null))
 
-    await expect(repository.findByTokenHash('missing')).resolves.toBeNull()
-  })
-})
-
-describe('RefreshTokenRepository.markRevokedByHash (RQ-AUTH-08)', () => {
-  it('marca revoked=true filtrando por tokenHash', async () => {
-    const { model, repository } = makeRepository()
-    model.updateOne.mockReturnValue(chainable({ acknowledged: true }))
-
-    await repository.markRevokedByHash('hash-x')
-
-    expect(model.updateOne).toHaveBeenCalledWith(
-      { tokenHash: 'hash-x' },
-      { $set: { revoked: true } },
-    )
+    await expect(repository.revokeIfActive('missing')).resolves.toBeNull()
+    expect(model.findOneAndUpdate.mock.calls[0][0]).toEqual({
+      tokenHash: 'missing',
+      revoked: false,
+    })
   })
 })
 

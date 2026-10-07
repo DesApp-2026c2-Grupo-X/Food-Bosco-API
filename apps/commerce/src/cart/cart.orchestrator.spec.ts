@@ -305,9 +305,10 @@ describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
     )
     mocks.productService.findById.mockResolvedValue(product({ available: false }))
 
-    await expect(
-      mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 }),
-    ).rejects.toMatchObject({ code: ERROR_CODES.productUnavailable, status: 400 })
+    await expect(mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 })).rejects.toMatchObject({
+      code: ERROR_CODES.productUnavailable,
+      status: 400,
+    })
   })
 
   it('rechaza una opción inexistente al actualizar', async () => {
@@ -327,9 +328,10 @@ describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
     primeUpdate(mocks)
     mocks.cartService.replaceItems.mockResolvedValue(null)
 
-    await expect(
-      mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 }),
-    ).rejects.toMatchObject({ code: ERROR_CODES.cartNotFound, status: 404 })
+    await expect(mocks.orchestrator.updateItem('c1', 'i1', { quantity: 3 })).rejects.toMatchObject({
+      code: ERROR_CODES.cartNotFound,
+      status: 404,
+    })
   })
 })
 

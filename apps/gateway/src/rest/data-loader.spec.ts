@@ -1,8 +1,6 @@
 import { DataLoader } from './data-loader'
 
-type Settled<T> =
-  | { status: 'fulfilled'; value: T }
-  | { status: 'rejected'; reason: unknown }
+type Settled<T> = { status: 'fulfilled'; value: T } | { status: 'rejected'; reason: unknown }
 
 const allSettled = <T>(promises: Promise<T>[]): Promise<Settled<T>[]> =>
   Promise.all(
@@ -51,11 +49,7 @@ describe('DataLoader', () => {
 
   it('rechaza solo las keys cuyo resultado es un Error y resuelve el resto', async () => {
     const failure = new Error('404')
-    const loader = new DataLoader<string, string>(async () => [
-      'v:a',
-      failure,
-      'v:c',
-    ])
+    const loader = new DataLoader<string, string>(async () => ['v:a', failure, 'v:c'])
 
     const results = await allSettled([loader.load('a'), loader.load('b'), loader.load('c')])
 

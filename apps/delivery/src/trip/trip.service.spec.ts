@@ -272,7 +272,8 @@ describe('TripService — errores de dominio con código, mensaje y status', () 
     },
     {
       name: 'markActive sobre viaje ya completado',
-      setup: (repository) => repository.findById.mockResolvedValue(buildDoc({ status: 'completed' })),
+      setup: (repository) =>
+        repository.findById.mockResolvedValue(buildDoc({ status: 'completed' })),
       run: (service) => service.markActive('t1'),
       code: ERROR_CODES.invalidTripStatus,
       message: 'Transición de viaje inválida',
@@ -288,7 +289,8 @@ describe('TripService — errores de dominio con código, mensaje y status', () 
     },
     {
       name: 'markCancelled sobre viaje ya completado',
-      setup: (repository) => repository.findById.mockResolvedValue(buildDoc({ status: 'completed' })),
+      setup: (repository) =>
+        repository.findById.mockResolvedValue(buildDoc({ status: 'completed' })),
       run: (service) => service.markCancelled('t1'),
       code: ERROR_CODES.invalidTripStatus,
       message: 'Transición de viaje inválida',

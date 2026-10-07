@@ -129,7 +129,7 @@ describe('AddressRepository.create (RQ-AUTH-20/22)', () => {
 })
 
 describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
-  it('actualiza filtrando por _id y userId con $set y new:true', async () => {
+  it('actualiza filtrando por _id, userId y active:true con $set y new:true', async () => {
     const { model, repository } = makeRepository()
     const chain = chainable(buildDoc({ label: 'Trabajo' }))
     model.findOneAndUpdate.mockReturnValue(chain)
@@ -137,29 +137,25 @@ describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
     await repository.updateOwned('a1', 'u1', { label: 'Trabajo' })
 
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1' },
+      { _id: 'a1', userId: 'u1', active: true },
       { $set: { label: 'Trabajo' } },
       { new: true },
     )
     expect(chain.exec).toHaveBeenCalledTimes(1)
   })
 
-  // KNOWN BUG: `updateOwned` no filtra por `active: true`, a diferencia de
-  // `listByUser` y `findOwnedById`. Se puede modificar una dirección ya desactivada
-  // y la operación devuelve el documento, aunque luego no sea visible en el listado.
-  it('permite actualizar una dirección desactivada porque no filtra por active (KNOWN BUG)', async () => {
+  it('no actualiza una dirección desactivada: filtra active:true y devuelve null', async () => {
     const { model, repository } = makeRepository()
-    const chain = chainable(buildDoc({ active: false, label: 'Trabajo' }))
-    model.findOneAndUpdate.mockReturnValue(chain)
+    model.findOneAndUpdate.mockReturnValue(chainable(null))
 
     const result = await repository.updateOwned('a1', 'u1', { label: 'Trabajo' })
 
+    expect(result).toBeNull()
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1' },
+      { _id: 'a1', userId: 'u1', active: true },
       { $set: { label: 'Trabajo' } },
       { new: true },
     )
-    expect(result?.active).toBe(false)
   })
 
   it('devuelve null si la dirección no pertenece al usuario', async () => {
@@ -171,14 +167,14 @@ describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
 })
 
 describe('AddressRepository.softDeleteOwned (RQ-AUTH-21)', () => {
-  it('desactiva (no borra) filtrando por _id y userId y devuelve true', async () => {
+  it('desactiva (no borra) filtrando por _id, userId y active:true y devuelve true', async () => {
     const { model, repository } = makeRepository()
     model.updateOne.mockReturnValue(chainable({ acknowledged: true, modifiedCount: 1 }))
 
     const result = await repository.softDeleteOwned('a1', 'u1')
 
     expect(model.updateOne).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1' },
+      { _id: 'a1', userId: 'u1', active: true },
       { $set: { active: false } },
     )
     expect(result).toBe(true)

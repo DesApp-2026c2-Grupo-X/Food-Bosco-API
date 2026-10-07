@@ -18,6 +18,7 @@ Las reglas y patrones obligatorios de este proyecto viven en skills. **Toda tare
 ```text
 food-bosco-api/
 ├── apps/
+│   ├── gateway/   # puerta de entrada GraphQL (puerto 4000)
 │   ├── auth/      # autenticación (puerto 4201)
 │   ├── commerce/  # catálogo/pedidos (puerto 4202)
 │   └── delivery/  # entrega/despacho (puerto 4203)
@@ -60,5 +61,5 @@ Flujo dentro de cada dominio: controller → orchestrator (o servicio primario) 
 ## Stack
 
 - NestJS 11, TypeScript, Turborepo.
-- Servicios (apps): `auth` (4201), `commerce` (4202), `delivery` (4203). Cada uno corre en `PORT` (default según app).
+- Servicios (apps): `gateway` (4000, GraphQL), `auth` (4201), `commerce` (4202), `delivery` (4203). Cada servicio REST corre en `PORT` (default según app).
 - Scripts (raíz): `npm run dev`, `npm run build`, `npm run lint`, `npm run typecheck`, `npm run test`.
