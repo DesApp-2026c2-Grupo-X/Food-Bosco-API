@@ -1,4 +1,5 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class CreateIngredientDto {
   @IsString()
@@ -12,6 +13,6 @@ export class CreateIngredientDto {
   unit!: string
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   active?: boolean
 }

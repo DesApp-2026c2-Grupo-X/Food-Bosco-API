@@ -1,7 +1,9 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common'
+import { ROLES } from '../config/constants'
 import { Authenticated } from '../config/security/authenticated.decorator'
 import { CurrentUser } from '../config/security/current-user.decorator'
 import type { AuthContext } from '../config/security/jwt.service'
+import { Roles } from '../config/security/roles.decorator'
 import { LoginDto } from '../user/dto/login.dto'
 import { RegisterDto } from '../user/dto/register.dto'
 import { RegisterRiderDto } from '../user/dto/register-rider.dto'
@@ -25,6 +27,7 @@ export class AuthController {
   }
 
   @Post('register-rider')
+  @Roles(ROLES.superAdmin)
   registerRider(@Body() dto: RegisterRiderDto): Promise<AuthTokensResponse> {
     return this.orchestrator.registerRider(dto)
   }

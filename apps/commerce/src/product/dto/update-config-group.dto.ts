@@ -1,15 +1,8 @@
-import {
-  IsBoolean,
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator'
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator'
 import { CONFIG_GROUP_TYPE_VALUES } from '../../config/constants'
 import type { ConfigGroupType } from '../../config/constants'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
+import { IsCoherentConfigGroup } from './is-coherent-config-group.decorator'
 
 export class UpdateConfigGroupDto {
   @IsOptional()
@@ -23,7 +16,7 @@ export class UpdateConfigGroupDto {
   type?: ConfigGroupType
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   required?: boolean
 
   @IsOptional()
@@ -34,5 +27,6 @@ export class UpdateConfigGroupDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @IsCoherentConfigGroup()
   max?: number
 }

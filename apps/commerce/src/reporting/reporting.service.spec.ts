@@ -506,3 +506,76 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
     expect(previousFilter[0].from.getTime()).toBe(new Date('2025-12-01T23:59:59.999Z').getTime())
   })
 })
+
+describe('ReportingService — limit en los rankings (INT-11)', () => {
+  const products = [productDoc('p1'), productDoc('p2'), productDoc('p3')]
+  const sales = salesMap([
+    ['p1', 5, 500],
+    ['p2', 3, 300],
+    ['p3', 8, 800],
+  ])
+
+  it('best-sellers recorta el ranking y renumera posiciones', async () => {
+    const { service } = makeService({ products, sales })
+
+    const rows = await service.bestSellers({ limit: 2 })
+
+    expect(ids(rows)).toEqual(['p3', 'p1'])
+    expect(positions(rows)).toEqual([1, 2])
+  })
+
+  it('least-sold recorta el ranking y renumera posiciones', async () => {
+    const { service } = makeService({ products, sales })
+
+    const rows = await service.leastSold({ limit: 1 })
+
+    expect(ids(rows)).toEqual(['p2'])
+    expect(positions(rows)).toEqual([1])
+  })
+
+  it('highest-revenue recorta el ranking y renumera posiciones', async () => {
+    const { service } = makeService({ products, sales })
+
+    const rows = await service.highestRevenue({ limit: 1 })
+
+    expect(ids(rows)).toEqual(['p3'])
+    expect(positions(rows)).toEqual([1])
+  })
+
+  it('sin limit devuelve el ranking completo', async () => {
+    const { service } = makeService({ products, sales })
+
+    expect(ids(await service.bestSellers({}))).toEqual(['p3', 'p1', 'p2'])
+  })
+})
+
+describe('ReportingService — categoryId filtra el catálogo base (INT-11)', () => {
+  it('least-sold sólo incluye productos de la categoría pedida', async () => {
+    const { service } = makeService({
+      products: [
+        productDoc('p1', { categoryId: 'cat1' }),
+        productDoc('p2', { categoryId: 'cat2' }),
+        productDoc('p3', { categoryId: 'cat2' }),
+      ],
+      sales: salesMap([['p1', 5, 500]]),
+    })
+
+    const rows = await service.leastSold({ categoryId: 'cat2' })
+
+    expect(ids(rows)).toEqual(['p2', 'p3'])
+    expect(rows.every((row) => row.quantity === 0)).toBe(true)
+  })
+
+  it('propaga la categoría al agregado de ventas', async () => {
+    const { repository, service } = makeService({
+      products: [productDoc('p1', { categoryId: 'cat1' })],
+      sales: salesMap([['p1', 5, 500]]),
+    })
+
+    await service.bestSellers({ categoryId: 'cat1' })
+
+    expect(repository.aggregateSales).toHaveBeenCalledWith(
+      expect.objectContaining({ categoryId: 'cat1' }),
+    )
+  })
+})

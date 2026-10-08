@@ -1,5 +1,6 @@
 import type { Model, Types } from 'mongoose'
 import { CONFIG_GROUP_TYPE } from '../config/constants'
+import { PRODUCT_ALREADY_EXISTS } from './product.model'
 import type { ConfigGroup, ConfigOption, ProductDocument, RecipeItem } from './product.model'
 import { ProductRepository } from './product.repository'
 
@@ -128,6 +129,19 @@ describe('ProductRepository.findById / findByIds / findAll', () => {
     expect(model.find).toHaveBeenCalledWith()
     expect(sort.sort).toHaveBeenCalledWith({ name: 1 })
   })
+
+  it('countActiveUsingIngredient cuenta productos activos que referencian el ingrediente', async () => {
+    const { model, repository } = makeRepository()
+    model.countDocuments.mockReturnValue(chainable(3))
+
+    const result = await repository.countActiveUsingIngredient('ing1')
+
+    expect(result).toBe(3)
+    expect(model.countDocuments).toHaveBeenCalledWith({
+      available: true,
+      'recipe.ingredientId': 'ing1',
+    })
+  })
 })
 
 describe('ProductRepository.create (RQ-CAT-04)', () => {
@@ -174,6 +188,28 @@ describe('ProductRepository.create (RQ-CAT-04)', () => {
 
     expect(result).toBe(doc)
     expect(model.create).toHaveBeenCalledWith({ ...input, ...expected })
+  })
+
+  // Un nombre duplicado (E11000) se traduce a un error de dominio en lugar de filtrar el
+  // error crudo de Mongo.
+  it('traduce el E11000 a un error de dominio PRODUCT_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    model.create.mockRejectedValue(duplicateError)
+
+    await expect(
+      repository.create({ categoryId: 'cat1', name: 'Burger', description: 'Rica', price: 100 }),
+    ).rejects.toMatchObject({ code: PRODUCT_ALREADY_EXISTS, status: 409 })
+  })
+
+  it('propaga cualquier otro error del repositorio sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const failure = new Error('conexión caída')
+    model.create.mockRejectedValue(failure)
+
+    await expect(
+      repository.create({ categoryId: 'cat1', name: 'Burger', description: 'Rica', price: 100 }),
+    ).rejects.toBe(failure)
   })
 })
 
@@ -265,6 +301,29 @@ describe('ProductRepository.update / setAvailable (RQ-CAT-03)', () => {
     await expect(repository.update('missing', { price: 1 })).resolves.toBeNull()
   })
 
+  it('traduce el E11000 al renombrar a un nombre existente → PRODUCT_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    chain.exec.mockRejectedValue(duplicateError)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('p1', { name: 'Existente' })).rejects.toMatchObject({
+      code: PRODUCT_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error de update sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const failure = new Error('conexión caída')
+    chain.exec.mockRejectedValue(failure)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('p1', { name: 'Nuevo' })).rejects.toBe(failure)
+  })
+
   it.each([
     { name: 'activar', available: true },
     { name: 'desactivar', available: false },
@@ -333,6 +392,24 @@ describe('ProductRepository.addConfigGroup (RQ-CAT-06/07)', () => {
         required: true,
       }),
     ).resolves.toBeNull()
+  })
+
+  it('findConfigGroup devuelve el grupo cuando existe', async () => {
+    const { model, repository } = makeRepository()
+    const group = buildGroup()
+    model.findById.mockReturnValue(chainable(buildDoc({ configGroups: [group] })))
+
+    await expect(repository.findConfigGroup('p1', 'g1')).resolves.toBe(group)
+  })
+
+  it.each([
+    { name: 'el producto no existe', productId: 'missing', missingProduct: true },
+    { name: 'el grupo no existe', productId: 'p1', missingProduct: false },
+  ])('findConfigGroup devuelve null cuando $name', async ({ productId, missingProduct }) => {
+    const { model, repository } = makeRepository()
+    model.findById.mockReturnValue(chainable(missingProduct ? null : buildDoc()))
+
+    await expect(repository.findConfigGroup(productId, 'missing')).resolves.toBeNull()
   })
 })
 
@@ -702,20 +779,18 @@ describe('ProductRepository.removeRecipeItem (RQ-CAT-11)', () => {
     expect(doc.save).toHaveBeenCalledTimes(1)
   })
 
-  // KNOWN BUG: a diferencia de removeConfigGroup/removeConfigOption, removeRecipeItem no
-  // compara longitudes antes de guardar. Un itemId inexistente NO devuelve null: guarda y
-  // resuelve el producto. El controller sólo lanza RECIPE_ITEM_NOT_FOUND cuando el resultado
-  // es falsy, por lo que un DELETE a un ítem inexistente responde 200 en lugar de 404.
-  it('KNOWN BUG: devuelve el producto (no null) al quitar un ítem inexistente', async () => {
+  // Consistente con removeConfigGroup/removeConfigOption: si el ítem no existe no se
+  // guarda y se devuelve null, para que el controller responda 404 RECIPE_ITEM_NOT_FOUND.
+  it('devuelve null y no guarda al quitar un ítem inexistente', async () => {
     const { model, repository } = makeRepository()
     const doc = buildDoc({ recipe: [buildRecipeItem({ _id: objectId('r1') })] })
     model.findById.mockReturnValue(chainable(doc))
 
     const result = await repository.removeRecipeItem('p1', 'missing')
 
-    expect(result).toBe(doc)
+    expect(result).toBeNull()
     expect(doc.recipe).toHaveLength(1)
-    expect(doc.save).toHaveBeenCalledTimes(1)
+    expect(doc.save).not.toHaveBeenCalled()
   })
 
   it('devuelve null si el producto no existe', async () => {

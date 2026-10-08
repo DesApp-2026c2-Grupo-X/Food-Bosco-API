@@ -9,7 +9,9 @@ import {
   DELIVERY_REST_CLIENT,
 } from '../../rest/rest.module'
 import { GeoPoint, mapGeoPoint } from '../common/geo-point'
+import { toRestContext } from '../common/rest-context'
 import { mapUser, User } from '../auth/auth.types'
+import { TripOrder } from '../delivery/delivery.types'
 import { getCommerceLoaders } from './commerce.dataloaders'
 import {
   Branch,
@@ -24,6 +26,7 @@ import {
   mapBranch,
   mapCategory,
   mapIngredient,
+  mapOrder,
   mapProduct,
 } from './commerce.types'
 
@@ -41,9 +44,12 @@ export class ProductFieldResolver {
     @Parent() product: Product,
     @Context() ctx: GraphQLContext,
   ): Promise<Category | null> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).category.load(
-      product.categoryId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).category.load(product.categoryId)
     return raw ? mapCategory(raw) : null
   }
 }
@@ -60,9 +66,12 @@ export class RecipeItemFieldResolver {
     @Parent() item: RecipeItem,
     @Context() ctx: GraphQLContext,
   ): Promise<Ingredient | null> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).ingredient.load(
-      item.ingredientId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).ingredient.load(item.ingredientId)
     return raw ? mapIngredient(raw) : null
   }
 }
@@ -76,17 +85,23 @@ export class CartItemFieldResolver {
 
   @ResolveField('product', () => Product, { nullable: true })
   async product(@Parent() item: CartItem, @Context() ctx: GraphQLContext): Promise<Product | null> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).product.load(
-      item.productId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).product.load(item.productId)
     return raw ? mapProduct(raw) : null
   }
 
   @ResolveField('options', () => [ConfigOption])
   async options(@Parent() item: CartItem, @Context() ctx: GraphQLContext): Promise<ConfigOption[]> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).product.load(
-      item.productId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).product.load(item.productId)
     if (!raw) {
       return []
     }
@@ -107,17 +122,23 @@ export class OrderFieldResolver {
 
   @ResolveField('client', () => User, { nullable: true })
   async client(@Parent() order: Order, @Context() ctx: GraphQLContext) {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).user.load(
-      order.clientId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).user.load(order.clientId)
     return raw ? mapUser(raw as RawRecord) : null
   }
 
   @ResolveField('branch', () => Branch, { nullable: true })
   async branch(@Parent() order: Order, @Context() ctx: GraphQLContext): Promise<Branch | null> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).branch.load(
-      order.branchId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).branch.load(order.branchId)
     return raw ? mapBranch(raw) : null
   }
 
@@ -150,9 +171,34 @@ export class BranchStockFieldResolver {
     @Parent() stock: BranchStock,
     @Context() ctx: GraphQLContext,
   ): Promise<Ingredient | null> {
-    const raw = await getCommerceLoaders(ctx.req, this.commerce, this.auth).ingredient.load(
-      stock.ingredientId,
-    )
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).ingredient.load(stock.ingredientId)
     return raw ? mapIngredient(raw) : null
+  }
+}
+
+@Resolver(() => TripOrder)
+export class TripOrderFieldResolver {
+  constructor(
+    @Inject(COMMERCE_REST_CLIENT) private readonly commerce: RestClient,
+    @Inject(AUTH_REST_CLIENT) private readonly auth: RestClient,
+  ) {}
+
+  @ResolveField('order', () => Order, { nullable: true })
+  async order(
+    @Parent() tripOrder: TripOrder,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Order | null> {
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).order.load(tripOrder.orderId)
+    return raw ? mapOrder(raw) : null
   }
 }

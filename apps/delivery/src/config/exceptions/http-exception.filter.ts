@@ -5,13 +5,17 @@ import { DomainException } from './domain.exception'
 
 type ErrorBody = string | { message?: string | string[] }
 
-const codeForStatus = (status: number): string => {
-  if (status === HttpStatus.UNAUTHORIZED) return ERROR_CODES.unauthenticated
-  if (status === HttpStatus.FORBIDDEN) return ERROR_CODES.forbidden
-  if (status === HttpStatus.BAD_REQUEST) return ERROR_CODES.validationError
-  if (status === HttpStatus.NOT_FOUND) return ERROR_CODES.notFound
-  return ERROR_CODES.internal
+const STATUS_CODES: Record<number, string> = {
+  [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,
+  [HttpStatus.UNAUTHORIZED]: ERROR_CODES.unauthenticated,
+  [HttpStatus.FORBIDDEN]: ERROR_CODES.forbidden,
+  [HttpStatus.NOT_FOUND]: ERROR_CODES.notFound,
+  [HttpStatus.CONFLICT]: ERROR_CODES.conflict,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: ERROR_CODES.unprocessableEntity,
+  [HttpStatus.TOO_MANY_REQUESTS]: ERROR_CODES.tooManyRequests,
 }
+
+const codeForStatus = (status: number): string => STATUS_CODES[status] ?? ERROR_CODES.internal
 
 const extractMessage = (body: ErrorBody): string => {
   if (typeof body === 'string') return body

@@ -28,6 +28,7 @@ describe('Gateway uploads extendido (e2e) — multipart → Commerce REST', () =
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -87,9 +88,8 @@ describe('Gateway uploads extendido (e2e) — multipart → Commerce REST', () =
 
       const res = await upload(admin()).expect(status)
 
-      expect(res.body).toEqual({ code, message, path: '/v1/uploads' })
-      // KNOWN BUG (RQ-GW-07): UploadExceptionFilter sobreescribe el `path` con la URL del
-      // gateway; el `path` del servicio (`/v1/catalog/uploads`) no se propaga.
+      // RQ-GW-07: el filtro de upload propaga el `path` del servicio downstream.
+      expect(res.body).toEqual({ code, message, path: '/v1/catalog/uploads' })
     },
   )
 

@@ -1,6 +1,8 @@
 import { ERROR_CODES, ROLES } from '../config/constants'
+import { DomainException } from '../config/exceptions/domain.exception'
 import type { PublicUser, UserListResponse } from './user.service'
 import { UserService } from './user.service'
+import { StaffOrchestrator } from './staff.orchestrator'
 import { UserController } from './user.controller'
 import { CreateStaffDto } from './dto/create-staff.dto'
 import { UserQueryDto } from './dto/user-query.dto'
@@ -25,20 +27,38 @@ interface ServiceMock {
   findById: jest.Mock
   list: jest.Mock
   createUser: jest.Mock
-  update: jest.Mock
   setActive: jest.Mock
 }
 
-const makeController = (overrides: Partial<ServiceMock> = {}) => {
+interface OrchestratorMock {
+  createStaff: jest.Mock
+  updateUser: jest.Mock
+}
+
+const makeController = (
+  overrides: Partial<ServiceMock> = {},
+  orchestratorOverrides: Partial<OrchestratorMock> = {},
+) => {
   const service: ServiceMock = {
     findById: jest.fn(),
     list: jest.fn().mockResolvedValue(emptyList),
     createUser: jest.fn(),
-    update: jest.fn(),
     setActive: jest.fn(),
     ...overrides,
   }
-  return { service, controller: new UserController(service as unknown as UserService) }
+  const orchestrator: OrchestratorMock = {
+    createStaff: jest.fn(),
+    updateUser: jest.fn(),
+    ...orchestratorOverrides,
+  }
+  return {
+    service,
+    orchestrator,
+    controller: new UserController(
+      service as unknown as UserService,
+      orchestrator as unknown as StaffOrchestrator,
+    ),
+  }
 }
 
 const staffDto: CreateStaffDto = {
@@ -81,40 +101,38 @@ describe('UserController.list (RQ-AUTH: listado con filtros)', () => {
 })
 
 describe('UserController.createStaff (RQ-AUTH-13)', () => {
-  it('crea un branch_admin forzando el rol y conservando branchId', async () => {
-    const { service, controller } = makeController({
-      createUser: jest.fn().mockResolvedValue(publicUser({ role: ROLES.branchAdmin })),
-    })
+  it('delega la creación en el StaffOrchestrator con el dto', async () => {
+    const { orchestrator, controller } = makeController(
+      {},
+      {
+        createStaff: jest.fn().mockResolvedValue(publicUser({ role: ROLES.branchAdmin })),
+      },
+    )
 
     const result = await controller.createStaff(staffDto)
 
     expect(result.role).toBe(ROLES.branchAdmin)
-    expect(service.createUser).toHaveBeenCalledWith({
-      ...staffDto,
-      role: ROLES.branchAdmin,
-    })
+    expect(orchestrator.createStaff).toHaveBeenCalledWith(staffDto)
   })
 
-  it.each([
-    { name: 'sucursal existente', branchId: 'branch-1' },
-    { name: 'sucursal inexistente', branchId: 'no-existe' },
-    { name: 'cadena vacía', branchId: '' },
-  ])(
-    'acepta cualquier branchId sin validarlo contra Commerce: $name (KNOWN BUG: RQ-AUTH-13)',
-    async ({ branchId }) => {
-      const { service, controller } = makeController({
-        createUser: jest.fn().mockResolvedValue(publicUser({ role: ROLES.branchAdmin, branchId })),
-      })
+  it('propaga BRANCH_NOT_FOUND 404 cuando el orchestrator rechaza la sucursal', async () => {
+    const { controller } = makeController(
+      {},
+      {
+        createStaff: jest
+          .fn()
+          .mockRejectedValue(
+            new DomainException(ERROR_CODES.branchNotFound, 'Sucursal no encontrada', 404),
+          ),
+      },
+    )
 
-      await controller.createStaff({ ...staffDto, branchId })
-
-      // No existe llamada a Commerce/Branch: el servicio recibe el branchId tal cual.
-      expect(service.createUser).toHaveBeenCalledWith(
-        expect.objectContaining({ role: ROLES.branchAdmin, branchId }),
-      )
-      expect(service.findById).not.toHaveBeenCalled()
-    },
-  )
+    await expect(controller.createStaff(staffDto)).rejects.toMatchObject({
+      code: ERROR_CODES.branchNotFound,
+      message: 'Sucursal no encontrada',
+      status: 404,
+    })
+  })
 })
 
 describe('UserController.createAdmin (RQ-AUTH-14)', () => {
@@ -179,32 +197,34 @@ describe('UserController.get (RQ-AUTH-17)', () => {
   })
 })
 
-describe('UserController.update (RQ-AUTH-16)', () => {
-  it('actualiza un usuario editable', async () => {
-    const { service, controller } = makeController({
-      findById: jest.fn().mockResolvedValue(publicUser()),
-      update: jest.fn().mockResolvedValue(publicUser({ firstName: 'Ana' })),
-    })
+describe('UserController.update (RQ-AUTH-16, NEW-02)', () => {
+  it('actualiza un usuario editable a través del StaffOrchestrator', async () => {
+    const { orchestrator, controller } = makeController(
+      { findById: jest.fn().mockResolvedValue(publicUser()) },
+      { updateUser: jest.fn().mockResolvedValue(publicUser({ firstName: 'Ana' })) },
+    )
 
     const result = await controller.update('u1', { firstName: 'Ana' })
 
-    expect(service.update).toHaveBeenCalledWith('u1', { firstName: 'Ana' })
+    expect(orchestrator.updateUser).toHaveBeenCalledWith('u1', { firstName: 'Ana' })
     expect(result.firstName).toBe('Ana')
   })
 
   it('lanza USER_NOT_FOUND 404 si el destinatario no existe', async () => {
-    const { service, controller } = makeController({ findById: jest.fn().mockResolvedValue(null) })
+    const { orchestrator, controller } = makeController({
+      findById: jest.fn().mockResolvedValue(null),
+    })
 
     await expect(controller.update('missing', { firstName: 'X' })).rejects.toMatchObject({
       code: ERROR_CODES.userNotFound,
       message: 'Usuario no encontrado',
       status: 404,
     })
-    expect(service.update).not.toHaveBeenCalled()
+    expect(orchestrator.updateUser).not.toHaveBeenCalled()
   })
 
   it('lanza FORBIDDEN 403 si el destinatario es super_admin', async () => {
-    const { service, controller } = makeController({
+    const { orchestrator, controller } = makeController({
       findById: jest.fn().mockResolvedValue(publicUser({ role: ROLES.superAdmin })),
     })
 
@@ -213,14 +233,33 @@ describe('UserController.update (RQ-AUTH-16)', () => {
       message: 'Los admins globales no se pueden editar ni desactivar',
       status: 403,
     })
-    expect(service.update).not.toHaveBeenCalled()
+    expect(orchestrator.updateUser).not.toHaveBeenCalled()
   })
 
-  it('lanza USER_NOT_FOUND 404 si el servicio no encuentra el usuario al persistir', async () => {
-    const { controller } = makeController({
-      findById: jest.fn().mockResolvedValue(publicUser()),
-      update: jest.fn().mockResolvedValue(null),
+  it('propaga BRANCH_NOT_FOUND 404 cuando el orchestrator rechaza la sucursal', async () => {
+    const { controller } = makeController(
+      { findById: jest.fn().mockResolvedValue(publicUser()) },
+      {
+        updateUser: jest
+          .fn()
+          .mockRejectedValue(
+            new DomainException(ERROR_CODES.branchNotFound, 'Sucursal no encontrada', 404),
+          ),
+      },
+    )
+
+    await expect(controller.update('u1', { branchId: 'no-existe' })).rejects.toMatchObject({
+      code: ERROR_CODES.branchNotFound,
+      message: 'Sucursal no encontrada',
+      status: 404,
     })
+  })
+
+  it('lanza USER_NOT_FOUND 404 si el orchestrator no encuentra el usuario al persistir', async () => {
+    const { controller } = makeController(
+      { findById: jest.fn().mockResolvedValue(publicUser()) },
+      { updateUser: jest.fn().mockResolvedValue(null) },
+    )
 
     await expect(controller.update('u1', { firstName: 'X' })).rejects.toMatchObject({
       code: ERROR_CODES.userNotFound,

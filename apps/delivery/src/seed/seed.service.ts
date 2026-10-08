@@ -6,9 +6,9 @@ import { join } from 'node:path'
 
 import { envString, loadSeedData } from '@repo/seed-utils'
 
-import { VEHICLE_TYPE } from '../config/constants'
+import { DeliveryOrderRepository } from '../delivery-order/delivery-order.repository'
+import { normalizeVehicle } from '../rider/rider.model'
 import { RiderService } from '../rider/rider.service'
-import type { Vehicle } from '../rider/rider.model'
 import { ShiftService } from '../shift/shift.service'
 import { ZoneService } from '../zone/zone.service'
 
@@ -38,13 +38,19 @@ interface AuthUserRow {
   vehicle?: string | null
 }
 
-const DATA_DIR = join(__dirname, 'data')
-
-const toVehicle = (vehicle: string | null | undefined): Vehicle | null => {
-  if (!vehicle) return null
-  const type = /bici/i.test(vehicle) ? VEHICLE_TYPE.bici : VEHICLE_TYPE.moto
-  return { type, model: vehicle }
+export interface SeedLocation {
+  latitude: number
+  longitude: number
 }
+
+export interface SeedReadyOrder {
+  orderId: string
+  branchId: string
+  branchLocation: SeedLocation
+  deliveryAddress: { text: string } & SeedLocation
+}
+
+const DATA_DIR = join(__dirname, 'data')
 
 export interface SeedRiderInput {
   userId: string
@@ -52,6 +58,9 @@ export interface SeedRiderInput {
   lastName: string
   phone: string
   vehicle?: string | null
+  available?: boolean
+  location?: SeedLocation
+  readyOrder?: SeedReadyOrder
 }
 
 export interface SeedResult {
@@ -61,6 +70,7 @@ export interface SeedResult {
     riders: number
   }
   rider: { id: string; userId: string } | null
+  readyOrderId: string | null
 }
 
 @Injectable()
@@ -69,6 +79,7 @@ export class SeedService {
     private readonly riderService: RiderService,
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
+    private readonly deliveryOrderRepository: DeliveryOrderRepository,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -84,6 +95,7 @@ export class SeedService {
         riders: rider ? 1 : 0,
       },
       rider,
+      readyOrderId: null,
     }
   }
 
@@ -124,29 +136,22 @@ export class SeedService {
   async seedRiderProfile(input: SeedRiderInput): Promise<SeedResult> {
     const existing = await this.riderService.findByUserId(input.userId)
 
-    if (existing) {
-      return {
-        summary: {
-          zones: 0,
-          shifts: 0,
-          riders: 1,
-        },
-        rider: {
-          id: existing.id,
-          userId: existing.userId,
-        },
-      }
+    const rider =
+      existing ??
+      (await this.riderService.create({
+        userId: input.userId,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: input.phone,
+        vehicle: normalizeVehicle(input.vehicle),
+      }))
+
+    if (!existing) {
+      Logger.log(`rider creado: ${input.firstName} ${input.lastName}`, 'Seed')
     }
 
-    const created = await this.riderService.create({
-      userId: input.userId,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      phone: input.phone,
-      vehicle: toVehicle(input.vehicle),
-    })
-
-    Logger.log(`rider creado: ${input.firstName} ${input.lastName}`, 'Seed')
+    await this.applyPresence(input)
+    const readyOrderId = await this.seedReadyOrder(input.readyOrder)
 
     return {
       summary: {
@@ -155,10 +160,42 @@ export class SeedService {
         riders: 1,
       },
       rider: {
-        id: created.id,
-        userId: created.userId,
+        id: rider.id,
+        userId: rider.userId,
       },
+      readyOrderId,
     }
+  }
+
+  private async applyPresence(input: SeedRiderInput): Promise<void> {
+    if (input.available !== undefined) {
+      await this.riderService.setAvailability(input.userId, input.available)
+    }
+
+    if (input.location) {
+      await this.riderService.updateLocation(
+        input.userId,
+        input.location.latitude,
+        input.location.longitude,
+      )
+    }
+  }
+
+  private async seedReadyOrder(readyOrder?: SeedReadyOrder): Promise<string | null> {
+    if (!readyOrder) return null
+
+    const doc = await this.deliveryOrderRepository.upsertReady({
+      orderId: readyOrder.orderId,
+      branchId: readyOrder.branchId,
+      branchLocation: readyOrder.branchLocation,
+      deliveryAddress: readyOrder.deliveryAddress,
+    })
+
+    if (doc) {
+      Logger.log(`pedido listo para ofertas: ${readyOrder.orderId}`, 'Seed')
+    }
+
+    return doc?.orderId ?? null
   }
 
   private async seedRiderProfileFromAuth(): Promise<{

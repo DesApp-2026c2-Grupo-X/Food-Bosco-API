@@ -46,6 +46,7 @@ describe('Gateway stock (e2e) — branchStock / adjustStock / outOfStockProducts
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {

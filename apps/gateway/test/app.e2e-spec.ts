@@ -14,6 +14,7 @@ describe('Gateway health (e2e)', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   it('/health (GET)', () => {

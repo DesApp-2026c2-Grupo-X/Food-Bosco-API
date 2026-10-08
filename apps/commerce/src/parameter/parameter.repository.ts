@@ -32,8 +32,6 @@ export class ParameterRepository {
   }
 
   update(key: string, value: number): Promise<ParameterDocument | null> {
-    return this.model
-      .findOneAndUpdate({ key }, { $set: { value } }, { new: true, upsert: true })
-      .exec()
+    return this.model.findOneAndUpdate({ key }, { $set: { value } }, { new: true }).exec()
   }
 }

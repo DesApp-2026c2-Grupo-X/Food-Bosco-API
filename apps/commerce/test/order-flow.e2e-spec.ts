@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import jwt from 'jsonwebtoken'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
+import { createMongoServer } from './mongo'
 import type { App } from 'supertest/types'
 import { BranchModule } from '../src/branch/branch.module'
 import { CartModule } from '../src/cart/cart.module'
@@ -63,7 +64,7 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
   const http = () => request(app.getHttpServer())
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create()
+    mongod = await createMongoServer()
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -94,6 +95,7 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
     )
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
+    await app.listen(0)
 
     const category = await http()
       .post('/v1/catalog/categories')
@@ -332,10 +334,9 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
       expect(res.body.code).toBe('PRODUCT_UNAVAILABLE')
     })
 
-    // KNOWN BUG: CreateOrderDto no exige `deliveryAddress` (ver order-dtos.spec.ts). Al faltar,
-    // el orchestrator lee `input.deliveryAddress.latitude` sobre undefined y responde 500 en
-    // lugar del 400 de validación. Impacto: un cliente no puede saber que envió mal el payload.
-    it('KNOWN BUG: sin deliveryAddress responde 500 en lugar de 400', async () => {
+    // RQ-ORD-05 exige la dirección de entrega. Sin ella, el DTO la rechaza y el
+    // cliente recibe 400 VALIDATION_ERROR en lugar de un 500 por TypeError.
+    it('sin deliveryAddress responde 400 de validación', async () => {
       const token = customerToken('cust-no-address')
       await addCartItem(token, { productId: mainProductId, quantity: 1 }).expect(201)
 
@@ -343,9 +344,9 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
         .post('/v1/orders')
         .set(...auth(token))
         .send({ addressId: 'addr-1' })
-        .expect(500)
+        .expect(400)
 
-      expect(res.body.code).toBe('INTERNAL_SERVER_ERROR')
+      expect(res.body.code).toBe('VALIDATION_ERROR')
     })
   })
 
@@ -571,23 +572,20 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
       expect(removed.body.items).toHaveLength(0)
     })
 
-    // KNOWN BUG: el repositorio reemplaza el array completo con `$set: { items }`, así que Mongo
-    // regenera el `_id` de todos los subdocumentos en cada mutación. El `id` de un ítem deja de
-    // ser válido tras cualquier update; un cliente que reutiliza el id que obtuvo al agregarlo
-    // recibe 404 CART_ITEM_NOT_FOUND. Impacto: rompe el contrato PATCH/DELETE por itemId estable.
-    it('KNOWN BUG: el id del ítem cambia tras una actualización', async () => {
+    // RQ-CART-04/05: el id del ítem es estable entre mutaciones, para que PATCH/DELETE
+    // sigan siendo válidos con el id obtenido al agregarlo.
+    it('mantiene el id del ítem tras una actualización', async () => {
       const token = customerToken('cust-cart-id')
 
       const added = await addCartItem(token, { productId: mainProductId, quantity: 1 }).expect(201)
       const originalId = added.body.items[0].id as string
 
       const updated = await patchItem(token, originalId, { quantity: 2 }).expect(200)
-      const newId = updated.body.items[0].id as string
+      expect(updated.body.items[0].id).toBe(originalId)
 
-      expect(newId).not.toBe(originalId)
-
-      const res = await patchItem(token, originalId, { quantity: 3 }).expect(404)
-      expect(res.body.code).toBe('CART_ITEM_NOT_FOUND')
+      const res = await patchItem(token, originalId, { quantity: 3 }).expect(200)
+      expect(res.body.items[0].id).toBe(originalId)
+      expect(res.body.items[0].quantity).toBe(3)
     })
   })
 

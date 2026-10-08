@@ -12,7 +12,9 @@ export const ERROR_CODES = {
   forbidden: 'FORBIDDEN',
   badRequest: 'BAD_REQUEST',
   imageRequired: 'IMAGE_REQUIRED',
+  invalidImageType: 'INVALID_IMAGE_TYPE',
   payloadTooLarge: 'PAYLOAD_TOO_LARGE',
+  tooManyRequests: 'TOO_MANY_REQUESTS',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

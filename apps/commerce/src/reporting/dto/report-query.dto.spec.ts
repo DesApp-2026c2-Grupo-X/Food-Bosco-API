@@ -21,11 +21,18 @@ describe('ReportQueryDto (RQ-REP-07/08/09)', () => {
     { name: 'sucursal', payload: { branchId: 'b1' }, valid: true },
     { name: 'categoría', payload: { categoryId: 'cat1' }, valid: true },
     { name: 'estado válido', payload: { status: 'delivered' }, valid: true },
+    { name: 'limit "3" (INT-11)', payload: { limit: '3' }, valid: true },
+    { name: 'limit 1 (límite inferior)', payload: { limit: 1 }, valid: true },
+    { name: 'limit 100 (límite superior)', payload: { limit: 100 }, valid: true },
     { name: 'fecha desde inválida', payload: { from: 'ayer' }, valid: false },
     { name: 'fecha hasta numérica', payload: { to: 123 }, valid: false },
     { name: 'agrupación inválida', payload: { groupBy: 'year' }, valid: false },
     { name: 'estado inválido', payload: { status: 'shipped' }, valid: false },
     { name: 'branchId numérico', payload: { branchId: 1 }, valid: false },
+    { name: 'limit 0', payload: { limit: 0 }, valid: false },
+    { name: 'limit 101', payload: { limit: 101 }, valid: false },
+    { name: 'limit no entero', payload: { limit: 2.5 }, valid: false },
+    { name: 'limit no numérico', payload: { limit: 'abc' }, valid: false },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid }) => {

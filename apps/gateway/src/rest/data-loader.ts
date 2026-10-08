@@ -35,14 +35,26 @@ export class DataLoader<K, V> {
     const batch = this.queue
     this.queue = []
 
+    const seen = new Set<K>()
+    const uniqueKeys = batch.reduce<K[]>((keys, entry) => {
+      if (!seen.has(entry.key)) {
+        seen.add(entry.key)
+        keys.push(entry.key)
+      }
+      return keys
+    }, [])
+
     try {
-      const results = await this.batchLoadFn(batch.map((entry) => entry.key))
-      batch.forEach((entry, index) => {
-        const result = results[index]
+      const results = await this.batchLoadFn(uniqueKeys)
+      const resultsByKey = new Map<K, V | Error>()
+      uniqueKeys.forEach((key, index) => resultsByKey.set(key, results[index]))
+
+      batch.forEach((entry) => {
+        const result = resultsByKey.get(entry.key)
         if (result instanceof Error) {
           entry.reject(result)
         } else {
-          entry.resolve(result)
+          entry.resolve(result as V)
         }
       })
     } catch (error) {

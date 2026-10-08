@@ -19,17 +19,19 @@ export class StockService {
     branchId: string,
     ingredientId: string,
     delta: number,
+    reason?: string,
     orderId?: string | null,
   ): Promise<PublicBranchStock> {
     const current = await this.repository.findOne(branchId, ingredientId)
-    const quantity = Math.max(0, (current?.quantity ?? 0) + delta)
+    const previous = current?.quantity ?? 0
+    const quantity = Math.max(0, previous + delta)
 
     const doc = await this.repository.setQuantity(branchId, ingredientId, quantity)
     await this.repository.createMovement({
       branchId,
       ingredientId,
-      delta,
-      reason: STOCK_MOVEMENT_REASON.adjust,
+      delta: quantity - previous,
+      reason: reason ?? STOCK_MOVEMENT_REASON.adjust,
       orderId,
     })
 
@@ -71,7 +73,7 @@ export class StockService {
       await this.repository.createMovement({
         branchId,
         ingredientId,
-        delta: -required,
+        delta: next - available,
         reason: STOCK_MOVEMENT_REASON.preparing,
         orderId,
       })

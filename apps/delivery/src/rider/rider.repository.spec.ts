@@ -103,6 +103,8 @@ describe('RiderRepository.updateProfile / updateVehicle (RQ-DLV-11)', () => {
     { name: 'solo teléfono', patch: { phone: '999' } },
     { name: 'patch vacío', patch: {} },
     { name: 'teléfono de 50 caracteres', patch: { phone: '1'.repeat(50) } },
+    { name: 'nombre y apellido', patch: { firstName: 'Nuevo', lastName: 'Cambiado' } },
+    { name: 'teléfono con nombre', patch: { phone: '999', firstName: 'Nuevo' } },
   ]
 
   it.each(cases)('hace $set del patch sin tocar otros campos ($name)', async ({ patch }) => {
@@ -115,9 +117,38 @@ describe('RiderRepository.updateProfile / updateVehicle (RQ-DLV-11)', () => {
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
       { userId: 'u1' },
       { $set: patch },
-      { new: true },
+      { new: true, runValidators: true },
     )
     expect(result).toBe(doc)
+  })
+
+  it.each([
+    { name: 'phone null', patch: { phone: null } },
+    { name: 'phone undefined', patch: { phone: undefined } },
+  ])(
+    'NEW-10: descarta $name para no persistir un requerido nulo',
+    async ({ patch }: { patch: { phone: string | null | undefined } }) => {
+      const { repository, model } = makeRepository()
+      model.findOneAndUpdate.mockReturnValue(execQuery({ userId: 'u1' }))
+
+      await repository.updateProfile('u1', patch as UpdateRiderProfileData)
+
+      expect(model.findOneAndUpdate).toHaveBeenCalledWith(
+        { userId: 'u1' },
+        { $set: {} },
+        { new: true, runValidators: true },
+      )
+    },
+  )
+
+  it('NEW-10: activa runValidators para que el schema rechace un teléfono nulo', async () => {
+    const { repository, model } = makeRepository()
+    model.findOneAndUpdate.mockReturnValue(execQuery(null))
+
+    await repository.updateProfile('u1', { phone: '999' })
+
+    const options = model.findOneAndUpdate.mock.calls[0][2]
+    expect(options).toEqual(expect.objectContaining({ runValidators: true }))
   })
 
   it('devuelve null si el rider no existe', async () => {

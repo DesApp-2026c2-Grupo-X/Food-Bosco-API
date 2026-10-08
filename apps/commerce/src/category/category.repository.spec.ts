@@ -1,4 +1,5 @@
 import type { Model } from 'mongoose'
+import { CATEGORY_ALREADY_EXISTS } from './category.model'
 import type { CategoryDocument } from './category.model'
 import { CategoryRepository } from './category.repository'
 
@@ -84,14 +85,25 @@ describe('CategoryRepository.create (RQ-CAT-02)', () => {
     expect(model.create).toHaveBeenCalledWith({ ...input, active: expected })
   })
 
-  // KNOWN BUG: no hay índice único ni guarda de duplicados para `name`. Un error de clave
-  // duplicada de Mongo se propaga sin traducirse a un error de dominio (CATEGORY_ALREADY_EXISTS).
-  it('propaga el error crudo de Mongo ante un nombre duplicado (sin manejo de unicidad)', async () => {
+  // Un nombre duplicado (E11000) se traduce a un error de dominio en lugar de filtrar el
+  // error crudo de Mongo.
+  it('traduce el E11000 a un error de dominio CATEGORY_ALREADY_EXISTS 409', async () => {
     const { model, repository } = makeRepository()
     const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
     model.create.mockRejectedValue(duplicateError)
 
-    await expect(repository.create({ name: 'Bebidas' })).rejects.toBe(duplicateError)
+    await expect(repository.create({ name: 'Bebidas' })).rejects.toMatchObject({
+      code: CATEGORY_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error del repositorio sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const failure = new Error('conexión caída')
+    model.create.mockRejectedValue(failure)
+
+    await expect(repository.create({ name: 'Bebidas' })).rejects.toBe(failure)
   })
 })
 
@@ -193,5 +205,28 @@ describe('CategoryRepository.update / setActive', () => {
     model.findByIdAndUpdate.mockReturnValue(chainable(null))
 
     await expect(repository.update('missing', { name: 'X' })).resolves.toBeNull()
+  })
+
+  it('traduce el E11000 al renombrar a un nombre existente → CATEGORY_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    chain.exec.mockRejectedValue(duplicateError)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('cat1', { name: 'Bebidas' })).rejects.toMatchObject({
+      code: CATEGORY_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error de update sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const failure = new Error('conexión caída')
+    chain.exec.mockRejectedValue(failure)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('cat1', { name: 'Nuevo' })).rejects.toBe(failure)
   })
 })

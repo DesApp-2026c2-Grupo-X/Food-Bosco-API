@@ -82,13 +82,23 @@ describe('CreatePromotionDto (RQ-CAT-13)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  // KNOWN BUG: el DTO sólo valida el formato ISO de cada fecha; no valida el orden
-  // startDate <= endDate (ni aquí ni en el servicio).
-  it('acepta startDate posterior a endDate porque no valida el orden (KNOWN BUG)', async () => {
+  // RQ-CAT-13 / COM-02: el DTO valida el orden de las fechas además del formato ISO,
+  // para que un rango invertido se rechace en la validación (400) antes del servicio.
+  it('rechaza startDate posterior a endDate', async () => {
     const { invalid } = await check(CreatePromotionDto, {
       name: 'Fechas',
       startDate: '2026-03-01T00:00:00.000Z',
       endDate: '2026-01-01T00:00:00.000Z',
+    })
+
+    expect(invalid).toContain('startDate')
+  })
+
+  it('acepta startDate igual a endDate', async () => {
+    const { invalid } = await check(CreatePromotionDto, {
+      name: 'Fechas',
+      startDate: validRange.startDate,
+      endDate: validRange.startDate,
     })
 
     expect(invalid).toEqual([])
@@ -117,6 +127,11 @@ describe('UpdatePromotionDto', () => {
     { name: 'nombre de 101 caracteres', payload: { name: 'a'.repeat(101) }, valid: false },
     { name: 'startDate inválida', payload: { startDate: 'nope' }, valid: false },
     { name: 'endDate inválida', payload: { endDate: 'nope' }, valid: false },
+    {
+      name: 'rango invertido con ambas fechas',
+      payload: { startDate: '2026-03-01T00:00:00.000Z', endDate: '2026-01-01T00:00:00.000Z' },
+      valid: false,
+    },
     {
       name: 'descripción de 501 caracteres',
       payload: { description: 'd'.repeat(501) },
@@ -164,13 +179,68 @@ describe('PromotionQueryDto (RQ-CAT-13)', () => {
     expect(instance.limit).toBe(30)
   })
 
+  // INT-03/NEW-04: con `enableImplicitConversion` (config real del ValidationPipe) el tipo
+  // union evita que 'false' se coaccione a true y que un valor inválido caiga a false.
   it.each([
     { name: '"true" se transforma a true', input: 'true', expected: true },
-    { name: '"false" se transforma a false', input: 'false', expected: false },
+    { name: 'true se mantiene true', input: true, expected: true },
+    {
+      name: '"false" se transforma a false con coerción implícita activa',
+      input: 'false',
+      expected: false,
+    },
+    { name: 'false se mantiene false', input: false, expected: false },
   ])('activeOnly: $name', async ({ input, expected }) => {
-    const { instance, invalid } = await check(PromotionQueryDto, { activeOnly: input })
+    const instance = plainToInstance(
+      PromotionQueryDto,
+      { activeOnly: input },
+      { enableImplicitConversion: true },
+    )
 
-    expect(invalid).toEqual([])
+    await expect(validate(instance)).resolves.toHaveLength(0)
     expect(instance.activeOnly).toBe(expected)
+  })
+
+  // RQ-CAT-05: un `activeOnly` que no sea booleano ni 'true'/'false' se rechaza en lugar
+  // de coaccionarse silenciosamente a false.
+  it.each([
+    { name: 'texto arbitrario', input: 'garbage' },
+    { name: 'numérico', input: 0 },
+    { name: 'objeto', input: { value: true } },
+  ])('rechaza activeOnly con valor inválido ($name)', async ({ input }) => {
+    const instance = plainToInstance(
+      PromotionQueryDto,
+      { activeOnly: input },
+      { enableImplicitConversion: true },
+    )
+    const errors = await validate(instance)
+
+    expect(errors.map((error) => error.property)).toContain('activeOnly')
+  })
+})
+
+// INT-03: con `enableImplicitConversion` (config real del ValidationPipe) un
+// string/número en `active` de body se coaccionaba a `true` y pasaba
+// `@IsBoolean`. Sólo `true`/`false` reales deben ser válidos.
+describe('INT-03: SetActiveDto.active con coerción implícita activa', () => {
+  it.each([true, false])('acepta el booleano real %s', async (value) => {
+    const instance = plainToInstance(
+      SetActiveDto,
+      { active: value },
+      { enableImplicitConversion: true },
+    )
+
+    await expect(validate(instance)).resolves.toHaveLength(0)
+  })
+
+  it.each(['false', 'true', 123, 'yes', 0])('rechaza el valor no booleano %p', async (value) => {
+    const instance = plainToInstance(
+      SetActiveDto,
+      { active: value },
+      { enableImplicitConversion: true },
+    )
+    const errors = await validate(instance)
+
+    expect(errors.map((error) => error.property)).toContain('active')
   })
 })

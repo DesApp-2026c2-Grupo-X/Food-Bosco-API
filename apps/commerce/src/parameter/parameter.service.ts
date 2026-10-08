@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { PARAMETER_KEYS } from '../config/constants'
+import { ERROR_CODES, PARAMETER_KEYS } from '../config/constants'
+import { DomainException } from '../config/exceptions/domain.exception'
 import { env } from '../config/env'
 import { PublicParameter, serializeParameter } from './parameter.model'
 import { CreateParameterData, ParameterRepository } from './parameter.repository'
@@ -41,6 +42,13 @@ export class ParameterService {
 
   async update(key: string, value: number): Promise<PublicParameter> {
     const doc = await this.repository.update(key, value)
-    return doc ? serializeParameter(doc) : { key, value, unit: '' }
+    if (!doc) {
+      throw new DomainException(
+        ERROR_CODES.parameterNotFound,
+        `Parámetro no encontrado: ${key}`,
+        404,
+      )
+    }
+    return serializeParameter(doc)
   }
 }

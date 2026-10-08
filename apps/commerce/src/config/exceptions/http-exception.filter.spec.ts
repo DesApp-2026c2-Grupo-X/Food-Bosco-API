@@ -40,7 +40,9 @@ describe('HttpExceptionFilter (RQ-REST-07)', () => {
     { status: HttpStatus.NOT_FOUND, code: ERROR_CODES.notFound },
     { status: HttpStatus.PAYLOAD_TOO_LARGE, code: ERROR_CODES.payloadTooLarge },
     { status: HttpStatus.UNSUPPORTED_MEDIA_TYPE, code: ERROR_CODES.invalidImageType },
-    { status: HttpStatus.CONFLICT, code: ERROR_CODES.internal },
+    { status: HttpStatus.CONFLICT, code: ERROR_CODES.conflict },
+    { status: HttpStatus.UNPROCESSABLE_ENTITY, code: ERROR_CODES.unprocessableEntity },
+    { status: HttpStatus.TOO_MANY_REQUESTS, code: ERROR_CODES.tooManyRequests },
   ])('mapea HttpException $status → $code', ({ status, code }) => {
     const { host, status: statusSpy, json } = makeHost()
 
@@ -74,6 +76,21 @@ describe('HttpExceptionFilter (RQ-REST-07)', () => {
     expect(json).toHaveBeenCalledWith({
       code: ERROR_CODES.internal,
       message: 'Error interno del servidor',
+      path: '/v1/test',
+    })
+  })
+
+  // INT-02: un id de path que no es ObjectId hace que Mongoose lance `CastError`.
+  it('mapea un CastError de Mongoose a 404 NOT_FOUND', () => {
+    const { host, status, json } = makeHost()
+    const castError = Object.assign(new Error('Cast to ObjectId failed'), { name: 'CastError' })
+
+    filter.catch(castError, host as never)
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND)
+    expect(json).toHaveBeenCalledWith({
+      code: ERROR_CODES.notFound,
+      message: 'Recurso no encontrado',
       path: '/v1/test',
     })
   })

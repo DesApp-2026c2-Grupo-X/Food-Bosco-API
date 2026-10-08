@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import jwt from 'jsonwebtoken'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
+import { createMongoServer } from './mongo'
 import type { App } from 'supertest/types'
 import { BranchModule } from '../src/branch/branch.module'
 import { CartModule } from '../src/cart/cart.module'
@@ -43,7 +44,7 @@ describe('Commerce Service (e2e)', () => {
   const auth = (token: string): [string, string] => ['Authorization', `Bearer ${token}`]
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create()
+    mongod = await createMongoServer()
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -77,6 +78,7 @@ describe('Commerce Service (e2e)', () => {
     )
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {

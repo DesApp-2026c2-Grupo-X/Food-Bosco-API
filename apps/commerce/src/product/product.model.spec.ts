@@ -89,13 +89,19 @@ describe('serializeOption (RQ-CAT-07/08)', () => {
     expect(typeof result.id).toBe('string')
   })
 
-  // KNOWN BUG: si un subdocumento no tiene `_id` se serializa `id: ''` en lugar de
-  // fallar o exponer un identificador estable. Mongoose normalmente asigna el _id,
-  // por eso el caso no se dispara en producción, pero el contrato público queda roto.
-  it('KNOWN BUG: sin _id devuelve id vacío en lugar de un identificador válido', () => {
+  // Si un subdocumento no tiene `_id` se sintetiza un ObjectId válido en lugar de
+  // exponer `id: ''`, evitando colisiones de ids en las respuestas.
+  it('sintetiza un ObjectId válido cuando la opción no tiene _id', () => {
     const result = serializeOption(buildOption({ _id: undefined }))
 
-    expect(result.id).toBe('')
+    expect(result.id).toMatch(/^[0-9a-f]{24}$/)
+  })
+
+  it('dos opciones sin _id no colisionan (ids sintetizados distintos)', () => {
+    const first = serializeOption(buildOption({ _id: undefined }))
+    const second = serializeOption(buildOption({ _id: undefined }))
+
+    expect(first.id).not.toBe(second.id)
   })
 })
 
@@ -187,6 +193,12 @@ describe('serializeGroup (RQ-CAT-06/07)', () => {
 
     expect(result).not.toHaveProperty('_id')
     expect(result.options[0]).not.toHaveProperty('_id')
+  })
+
+  it('sintetiza un ObjectId válido cuando el grupo no tiene _id', () => {
+    const result = serializeGroup(buildGroup({ _id: undefined }))
+
+    expect(result.id).toMatch(/^[0-9a-f]{24}$/)
   })
 })
 
@@ -323,5 +335,11 @@ describe('serializeProduct (RQ-CAT-04/06/11/12)', () => {
       optionId: 'opt1',
       quantity: 3,
     })
+  })
+
+  it('sintetiza un ObjectId válido cuando un ítem de receta no tiene _id', () => {
+    const result = serializeProduct(buildDoc({ recipe: [buildRecipeItem({ _id: undefined })] }))
+
+    expect(result.recipe[0].id).toMatch(/^[0-9a-f]{24}$/)
   })
 })

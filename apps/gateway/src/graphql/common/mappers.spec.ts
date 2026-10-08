@@ -47,10 +47,16 @@ describe('asNumber', () => {
     [7, 7],
     [true, 1],
     [false, 0],
-    ['abc', Number.NaN],
-    [{}, Number.NaN],
+    ['abc', 0],
+    [{}, 0],
+    [Number.NaN, 0],
+    [Number.POSITIVE_INFINITY, 0],
   ])('asNumber(%p) → %p', (value, expected) => {
     expect(asNumber(value)).toBe(expected)
+  })
+
+  it('nunca devuelve NaN (Float no serializable)', () => {
+    expect(Number.isNaN(asNumber('no-numérico'))).toBe(false)
   })
 })
 
@@ -61,7 +67,10 @@ describe('nullableNumber', () => {
     [0, 0],
     ['0', 0],
     ['5', 5],
-    ['abc', Number.NaN],
+    ['abc', null],
+    [{}, null],
+    [Number.NaN, null],
+    [Number.POSITIVE_INFINITY, null],
   ])('nullableNumber(%p) → %p', (value, expected) => {
     expect(nullableNumber(value)).toBe(expected)
   })

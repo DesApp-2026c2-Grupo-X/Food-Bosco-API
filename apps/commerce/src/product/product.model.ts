@@ -3,6 +3,9 @@ import { HydratedDocument, Types } from 'mongoose'
 import { CONFIG_GROUP_TYPE_VALUES } from '../config/constants'
 import type { ConfigGroupType } from '../config/constants'
 
+export const PRODUCT_ALREADY_EXISTS = 'PRODUCT_ALREADY_EXISTS'
+export const OPTION_NOT_FOUND = 'OPTION_NOT_FOUND'
+
 @Schema()
 export class ConfigOption {
   readonly _id?: Types.ObjectId
@@ -105,7 +108,8 @@ export type ProductDocument = HydratedDocument<Product>
 
 export const ProductSchema = SchemaFactory.createForClass(Product)
 
-const subId = (value: { _id?: Types.ObjectId }): string => value._id?.toString() ?? ''
+const subId = (value: { _id?: Types.ObjectId }): string =>
+  value._id?.toString() ?? new Types.ObjectId().toString()
 
 export interface PublicConfigOption {
   id: string

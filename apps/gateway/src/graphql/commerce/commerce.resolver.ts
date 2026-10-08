@@ -9,6 +9,7 @@ import { Authenticated } from '../../security/authenticated.decorator'
 import { Roles } from '../../security/roles.decorator'
 import { PageInput } from '../common/page'
 import { toRestContext } from '../common/rest-context'
+import { configGroupTypeToRest } from '../common/config-group-type.enum'
 import { OrderStatus, orderStatusToRest } from '../common/order-status.enum'
 import { reportGroupByToRest } from '../common/report-group.enum'
 import {
@@ -528,7 +529,7 @@ export class CommerceResolver {
     const raw = await this.rest.post<RawRecord>(
       `/v1/catalog/products/${productId}/configurations`,
       {
-        body: input,
+        body: { ...input, type: configGroupTypeToRest(input.type) },
         context: toRestContext(ctx),
       },
     )
@@ -545,7 +546,7 @@ export class CommerceResolver {
   ): Promise<ConfigGroup> {
     const raw = await this.rest.patch<RawRecord>(
       `/v1/catalog/products/${productId}/configurations/${groupId}`,
-      { body: input, context: toRestContext(ctx) },
+      { body: { ...input, type: configGroupTypeToRest(input.type) }, context: toRestContext(ctx) },
     )
     return mapConfigGroup(raw)
   }
@@ -776,7 +777,7 @@ export class CommerceResolver {
   }
 
   @Mutation(() => Branch)
-  @Roles(ROLES.superAdmin)
+  @Roles(ROLES.superAdmin, ROLES.branchAdmin)
   async setBranchActive(
     @Args('id', { type: () => ID }) id: string,
     @Args('active') active: boolean,

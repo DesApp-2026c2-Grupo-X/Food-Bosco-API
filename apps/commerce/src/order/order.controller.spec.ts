@@ -1,6 +1,8 @@
+import 'reflect-metadata'
 import { ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import type { AuthContext } from '../config/security/jwt.service'
+import { ROLES_KEY } from '../config/security/roles.decorator'
 import { OrderController } from './order.controller'
 import type { PublicOrder } from './order.model'
 import { OrderOrchestrator } from './order.orchestrator'
@@ -83,6 +85,20 @@ describe('OrderController.list — scope por rol (RQ-SEC-04)', () => {
     }
   })
 
+  it('rechaza con 401 a un customer sin userId en lugar de listar sin scope (NEW-20)', () => {
+    const { controller, orderService } = makeController()
+
+    expect(() => controller.list(auth({ roles: [ROLES.customer], userId: null }), {})).toThrow(
+      DomainException,
+    )
+    try {
+      controller.list(auth({ roles: [ROLES.customer], userId: null }), {})
+    } catch (error) {
+      expect(error).toMatchObject({ status: 401, code: 'UNAUTHENTICATED' })
+    }
+    expect(orderService.list).not.toHaveBeenCalled()
+  })
+
   it('un super_admin puede filtrar por cualquier sucursal', async () => {
     const { controller, orderService } = makeController()
 
@@ -91,6 +107,17 @@ describe('OrderController.list — scope por rol (RQ-SEC-04)', () => {
     expect(orderService.list).toHaveBeenCalledWith(
       expect.objectContaining({ branchId: 'b9', clientId: undefined }),
     )
+  })
+})
+
+describe('OrderController.list — roles permitidos (RQ-SEC-04)', () => {
+  it('restringe el listado a customer, branch_admin y super_admin (excluye rider)', () => {
+    const roles = Reflect.getMetadata(ROLES_KEY, OrderController.prototype.list) as string[]
+
+    expect(roles).toEqual(
+      expect.arrayContaining([ROLES.customer, ROLES.branchAdmin, ROLES.superAdmin]),
+    )
+    expect(roles).not.toContain(ROLES.rider)
   })
 })
 

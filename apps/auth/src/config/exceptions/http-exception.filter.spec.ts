@@ -9,6 +9,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common'
 import type { Response } from 'express'
+import { Error as MongooseError } from 'mongoose'
 import { ERROR_CODES } from '../constants'
 import { DomainException } from './domain.exception'
 import { HttpExceptionFilter } from './http-exception.filter'
@@ -188,7 +189,46 @@ describe('HttpExceptionFilter — HttpException (RQ-REST-07, NFR-05)', () => {
     })
   })
 
-  it('KNOWN BUG: un HttpException 409 (Conflict) se etiqueta como INTERNAL_SERVER_ERROR', () => {
+  it.each([
+    {
+      name: '409 Conflict',
+      error: new ConflictException('conflicto de negocio'),
+      status: HttpStatus.CONFLICT,
+      code: ERROR_CODES.conflict,
+    },
+    {
+      name: '422 Unprocessable Entity',
+      error: new HttpException('entidad inválida', HttpStatus.UNPROCESSABLE_ENTITY),
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      code: ERROR_CODES.unprocessableEntity,
+    },
+    {
+      name: '429 Too Many Requests',
+      error: new HttpException('demasiadas requests', HttpStatus.TOO_MANY_REQUESTS),
+      status: HttpStatus.TOO_MANY_REQUESTS,
+      code: ERROR_CODES.tooManyRequests,
+    },
+    {
+      name: '502 Bad Gateway',
+      error: new HttpException('upstream caído', HttpStatus.BAD_GATEWAY),
+      status: HttpStatus.BAD_GATEWAY,
+      code: ERROR_CODES.badGateway,
+    },
+    {
+      name: '503 Service Unavailable',
+      error: new HttpException('dependencia caída', HttpStatus.SERVICE_UNAVAILABLE),
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      code: ERROR_CODES.serviceUnavailable,
+    },
+  ])('un HttpException $name usa un code coherente con el status', ({ error, status, code }) => {
+    const { host, captured } = buildHost('/v1/users')
+
+    filter.catch(error, host)
+
+    expect(captured()).toEqual({ status, body: expect.objectContaining({ code }) })
+  })
+
+  it('un HttpException 409 preserva el mensaje y path', () => {
     const { host, captured } = buildHost('/v1/users')
 
     filter.catch(new ConflictException('conflicto de negocio'), host)
@@ -196,9 +236,28 @@ describe('HttpExceptionFilter — HttpException (RQ-REST-07, NFR-05)', () => {
     expect(captured()).toEqual({
       status: 409,
       body: {
-        code: ERROR_CODES.internal,
+        code: ERROR_CODES.conflict,
         message: 'conflicto de negocio',
         path: '/v1/users',
+      },
+    })
+  })
+})
+
+describe('HttpExceptionFilter — CastError de Mongoose (red de seguridad INT-02)', () => {
+  const filter = new HttpExceptionFilter()
+
+  it('mapea un CastError a 404 NOT_FOUND en vez de 500', () => {
+    const { host, captured } = buildHost('/v1/addresses/not-a-valid-object-id')
+
+    filter.catch(new MongooseError.CastError('ObjectId', 'not-a-valid-object-id', '_id'), host)
+
+    expect(captured()).toEqual({
+      status: HttpStatus.NOT_FOUND,
+      body: {
+        code: ERROR_CODES.notFound,
+        message: 'Recurso no encontrado',
+        path: '/v1/addresses/not-a-valid-object-id',
       },
     })
   })

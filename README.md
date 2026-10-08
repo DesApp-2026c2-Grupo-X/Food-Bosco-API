@@ -7,7 +7,9 @@ Monorepo Turborepo con los servicios backend NestJS:
 - `apps/commerce` — catálogo/pedidos (puerto 4202).
 - `apps/delivery` — entrega/despacho (puerto 4203).
 
-> El comportamiento real y el estado de cada funcionalidad se documentan al inicio de [`docs/requerimientos-backend-rest.md`](docs/requerimientos-backend-rest.md).
+> El comportamiento real y el estado de cada funcionalidad se documentan al inicio de [`docs/especificaciones/requerimientos-backend-rest.md`](docs/especificaciones/requerimientos-backend-rest.md).
+>
+> Índice completo de la documentación (OFICIAL / VIGENTE / HISTÓRICO): [`docs/README.md`](docs/README.md).
 
 ## Requisitos
 

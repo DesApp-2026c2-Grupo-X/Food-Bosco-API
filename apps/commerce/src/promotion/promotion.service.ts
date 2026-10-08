@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common'
+import { ERROR_CODES } from '../config/constants'
+import { DomainException } from '../config/exceptions/domain.exception'
 import { PublicPromotion, serializePromotion } from './promotion.model'
 import {
   CreatePromotionData,
@@ -10,6 +12,16 @@ import {
 export interface PromotionListResponse {
   data: PublicPromotion[]
   meta: { total: number; limit: number; offset: number }
+}
+
+const assertDateRange = (startDate: Date, endDate: Date): void => {
+  if (startDate.getTime() > endDate.getTime()) {
+    throw new DomainException(
+      ERROR_CODES.validationError,
+      'La fecha de inicio no puede ser posterior a la fecha de fin',
+      400,
+    )
+  }
 }
 
 @Injectable()
@@ -30,6 +42,7 @@ export class PromotionService {
   }
 
   async create(data: CreatePromotionData): Promise<PublicPromotion> {
+    assertDateRange(data.startDate, data.endDate)
     const doc = await this.repository.create(data)
     return serializePromotion(doc)
   }
@@ -40,6 +53,11 @@ export class PromotionService {
   }
 
   async update(id: string, patch: UpdatePromotionData): Promise<PublicPromotion | null> {
+    if (patch.startDate !== undefined || patch.endDate !== undefined) {
+      const current = await this.repository.findById(id)
+      if (!current) return null
+      assertDateRange(patch.startDate ?? current.startDate, patch.endDate ?? current.endDate)
+    }
     const doc = await this.repository.update(id, patch)
     return doc ? serializePromotion(doc) : null
   }

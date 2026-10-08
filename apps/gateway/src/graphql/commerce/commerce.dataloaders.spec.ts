@@ -124,29 +124,82 @@ describe('getCommerceLoaders', () => {
       expect(commerce.get).not.toHaveBeenCalled()
     })
 
-    it('NO deduplica keys repetidas dentro del mismo lote', async () => {
+    it('deduplica keys repetidas dentro del mismo lote', async () => {
       const { commerce, loader } = build()
 
       const results = await Promise.all([loader.load('c1'), loader.load('c1')])
 
-      // KNOWN BUG (RQ-GW-09): el DataLoader agrupa por tick pero no deduplica keys;
-      // la misma categoría se pide dos veces al servicio REST.
-      expect(commerce.get).toHaveBeenCalledTimes(2)
+      expect(commerce.get).toHaveBeenCalledTimes(1)
+      expect(commerce.get).toHaveBeenCalledWith('/v1/catalog/categories/c1')
       expect(results).toEqual([
         { id: 'c1', name: 'X' },
         { id: 'c1', name: 'X' },
       ])
     })
 
-    it('NO reutiliza resultados entre tandas (sin cache por key)', async () => {
+    it('no reutiliza resultados entre tandas: cada tick vuelve a consultar REST', async () => {
       const { commerce, loader } = build()
 
       await loader.load('c1')
       await loader.load('c1')
 
-      // KNOWN BUG (RQ-GW-09): no hay cache, por lo que una segunda resolución
-      // en otro tick vuelve a golpear el servicio REST.
+      // El dedupe es por lote (RQ-GW-09); no hay cache entre ticks, por lo que una
+      // segunda resolución en otro tick vuelve a golpear el servicio REST.
       expect(commerce.get).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('order loader', () => {
+    const context = {
+      authorization: 'Bearer rider-token',
+      userId: 'u1',
+      roles: ['rider'],
+      branchId: null,
+      requestId: 'rid-1',
+    }
+
+    it('hace GET /v1/orders/{id} propagando el contexto REST (auth)', async () => {
+      const commerce = makeRest()
+      const loaders = getCommerceLoaders(
+        makeReq(),
+        asClient(commerce),
+        asClient(makeRest()),
+        context,
+      )
+      commerce.get.mockResolvedValue({ id: 'o1', status: 'pending' })
+
+      const result = await loaders.order.load('o1')
+
+      expect(commerce.get).toHaveBeenCalledWith('/v1/orders/o1', { context })
+      expect(result).toEqual({ id: 'o1', status: 'pending' })
+    })
+
+    it('devuelve null cuando REST rechaza (por ejemplo, 401 por falta de auth)', async () => {
+      const commerce = makeRest()
+      const loaders = getCommerceLoaders(
+        makeReq(),
+        asClient(commerce),
+        asClient(makeRest()),
+        context,
+      )
+      commerce.get.mockRejectedValue(new Error('401'))
+
+      await expect(loaders.order.load('missing')).resolves.toBeNull()
+    })
+
+    it('no propaga contexto a los loaders públicos (regresión GW-01)', async () => {
+      const commerce = makeRest()
+      const loaders = getCommerceLoaders(
+        makeReq(),
+        asClient(commerce),
+        asClient(makeRest()),
+        context,
+      )
+      commerce.get.mockResolvedValue({ id: 'c1' })
+
+      await loaders.category.load('c1')
+
+      expect(commerce.get).toHaveBeenCalledWith('/v1/catalog/categories/c1')
     })
   })
 

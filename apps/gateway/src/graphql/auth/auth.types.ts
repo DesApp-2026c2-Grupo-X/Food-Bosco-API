@@ -1,12 +1,9 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql'
+import { asNumber, asString, nullableString } from '../common/mappers'
 import { PageInfo } from '../common/page'
 import { Role, roleFromRest } from '../common/role.enum'
 
 type RawRecord = Record<string, unknown>
-
-const asString = (value: unknown): string => (value == null ? '' : String(value))
-
-const nullableString = (value: unknown): string | null => (value == null ? null : String(value))
 
 @ObjectType()
 export class User {
@@ -101,7 +98,7 @@ export const mapAddress = (raw: RawRecord): Address => ({
   text: asString(raw.text),
   city: nullableString(raw.city),
   postalCode: nullableString(raw.postalCode),
-  latitude: Number(raw.latitude),
-  longitude: Number(raw.longitude),
+  latitude: asNumber(raw.latitude),
+  longitude: asNumber(raw.longitude),
   active: Boolean(raw.active),
 })

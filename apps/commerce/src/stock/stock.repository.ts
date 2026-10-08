@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { StockMovementReason } from '../config/constants'
 import { BranchStock, BranchStockDocument } from './branch-stock.model'
 import { StockMovement, StockMovementDocument } from './stock-movement.model'
 
@@ -9,7 +8,7 @@ export interface CreateMovementData {
   branchId: string
   ingredientId: string
   delta: number
-  reason: StockMovementReason
+  reason: string
   orderId?: string | null
 }
 

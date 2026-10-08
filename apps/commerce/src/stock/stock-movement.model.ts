@@ -1,7 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
-import { STOCK_MOVEMENT_REASON } from '../config/constants'
-import type { StockMovementReason } from '../config/constants'
 
 @Schema({ collection: 'stockMovements', timestamps: { createdAt: true, updatedAt: false } })
 export class StockMovement {
@@ -14,12 +12,8 @@ export class StockMovement {
   @Prop({ required: true })
   delta!: number
 
-  @Prop({
-    required: true,
-    enum: [STOCK_MOVEMENT_REASON.adjust, STOCK_MOVEMENT_REASON.preparing],
-    type: String,
-  })
-  reason!: StockMovementReason
+  @Prop({ required: true, default: 'adjust', type: String })
+  reason!: string
 
   @Prop({ default: null, type: String })
   orderId!: string | null
@@ -36,7 +30,7 @@ export interface PublicStockMovement {
   branchId: string
   ingredientId: string
   delta: number
-  reason: StockMovementReason
+  reason: string
   orderId: string | null
   createdAt: string
 }

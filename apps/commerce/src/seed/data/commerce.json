@@ -12,7 +12,14 @@
     { "name": "Papa", "unit": "kg" },
     { "name": "Bebida cola", "unit": "botella" },
     { "name": "Helado", "unit": "un" },
-    { "name": "Leche", "unit": "l" }
+    { "name": "Leche", "unit": "l" },
+    { "name": "Cebolla", "unit": "un" },
+    { "name": "Cheddar", "unit": "un" },
+    { "name": "Panceta", "unit": "un" },
+    { "name": "Cerveza", "unit": "botella" },
+    { "name": "Agua", "unit": "botella" },
+    { "name": "Harina", "unit": "kg" },
+    { "name": "Huevo", "unit": "un" }
   ],
   "hours": {
     "weekday": { "opening": "09:00", "closing": "23:00" },
@@ -374,6 +381,97 @@
         }
       ],
       "recipe": []
+    },
+    {
+      "category": "Hamburguesas",
+      "name": "Hamburguesa BBQ",
+      "description": "Carne 150g, cheddar, panceta y salsa barbacoa.",
+      "price": 9200,
+      "image": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Simple", "extraPrice": 0 },
+            { "name": "Doble", "extraPrice": 1600 }
+          ]
+        },
+        {
+          "name": "Extras",
+          "type": "multiple",
+          "required": false,
+          "min": 0,
+          "max": 3,
+          "options": [
+            { "name": "Cheddar", "extraPrice": 800 },
+            { "name": "Cebolla caramelizada", "extraPrice": 600 },
+            { "name": "Huevo", "extraPrice": 500 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Pan de hamburguesa", "quantity": 1 },
+        { "ingredient": "Medallón de carne", "quantity": 1 },
+        { "ingredient": "Cheddar", "quantity": 1 },
+        { "ingredient": "Panceta", "quantity": 1 },
+        { "ingredient": "Cebolla", "quantity": 1 }
+      ]
+    },
+    {
+      "category": "Pizzas",
+      "name": "Pizza Cuatro Quesos",
+      "description": "Muzzarella, provolone, parmesano y roquefort.",
+      "price": 9400,
+      "image": "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?auto=format&fit=crop&w=800&q=80",
+      "groups": [
+        {
+          "name": "Tamaño",
+          "type": "single",
+          "required": true,
+          "min": 1,
+          "max": 1,
+          "options": [
+            { "name": "Grande", "extraPrice": 0 },
+            { "name": "Familiar", "extraPrice": 2600 }
+          ]
+        }
+      ],
+      "recipe": [
+        { "ingredient": "Masa de pizza", "quantity": 1 },
+        { "ingredient": "Muzzarella", "quantity": 180 },
+        { "ingredient": "Salsa de tomate", "quantity": 80 }
+      ]
+    },
+    {
+      "category": "Bebidas",
+      "name": "Agua Mineral",
+      "description": "Botella de 500ml, sin gas.",
+      "price": 1200,
+      "image": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=800&q=80",
+      "groups": [],
+      "recipe": [{ "ingredient": "Agua", "quantity": 1 }]
+    },
+    {
+      "category": "Bebidas",
+      "name": "Cerveza Artesanal",
+      "description": "IPA local, 473ml.",
+      "price": 2600,
+      "image": "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=800&q=80",
+      "groups": [],
+      "recipe": [{ "ingredient": "Cerveza", "quantity": 1 }]
+    },
+    {
+      "category": "Postres",
+      "name": "Flan Casero",
+      "description": "Con dulce de leche y crema.",
+      "price": 2800,
+      "image": "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?auto=format&fit=crop&w=800&q=80",
+      "groups": [],
+      "recipe": [{ "ingredient": "Huevo", "quantity": 1 }]
     }
   ],
   "promotions": [
@@ -393,5 +491,38 @@
     { "key": "MAX_DISTANCE_KM", "unit": "km" },
     { "key": "BASE_PREP_MIN", "unit": "min" },
     { "key": "AVG_SPEED_KMH", "unit": "km/h" }
+  ],
+  "orders": [
+    {
+      "branch": "Centro",
+      "status": "pending",
+      "items": [
+        { "product": "Hamburguesa Clásica", "quantity": 2, "options": ["Doble", "Queso extra"] },
+        { "product": "Papas Fritas", "quantity": 1, "options": ["Grande"] }
+      ]
+    },
+    {
+      "branch": "Centro",
+      "status": "ready_for_delivery",
+      "items": [
+        { "product": "Pizza Mozzarella", "quantity": 1, "options": ["Grande"] },
+        { "product": "Gaseosa", "quantity": 2, "options": ["1L"] }
+      ]
+    },
+    {
+      "branch": "Norte",
+      "status": "on_the_way",
+      "items": [{ "product": "Doble Cheddar", "quantity": 1, "options": ["Doble", "Bacon"] }]
+    },
+    {
+      "branch": "Centro",
+      "status": "delivered",
+      "items": [{ "product": "Hamburguesa BBQ", "quantity": 1, "options": ["Doble", "Cheddar"] }]
+    },
+    {
+      "branch": "Oeste",
+      "status": "cancelled",
+      "items": [{ "product": "Helado", "quantity": 2, "options": ["2 bochas"] }]
+    }
   ]
 }

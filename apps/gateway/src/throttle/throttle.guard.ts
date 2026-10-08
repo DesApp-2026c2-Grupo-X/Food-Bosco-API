@@ -1,8 +1,9 @@
-import { ExecutionContext, Injectable } from '@nestjs/common'
+import { ExecutionContext, HttpStatus, Injectable } from '@nestjs/common'
 import { GqlExecutionContext } from '@nestjs/graphql'
-import { ThrottlerGuard } from '@nestjs/throttler'
+import { ThrottlerException, ThrottlerGuard } from '@nestjs/throttler'
+import { GraphQLError } from 'graphql'
 import type { Request, Response } from 'express'
-import { HEADERS } from '../config/constants'
+import { ERROR_CODES, HEADERS } from '../config/constants'
 
 type RequestLike = {
   headers?: Record<string, string | string[] | undefined>
@@ -11,6 +12,23 @@ type RequestLike = {
 
 @Injectable()
 export class GatewayThrottlerGuard extends ThrottlerGuard {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    try {
+      return await super.canActivate(context)
+    } catch (error) {
+      if (context.getType<string>() === 'graphql' && error instanceof ThrottlerException) {
+        throw new GraphQLError(error.message, {
+          extensions: {
+            code: ERROR_CODES.tooManyRequests,
+            http: { status: HttpStatus.TOO_MANY_REQUESTS },
+          },
+        })
+      }
+
+      throw error
+    }
+  }
+
   protected getRequestResponse(context: ExecutionContext): {
     req: Request
     res: Response

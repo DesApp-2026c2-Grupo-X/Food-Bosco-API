@@ -81,6 +81,9 @@ export const ERROR_CODES = {
   forbidden: 'FORBIDDEN',
   unauthenticated: 'UNAUTHENTICATED',
   notFound: 'NOT_FOUND',
+  conflict: 'CONFLICT',
+  unprocessableEntity: 'UNPROCESSABLE_ENTITY',
+  tooManyRequests: 'TOO_MANY_REQUESTS',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

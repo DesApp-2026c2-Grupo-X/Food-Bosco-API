@@ -2,12 +2,13 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from
 import type { Request, Response } from 'express'
 import { ERROR_CODES } from '../config/constants'
 
-type ErrorPayload = { code?: string; message?: string | string[] }
+type ErrorPayload = { code?: string; message?: string | string[]; path?: string }
 
 const codeForStatus = (status: number): string => {
   if (status === HttpStatus.UNAUTHORIZED) return ERROR_CODES.unauthenticated
   if (status === HttpStatus.FORBIDDEN) return ERROR_CODES.forbidden
   if (status === HttpStatus.BAD_REQUEST) return ERROR_CODES.badRequest
+  if (status === HttpStatus.UNSUPPORTED_MEDIA_TYPE) return ERROR_CODES.invalidImageType
   if (status === HttpStatus.PAYLOAD_TOO_LARGE) return ERROR_CODES.payloadTooLarge
   return ERROR_CODES.internal
 }
@@ -32,7 +33,7 @@ export class UploadExceptionFilter implements ExceptionFilter {
       response.status(status).json({
         code: payload.code ?? codeForStatus(status),
         message: extractMessage(payload),
-        path: request.url,
+        path: payload.path ?? request.url,
       })
       return
     }

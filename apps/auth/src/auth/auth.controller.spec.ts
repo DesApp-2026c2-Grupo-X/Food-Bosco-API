@@ -1,6 +1,8 @@
+import 'reflect-metadata'
 import type { AuthContext } from '../config/security/jwt.service'
-import { ERROR_CODES } from '../config/constants'
+import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
+import { ROLES_KEY } from '../config/security/roles.decorator'
 import { AuthController } from './auth.controller'
 import { AuthOrchestrator } from './auth.orchestrator'
 
@@ -80,6 +82,12 @@ describe('AuthController.registerRider', () => {
 
     await expect(controller.registerRider(dto)).resolves.toEqual(tokens)
     expect(orchestrator.registerRider).toHaveBeenCalledWith(dto)
+  })
+
+  it('restringe el endpoint a super_admin (Security)', () => {
+    const roles = Reflect.getMetadata(ROLES_KEY, AuthController.prototype.registerRider)
+
+    expect(roles).toEqual([ROLES.superAdmin])
   })
 })
 

@@ -1,15 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { join } from 'node:path'
 import { isDuplicateKeyError, loadSeedData } from '@repo/seed-utils'
-import { PARAMETER_KEYS } from '../config/constants'
+import { PARAMETER_KEYS, ORDER_STATUS, OrderStatus } from '../config/constants'
 import { env } from '../config/env'
 import { BranchService } from '../branch/branch.service'
 import type { BranchHours } from '../branch/branch.model'
 import { buildBranchHours, type HoursSchedule } from './branch-hours'
 import { CategoryService } from '../category/category.service'
 import { IngredientService } from '../ingredient/ingredient.service'
+import type { OrderItem } from '../order/order.model'
+import { OrderService } from '../order/order.service'
 import { OrderStateService } from '../order-state/order-state.service'
 import { ParameterService } from '../parameter/parameter.service'
+import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
 import { PromotionService } from '../promotion/promotion.service'
 import { StockService } from '../stock/stock.service'
@@ -47,6 +50,18 @@ interface ProductSeed {
   recipe: { ingredient: string; quantity: number }[]
 }
 
+interface OrderItemSeed {
+  product: string
+  quantity: number
+  options?: string[]
+}
+
+interface OrderSeed {
+  branch: string
+  status: OrderStatus
+  items: OrderItemSeed[]
+}
+
 interface PromotionSeed {
   name: string
   description?: string
@@ -72,6 +87,16 @@ interface CommerceSeedData {
   promotions: PromotionSeed[]
   orderStates: OrderStateSeed[]
   parameters: ParameterSeed[]
+  orders?: OrderSeed[]
+}
+
+export interface SeedOrderContext {
+  client: { id: string }
+  address: { id: string; text: string; latitude: number; longitude: number }
+}
+
+export interface SeedOptions {
+  order?: SeedOrderContext
 }
 
 const DATA_DIR = join(__dirname, 'data')
@@ -80,6 +105,31 @@ const PARAMETER_VALUES: Record<string, number> = {
   [PARAMETER_KEYS.maxDistanceKm]: env.seed.maxDistanceKm,
   [PARAMETER_KEYS.basePrepMin]: env.seed.basePrepMin,
   [PARAMETER_KEYS.avgSpeedKmh]: env.seed.avgSpeedKmh,
+}
+
+const STATUS_PATHS: Record<OrderStatus, OrderStatus[]> = {
+  [ORDER_STATUS.pending]: [],
+  [ORDER_STATUS.confirmed]: [ORDER_STATUS.confirmed],
+  [ORDER_STATUS.preparing]: [ORDER_STATUS.confirmed, ORDER_STATUS.preparing],
+  [ORDER_STATUS.readyForDelivery]: [
+    ORDER_STATUS.confirmed,
+    ORDER_STATUS.preparing,
+    ORDER_STATUS.readyForDelivery,
+  ],
+  [ORDER_STATUS.onTheWay]: [
+    ORDER_STATUS.confirmed,
+    ORDER_STATUS.preparing,
+    ORDER_STATUS.readyForDelivery,
+    ORDER_STATUS.onTheWay,
+  ],
+  [ORDER_STATUS.delivered]: [
+    ORDER_STATUS.confirmed,
+    ORDER_STATUS.preparing,
+    ORDER_STATUS.readyForDelivery,
+    ORDER_STATUS.onTheWay,
+    ORDER_STATUS.delivered,
+  ],
+  [ORDER_STATUS.cancelled]: [ORDER_STATUS.cancelled],
 }
 
 interface SeedSummary {
@@ -91,11 +141,23 @@ interface SeedSummary {
   stockRows: number
   orderStates: number
   parameters: number
+  orders: number
+}
+
+export interface SeedOrderSummary {
+  id: string
+  number: string
+  status: OrderStatus
+  branchId: string
+  branchName: string
+  branchLocation: { latitude: number; longitude: number }
+  deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
 export interface SeedResult {
   summary: SeedSummary
   branches: { id: string; name: string }[]
+  orders: SeedOrderSummary[]
 }
 
 @Injectable()
@@ -109,9 +171,10 @@ export class SeedService {
     private readonly productService: ProductService,
     private readonly promotionService: PromotionService,
     private readonly stockService: StockService,
+    private readonly orderService: OrderService,
   ) {}
 
-  async seed(): Promise<SeedResult> {
+  async seed(options: SeedOptions = {}): Promise<SeedResult> {
     const data = this.loadData()
 
     await this.seedOrderStates(data.orderStates)
@@ -123,6 +186,7 @@ export class SeedService {
     const products = await this.seedProducts(data.products, categories, ingredients)
     const promotions = await this.seedPromotions(data.promotions)
     const stockRows = await this.seedStock(branches, ingredients)
+    const orders = await this.seedOrders(data.orders ?? [], branches, options)
 
     return {
       summary: {
@@ -134,8 +198,117 @@ export class SeedService {
         stockRows,
         orderStates: data.orderStates.length,
         parameters: data.parameters.length,
+        orders: orders.length,
       },
       branches: branches.map((branch) => ({ id: branch.id, name: branch.name })),
+      orders,
+    }
+  }
+
+  private async seedOrders(
+    seeds: OrderSeed[],
+    branches: { id: string; name: string }[],
+    options: SeedOptions,
+  ): Promise<SeedOrderSummary[]> {
+    const context = options.order
+    if (!context || seeds.length === 0) return []
+
+    const existing = await this.orderService.list({
+      clientId: context.client.id,
+      limit: 500,
+      offset: 0,
+    })
+    if (existing.meta.total >= seeds.length) return []
+
+    const products = (await this.productService.list({ limit: 500, offset: 0 })).data
+    const productByName = new Map(products.map((product) => [product.name, product]))
+    const result: SeedOrderSummary[] = []
+
+    for (const seed of seeds) {
+      const branch = branches.find((entry) => entry.name === seed.branch)
+      if (!branch) continue
+
+      const items = this.buildOrderItems(seed.items, productByName)
+      if (items.length === 0) continue
+
+      const branchDoc = await this.branchService.findById(branch.id)
+      const total = items.reduce((sum, item) => sum + item.subtotal, 0)
+
+      const order = await this.orderService.create({
+        clientId: context.client.id,
+        branchId: branch.id,
+        addressId: context.address.id,
+        deliveryAddress: {
+          text: context.address.text,
+          latitude: context.address.latitude,
+          longitude: context.address.longitude,
+        },
+        total,
+        estimatedDeliveryAt: null,
+        items,
+      })
+
+      await this.applyStatusPath(order.id, seed.status)
+
+      result.push({
+        id: order.id,
+        number: order.number,
+        status: seed.status,
+        branchId: branch.id,
+        branchName: branch.name,
+        branchLocation: {
+          latitude: branchDoc?.latitude ?? context.address.latitude,
+          longitude: branchDoc?.longitude ?? context.address.longitude,
+        },
+        deliveryAddress: {
+          text: context.address.text,
+          latitude: context.address.latitude,
+          longitude: context.address.longitude,
+        },
+      })
+
+      Logger.log(`pedido creado: #${order.number} (${seed.status})`, 'Seed')
+    }
+
+    return result
+  }
+
+  private buildOrderItems(
+    seeds: OrderItemSeed[],
+    productByName: Map<string, PublicProduct>,
+  ): OrderItem[] {
+    return seeds.flatMap((seed) => {
+      const product = productByName.get(seed.product)
+      if (!product) return []
+
+      const options = (seed.options ?? []).flatMap((optionName) => {
+        const option = product.configGroups
+          .flatMap((group) => group.options)
+          .find((entry) => entry.name === optionName)
+        return option
+          ? [{ optionId: option.id, name: option.name, extraPrice: option.extraPrice }]
+          : []
+      })
+
+      const unitPrice = product.price + options.reduce((sum, option) => sum + option.extraPrice, 0)
+
+      return [
+        {
+          productId: product.id,
+          name: product.name,
+          unitPrice,
+          quantity: seed.quantity,
+          observations: null,
+          subtotal: unitPrice * seed.quantity,
+          options,
+        },
+      ]
+    })
+  }
+
+  private async applyStatusPath(orderId: string, target: OrderStatus): Promise<void> {
+    for (const status of STATUS_PATHS[target] ?? []) {
+      await this.orderService.applyTransition(orderId, status)
     }
   }
 

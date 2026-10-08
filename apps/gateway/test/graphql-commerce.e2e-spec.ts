@@ -145,6 +145,7 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -709,8 +710,6 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         response: { ...rawProduct, available: false },
         expected: { setProductAvailable: { id: 'p1', available: false } },
       },
-      // KNOWN BUG: `configGroupTypeToRest` existe pero no se usa; el enum GraphQL viaja
-      // a REST en mayúsculas ('MULTIPLE') cuando el contrato REST usa minúsculas ('multiple').
       {
         name: 'createConfigGroup',
         query:
@@ -718,11 +717,10 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         role: 'super_admin',
         method: 'POST',
         path: '/v1/catalog/products/p1/configurations',
-        body: { name: 'Extras', type: 'MULTIPLE', required: true },
+        body: { name: 'Extras', type: 'multiple', required: true },
         response: rawConfigGroup,
         expected: { createConfigGroup: { id: 'g1', name: 'Extras', type: 'SINGLE' } },
       },
-      // KNOWN BUG: mismo caso que createConfigGroup; Commerce valida type con @IsIn(['single','multiple']).
       {
         name: 'updateConfigGroup',
         query:
@@ -730,7 +728,7 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         role: 'super_admin',
         method: 'PATCH',
         path: '/v1/catalog/products/p1/configurations/g1',
-        body: { name: 'E', type: 'SINGLE', required: false },
+        body: { name: 'E', type: 'single', required: false },
         response: rawConfigGroup,
         expected: { updateConfigGroup: { id: 'g1' } },
       },

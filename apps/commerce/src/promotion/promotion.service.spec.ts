@@ -1,3 +1,4 @@
+import { ERROR_CODES } from '../config/constants'
 import type { PromotionDocument, PublicPromotion } from './promotion.model'
 import type { PromotionListQuery } from './promotion.repository'
 import { PromotionRepository } from './promotion.repository'
@@ -25,7 +26,6 @@ const makeService = (repository: Partial<Record<string, jest.Mock>> = {}) => {
   }
   return { repository: mock, service: new PromotionService(mock as unknown as PromotionRepository) }
 }
-
 describe('PromotionService.list (RQ-CAT-13)', () => {
   const query: PromotionListQuery = { limit: 20, offset: 0 }
 
@@ -116,10 +116,7 @@ describe('PromotionService.create (RQ-CAT-13)', () => {
   })
 })
 
-describe('PromotionService.create — validación de rango de fechas (KNOWN BUG)', () => {
-  // KNOWN BUG: no se valida startDate <= endDate. El DTO sólo aplica @IsDateString y el
-  // servicio persiste sin comprobar el orden, por lo que una promoción que termina antes de
-  // empezar se crea igualmente. Esperado: rechazar (400 / error de dominio). Actual: acepta.
+describe('PromotionService.create — validación de rango de fechas (RQ-CAT-13)', () => {
   const makeCreate = () =>
     makeService({ create: jest.fn().mockImplementation((data: object) => buildDoc(data)) })
 
@@ -128,30 +125,84 @@ describe('PromotionService.create — validación de rango de fechas (KNOWN BUG)
       name: 'rango válido (inicio anterior al fin)',
       start: new Date('2026-01-01T00:00:00.000Z'),
       end: new Date('2026-02-01T00:00:00.000Z'),
-      expected: 'accepted',
+      valid: true,
     },
     {
       name: 'límite (inicio igual al fin)',
       start: new Date('2026-01-01T00:00:00.000Z'),
       end: new Date('2026-01-01T00:00:00.000Z'),
-      expected: 'accepted',
+      valid: true,
     },
     {
-      name: 'inválido (inicio posterior al fin) — la regla debería rechazarlo',
+      name: 'inválido (inicio posterior al fin)',
       start: new Date('2026-03-01T00:00:00.000Z'),
       end: new Date('2026-02-01T00:00:00.000Z'),
-      expected: 'accepted',
+      valid: false,
     },
-  ])('$name → $expected (comportamiento actual)', async ({ start, end, expected }) => {
+  ])('$name → $valid', async ({ start, end, valid }) => {
     const { repository, service } = makeCreate()
 
+    const promise = service.create({ name: 'Fechas', startDate: start, endDate: end })
+
+    if (valid) {
+      await expect(promise).resolves.toBeDefined()
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ startDate: start, endDate: end }),
+      )
+    } else {
+      await expect(promise).rejects.toMatchObject({
+        code: ERROR_CODES.validationError,
+        status: 400,
+      })
+      expect(repository.create).not.toHaveBeenCalled()
+    }
+  })
+})
+
+describe('PromotionService.update — validación de rango de fechas (RQ-CAT-13)', () => {
+  it('valida el rango efectivo al combinar el patch con la promoción existente', async () => {
+    const current = buildDoc({
+      startDate: new Date('2026-01-01T00:00:00.000Z'),
+      endDate: new Date('2026-02-01T00:00:00.000Z'),
+    })
+    const { repository, service } = makeService({
+      findById: jest.fn().mockResolvedValue(current),
+      update: jest.fn().mockResolvedValue(current),
+    })
+
     await expect(
-      service.create({ name: 'Fechas', startDate: start, endDate: end }),
-    ).resolves.toBeDefined()
-    expect(repository.create).toHaveBeenCalledWith(
-      expect.objectContaining({ startDate: start, endDate: end }),
-    )
-    expect(expected).toBe('accepted')
+      service.update('prom1', { startDate: new Date('2026-03-01T00:00:00.000Z') }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.validationError, status: 400 })
+    expect(repository.update).not.toHaveBeenCalled()
+  })
+
+  it('permite un patch de fechas coherente con la existente', async () => {
+    const current = buildDoc({
+      startDate: new Date('2026-01-01T00:00:00.000Z'),
+      endDate: new Date('2026-02-01T00:00:00.000Z'),
+    })
+    const updated = buildDoc({ endDate: new Date('2026-04-01T00:00:00.000Z') })
+    const { repository, service } = makeService({
+      findById: jest.fn().mockResolvedValue(current),
+      update: jest.fn().mockResolvedValue(updated),
+    })
+
+    const result = await service.update('prom1', { endDate: new Date('2026-04-01T00:00:00.000Z') })
+
+    expect(result).toBeDefined()
+    expect(repository.update).toHaveBeenCalled()
+  })
+
+  it('devuelve null sin validar si la promoción no existe', async () => {
+    const { repository, service } = makeService({
+      findById: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
+    })
+
+    await expect(
+      service.update('missing', { startDate: new Date('2026-03-01T00:00:00.000Z') }),
+    ).resolves.toBeNull()
+    expect(repository.update).not.toHaveBeenCalled()
   })
 })
 

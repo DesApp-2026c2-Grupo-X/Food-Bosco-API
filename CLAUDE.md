@@ -2,6 +2,12 @@
 
 Backend NestJS de la plataforma de pedidos. **Arquitectura por dominio**: cada dominio es una carpeta dentro de `src/`, y dentro de cada dominio están sus controllers, servicios, DTOs, repositorios y módulos.
 
+## Documentación
+
+- Índice maestro (estados OFICIAL / VIGENTE / HISTÓRICO): `docs/README.md`.
+- Fuente de verdad funcional del backend: `docs/especificaciones/requerimientos-backend-rest.md`.
+- Arquitectura: `docs/especificaciones/fundamentacion-gateway-graphql-rest.md`.
+
 ## Skills disponibles
 
 Las reglas y patrones obligatorios de este proyecto viven en skills. **Toda tarea de API debe aplicar la skill correspondiente antes de escribir o revisar código.**

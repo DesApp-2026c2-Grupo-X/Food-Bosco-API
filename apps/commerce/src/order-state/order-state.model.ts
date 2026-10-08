@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
 
+export const ORDER_STATE_ALREADY_EXISTS = 'ORDER_STATE_ALREADY_EXISTS'
+
 @Schema({ collection: 'orderStates', timestamps: { createdAt: true, updatedAt: true } })
 export class OrderState {
   @Prop({ required: true, unique: true, index: true, trim: true })

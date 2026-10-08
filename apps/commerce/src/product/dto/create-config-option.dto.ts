@@ -1,4 +1,5 @@
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class CreateConfigOptionDto {
   @IsString()
@@ -7,9 +8,10 @@ export class CreateConfigOptionDto {
   name!: string
 
   @IsNumber()
+  @Min(0)
   extraPrice!: number
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   available?: boolean
 }

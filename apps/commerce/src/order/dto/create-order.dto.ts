@@ -26,6 +26,7 @@ export class CreateOrderDto {
   @IsNotEmpty()
   addressId!: string
 
+  @IsNotEmpty()
   @ValidateNested()
   @Type(() => DeliveryAddressDto)
   deliveryAddress!: DeliveryAddressDto

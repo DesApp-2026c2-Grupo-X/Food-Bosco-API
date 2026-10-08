@@ -1,4 +1,5 @@
 import type { Model } from 'mongoose'
+import { ORDER_STATE_ALREADY_EXISTS } from './order-state.model'
 import type { OrderStateDocument } from './order-state.model'
 import { OrderStateRepository } from './order-state.repository'
 
@@ -80,6 +81,26 @@ describe('OrderStateRepository.create (RQ-CFG-06)', () => {
       active: true,
     })
     expect(result).toBe(doc)
+  })
+
+  // INT-08: un `code` duplicado dispara E11000; se traduce a un error de dominio 409
+  // en lugar de filtrar el error crudo de Mongo (que terminaba en 500).
+  it('traduce el E11000 a ORDER_STATE_ALREADY_EXISTS 409', async () => {
+    const { repository, model } = makeRepository()
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    model.create.mockRejectedValue(duplicateError)
+
+    await expect(
+      repository.create({ code: 'PENDING', name: 'Duplicado', order: 1 }),
+    ).rejects.toMatchObject({ code: ORDER_STATE_ALREADY_EXISTS, status: 409 })
+  })
+
+  it('propaga cualquier otro error sin transformarlo', async () => {
+    const { repository, model } = makeRepository()
+    const failure = new Error('conexión caída')
+    model.create.mockRejectedValue(failure)
+
+    await expect(repository.create({ code: 'PENDING', name: 'X', order: 1 })).rejects.toBe(failure)
   })
 })
 
