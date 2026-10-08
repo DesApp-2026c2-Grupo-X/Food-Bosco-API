@@ -35,22 +35,18 @@ const buildService = (deps: {
 
 const zoneStub = () => ({
   findByName: jest.fn().mockResolvedValue(null),
-  create: jest
-    .fn()
-    .mockImplementation(async (seed: { name: string }) => ({
-      id: `z-${seed.name}`,
-      name: seed.name,
-    })),
+  create: jest.fn().mockImplementation(async (seed: { name: string }) => ({
+    id: `z-${seed.name}`,
+    name: seed.name,
+  })),
 })
 
 const shiftStub = () => ({
   findByName: jest.fn().mockResolvedValue(null),
-  create: jest
-    .fn()
-    .mockImplementation(async (seed: { name: string }) => ({
-      id: `s-${seed.name}`,
-      name: seed.name,
-    })),
+  create: jest.fn().mockImplementation(async (seed: { name: string }) => ({
+    id: `s-${seed.name}`,
+    name: seed.name,
+  })),
 })
 
 const riderStub = (overrides: Record<string, unknown> = {}) =>
