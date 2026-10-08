@@ -191,3 +191,75 @@ describe('isBranchOpenNow — rango nocturno (RQ-BRN-03)', () => {
     expect(isBranchOpenNow(overnightHours, at)).toBe(expected)
   })
 })
+
+describe('isBranchOpenNow — arrastre del turno nocturno al día siguiente (RQ-BRN-03)', () => {
+  // Un turno que cruza medianoche sigue abierto en la madrugada del día siguiente,
+  // aunque ese día siguiente tenga otro horario o esté marcado como cerrado.
+  it.each([
+    {
+      name: 'el turno del sábado cubre la madrugada del domingo',
+      hours: [
+        hour({ dayOfWeek: 6, opening: '09:00', closing: '01:00' }),
+        hour({ dayOfWeek: 0, opening: '11:00', closing: '21:00' }),
+      ],
+      at: argentinaInstant(2026, 8, 30, 0, 30), // domingo 00:30
+      expected: true,
+    },
+    {
+      name: 'el turno del viernes cubre la madrugada del sábado',
+      hours: [
+        hour({ dayOfWeek: 5, opening: '09:00', closing: '01:00' }),
+        hour({ dayOfWeek: 6, opening: '10:00', closing: '23:00' }),
+      ],
+      at: argentinaInstant(2026, 8, 29, 0, 30), // sábado 00:30
+      expected: true,
+    },
+    {
+      name: 'el arrastre aplica aunque el día siguiente esté marcado cerrado',
+      hours: [
+        hour({ dayOfWeek: 6, opening: '09:00', closing: '01:00' }),
+        hour({ dayOfWeek: 0, closed: true, opening: null, closing: null }),
+      ],
+      at: argentinaInstant(2026, 8, 30, 0, 30), // domingo 00:30
+      expected: true,
+    },
+    {
+      name: 'justo al cerrar el turno anterior vuelve a estar cerrado',
+      hours: [
+        hour({ dayOfWeek: 6, opening: '09:00', closing: '01:00' }),
+        hour({ dayOfWeek: 0, opening: '11:00', closing: '21:00' }),
+      ],
+      at: argentinaInstant(2026, 8, 30, 1, 0), // domingo 01:00
+      expected: false,
+    },
+    {
+      name: 'pasado el cierre del turno anterior sigue cerrado',
+      hours: [
+        hour({ dayOfWeek: 6, opening: '09:00', closing: '01:00' }),
+        hour({ dayOfWeek: 0, opening: '11:00', closing: '21:00' }),
+      ],
+      at: argentinaInstant(2026, 8, 30, 1, 30), // domingo 01:30
+      expected: false,
+    },
+    {
+      name: 'un día que no cruza medianoche no arrastra al día siguiente',
+      hours: [hour({ dayOfWeek: 6, opening: '09:00', closing: '21:00' })],
+      at: argentinaInstant(2026, 8, 30, 0, 30), // domingo 00:30
+      expected: false,
+    },
+    {
+      name: 'cierre 00:00 significa fin del día: abierto hasta las 23:59',
+      hours: [hour({ dayOfWeek: 1, opening: '08:00', closing: '00:00' })],
+      at: argentinaInstant(2026, 8, 24, 23, 59), // lunes 23:59
+      expected: true,
+    },
+    {
+      name: 'cierre 00:00 no arrastra al día siguiente',
+      hours: [hour({ dayOfWeek: 1, opening: '08:00', closing: '00:00' })],
+      at: argentinaInstant(2026, 8, 25, 0, 0), // martes 00:00
+      expected: false,
+    },
+  ])('$name → $expected', ({ at, hours, expected }) => {
+    expect(isBranchOpenNow(hours, at)).toBe(expected)
+  })
+})

@@ -130,23 +130,45 @@ const getArgentinaClock = (instant: Date): ArgentinaClock => {
   return { dayOfWeek, minutes: hour * 60 + minute }
 }
 
-export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date()): boolean => {
-  const { dayOfWeek, minutes } = getArgentinaClock(now)
-  const hour = hours.find((entry) => entry.dayOfWeek === dayOfWeek)
-
-  if (!hour || hour.closed) {
+const isOpenDuringEntryDay = (entry: PublicBranchHour | undefined, minutes: number): boolean => {
+  if (!entry || entry.closed) {
     return false
   }
 
-  const opening = timeToMinutes(hour.opening)
-  const closing = timeToMinutes(hour.closing)
+  const opening = timeToMinutes(entry.opening)
+  const closing = timeToMinutes(entry.closing)
   if (opening === null || closing === null) {
     return false
   }
 
   if (closing < opening) {
-    return minutes >= opening || minutes < closing
+    return minutes >= opening
   }
 
   return minutes >= opening && minutes < closing
+}
+
+const isOpenFromPreviousDayShift = (
+  entry: PublicBranchHour | undefined,
+  minutes: number,
+): boolean => {
+  if (!entry || entry.closed) {
+    return false
+  }
+
+  const opening = timeToMinutes(entry.opening)
+  const closing = timeToMinutes(entry.closing)
+  if (opening === null || closing === null || closing >= opening) {
+    return false
+  }
+
+  return minutes < closing
+}
+
+export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date()): boolean => {
+  const { dayOfWeek, minutes } = getArgentinaClock(now)
+  const today = hours.find((entry) => entry.dayOfWeek === dayOfWeek)
+  const previousDay = hours.find((entry) => entry.dayOfWeek === (dayOfWeek + 6) % 7)
+
+  return isOpenDuringEntryDay(today, minutes) || isOpenFromPreviousDayShift(previousDay, minutes)
 }
