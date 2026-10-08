@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, PipelineStage } from 'mongoose'
-import { ORDER_STATUS } from '../config/constants'
+import { BUSINESS_TIME_ZONE, ORDER_STATUS } from '../config/constants'
 import type { OrderStatus } from '../config/constants'
 import { Branch, BranchDocument } from '../branch/branch.model'
 import { Category, CategoryDocument } from '../category/category.model'
@@ -23,7 +23,6 @@ export interface OverviewAggregateRaw {
   branchPerformance: Array<{ _id: string; revenue: number; orders: number }>
 }
 
-const REPORT_TIMEZONE = 'America/Argentina/Buenos_Aires'
 const TOP_PRODUCTS_LIMIT = 10
 
 const GROUP_FORMATS: Record<ReportGroupBy, string> = {
@@ -138,7 +137,7 @@ export class ReportingRepository {
                   $dateToString: {
                     format: groupFormat,
                     date: '$createdAt',
-                    timezone: REPORT_TIMEZONE,
+                    timezone: BUSINESS_TIME_ZONE,
                   },
                 },
                 revenue: { $sum: '$total' },

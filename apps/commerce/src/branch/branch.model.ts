@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
+import { BUSINESS_TIME_ZONE } from '../config/constants'
 
 export interface BranchHour {
   dayOfWeek: number
@@ -99,25 +100,75 @@ const timeToMinutes = (value: string | null | undefined): number | null => {
   return hours * 60 + minutes
 }
 
-export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date()): boolean => {
-  const dayOfWeek = now.getDay()
-  const hour = hours.find((entry) => entry.dayOfWeek === dayOfWeek)
+const argentinaClockFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
 
-  if (!hour || hour.closed) {
+interface ArgentinaClock {
+  dayOfWeek: number
+  minutes: number
+}
+
+const getArgentinaClock = (instant: Date): ArgentinaClock => {
+  const parts = argentinaClockFormatter.formatToParts(instant)
+  const read = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0)
+
+  const year = read('year')
+  const month = read('month')
+  const day = read('day')
+  const hour = read('hour')
+  const minute = read('minute')
+
+  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+  return { dayOfWeek, minutes: hour * 60 + minute }
+}
+
+const isOpenDuringEntryDay = (entry: PublicBranchHour | undefined, minutes: number): boolean => {
+  if (!entry || entry.closed) {
     return false
   }
 
-  const opening = timeToMinutes(hour.opening)
-  const closing = timeToMinutes(hour.closing)
+  const opening = timeToMinutes(entry.opening)
+  const closing = timeToMinutes(entry.closing)
   if (opening === null || closing === null) {
     return false
   }
 
-  const current = now.getHours() * 60 + now.getMinutes()
-
   if (closing < opening) {
-    return current >= opening || current < closing
+    return minutes >= opening
   }
 
-  return current >= opening && current < closing
+  return minutes >= opening && minutes < closing
+}
+
+const isOpenFromPreviousDayShift = (
+  entry: PublicBranchHour | undefined,
+  minutes: number,
+): boolean => {
+  if (!entry || entry.closed) {
+    return false
+  }
+
+  const opening = timeToMinutes(entry.opening)
+  const closing = timeToMinutes(entry.closing)
+  if (opening === null || closing === null || closing >= opening) {
+    return false
+  }
+
+  return minutes < closing
+}
+
+export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date()): boolean => {
+  const { dayOfWeek, minutes } = getArgentinaClock(now)
+  const today = hours.find((entry) => entry.dayOfWeek === dayOfWeek)
+  const previousDay = hours.find((entry) => entry.dayOfWeek === (dayOfWeek + 6) % 7)
+
+  return isOpenDuringEntryDay(today, minutes) || isOpenFromPreviousDayShift(previousDay, minutes)
 }

@@ -5,8 +5,12 @@ import type { BranchDocument, BranchHours } from './branch.model'
 import type { BranchListQuery, BranchRepository } from './branch.repository'
 import { BranchService } from './branch.service'
 
-const NOW = new Date(2026, 7, 24, 12, 0, 0)
-const DAY = NOW.getDay()
+const ARGENTINA_UTC_OFFSET_HOURS = 3
+
+// Lunes 24/08/2026 a las 12:00 en Argentina (GMT-3), expresado como instante UTC
+// para no depender de la zona horaria de la máquina que corre los tests.
+const NOW = new Date(Date.UTC(2026, 7, 24, 12 + ARGENTINA_UTC_OFFSET_HOURS, 0, 0))
+const DAY = 1
 
 const hourFor = (dayOfWeek: number, overrides: Partial<BranchHours> = {}): BranchHours =>
   ({
