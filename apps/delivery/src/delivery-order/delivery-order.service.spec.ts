@@ -34,7 +34,12 @@ const event = (status: string): OrderStatusChangedEvent => ({
 })
 
 describe('DeliveryOrderService.handleOrderStatusChanged (RQ-DLV-03)', () => {
-  const repository = { upsertReady: jest.fn(), remove: jest.fn() }
+  const repository = {
+    isEventProcessed: jest.fn().mockResolvedValue(false),
+    markProcessed: jest.fn().mockResolvedValue(true),
+    upsertReady: jest.fn(),
+    remove: jest.fn(),
+  }
   const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
   beforeEach(() => jest.clearAllMocks())
@@ -233,31 +238,57 @@ describe('DeliveryOrderService.reserve / markAssigned / release', () => {
 })
 
 describe('DeliveryOrderService.handleOrderStatusChanged: idempotencia y errores (RQ-DLV-03)', () => {
-  const repository = { upsertReady: jest.fn(), remove: jest.fn() }
+  const repository = {
+    isEventProcessed: jest.fn().mockResolvedValue(false),
+    markProcessed: jest.fn().mockResolvedValue(true),
+    upsertReady: jest.fn(),
+    remove: jest.fn(),
+  }
   const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
 
   beforeEach(() => jest.clearAllMocks())
 
-  // KNOWN BUG: handleOrderStatusChanged nunca registra ni consulta eventId. Reprocesar el
-  // mismo evento READY vuelve a ejecutar upsertReady. Como upsertReady hace $set de status
-  // 'ready' y tripId null, una orden ya reservada/asignada se reintegra al pool y puede ser
-  // ofrecida a otro repartidor. Causa: no hay guarda de idempotencia por eventId.
-  it('KNOWN BUG: no deduplica por eventId: un READY reprocesado reescribe el pool dos veces', async () => {
+  // RQ-COM-05 / RQ-DLV-03: el consumo se deduplica por eventId. Reprocesar el mismo
+  // READY no vuelve a escribir el pool ni reintegra una orden ya reservada/asignada.
+  it('deduplica por eventId: un READY ya procesado no reescribe el pool', async () => {
     const duplicated: OrderStatusChangedEvent = { ...event('ready_for_delivery'), eventId: 'dup-1' }
+    repository.isEventProcessed.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
 
     await service.handleOrderStatusChanged(duplicated)
     await service.handleOrderStatusChanged(duplicated)
 
-    expect(repository.upsertReady).toHaveBeenCalledTimes(2)
+    expect(repository.isEventProcessed).toHaveBeenCalledTimes(2)
+    expect(repository.upsertReady).toHaveBeenCalledTimes(1)
+    expect(repository.markProcessed).toHaveBeenCalledTimes(1)
     expect(repository.remove).not.toHaveBeenCalled()
   })
 
-  it('propaga el error del repositorio al procesar un READY', async () => {
+  // NEW-11: la decisión de reintegrar o no vive en el upsert condicional del repositorio,
+  // no en un read-then-write del servicio. El servicio siempre delega.
+  it('NEW-11: delega la atomicidad al upsert condicional del repositorio', async () => {
+    await service.handleOrderStatusChanged(event('ready_for_delivery'))
+
+    expect(repository.upsertReady).toHaveBeenCalledTimes(1)
+  })
+
+  it('NEW-11: si el upsert no reintegra (orden en vuelo) el evento igual se marca procesado', async () => {
+    repository.upsertReady.mockResolvedValueOnce(null)
+
+    await expect(
+      service.handleOrderStatusChanged(event('ready_for_delivery')),
+    ).resolves.toBeUndefined()
+
+    expect(repository.markProcessed).toHaveBeenCalledWith('e1')
+  })
+
+  it('NEW-12: no marca el evento como procesado si el handler falla', async () => {
     repository.upsertReady.mockRejectedValueOnce(new Error('mongo caído'))
 
     await expect(service.handleOrderStatusChanged(event('ready_for_delivery'))).rejects.toThrow(
       'mongo caído',
     )
+
+    expect(repository.markProcessed).not.toHaveBeenCalled()
   })
 
   it('propaga el error del repositorio al quitar una orden cancelada', async () => {
@@ -266,6 +297,8 @@ describe('DeliveryOrderService.handleOrderStatusChanged: idempotencia y errores 
     await expect(service.handleOrderStatusChanged(event('cancelled'))).rejects.toThrow(
       'delete falló',
     )
+
+    expect(repository.markProcessed).not.toHaveBeenCalled()
   })
 })
 

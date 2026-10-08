@@ -116,6 +116,7 @@ const configGroupInput = {
   min: 1,
   max: 2,
 }
+const configGroupRestBody = { ...configGroupInput, type: 'multiple' }
 const configOptionInput = { name: 'Queso', extraPrice: 5, available: true }
 const recipeItemInput = { ingredientId: 'i1', quantity: 100 }
 const ingredientInput = { name: 'Carne', unit: 'g', active: true }
@@ -635,7 +636,7 @@ describe('CommerceResolver — mutaciones', () => {
       name: 'createConfigGroup',
       method: 'post',
       path: '/v1/catalog/products/p1/configurations',
-      body: configGroupInput,
+      body: configGroupRestBody,
       raw: { id: 'g1', name: 'Extras', type: 'multiple', required: false, options: [] },
       invoke: (r) => r.createConfigGroup('p1', configGroupInput, ctx),
     },
@@ -643,7 +644,7 @@ describe('CommerceResolver — mutaciones', () => {
       name: 'updateConfigGroup',
       method: 'patch',
       path: '/v1/catalog/products/p1/configurations/g1',
-      body: configGroupInput,
+      body: configGroupRestBody,
       raw: { id: 'g1', name: 'Extras', type: 'multiple', required: false, options: [] },
       invoke: (r) => r.updateConfigGroup('p1', 'g1', configGroupInput, ctx),
     },

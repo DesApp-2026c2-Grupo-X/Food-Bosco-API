@@ -1,6 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument, Schema as MongooseSchema } from 'mongoose'
-import { RIDER_STATUS, RIDER_STATUS_VALUES, VEHICLE_TYPE_VALUES } from '../config/constants'
+import {
+  RIDER_STATUS,
+  RIDER_STATUS_VALUES,
+  VEHICLE_TYPE,
+  VEHICLE_TYPE_VALUES,
+} from '../config/constants'
 import type { RiderStatus, VehicleType } from '../config/constants'
 
 export interface Vehicle {
@@ -8,6 +13,12 @@ export interface Vehicle {
   brand?: string
   model?: string
   plate?: string
+}
+
+export const normalizeVehicle = (vehicle: string | null | undefined): Vehicle | null => {
+  if (!vehicle) return null
+  const type = /bici/i.test(vehicle) ? VEHICLE_TYPE.bici : VEHICLE_TYPE.moto
+  return { type, model: vehicle }
 }
 
 const VehicleSchema = new MongooseSchema(

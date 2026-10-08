@@ -3,9 +3,17 @@ import { ERROR_CODES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
-import type { PublicCart } from './cart.model'
+import type { PublicCart, PublicCartItem } from './cart.model'
 import type { CartItemData } from './cart.repository'
 import { CartService } from './cart.service'
+
+const toItemData = (item: PublicCartItem): CartItemData => ({
+  id: item.id,
+  productId: item.productId,
+  quantity: item.quantity,
+  observations: item.observations,
+  optionIds: item.optionIds,
+})
 
 export interface AddCartItemInput {
   productId: string
@@ -39,12 +47,7 @@ export class CartOrchestrator {
 
     const cart = await this.getCart(clientId)
     const items: CartItemData[] = [
-      ...cart.items.map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        observations: item.observations,
-        optionIds: item.optionIds,
-      })),
+      ...cart.items.map(toItemData),
       {
         productId: input.productId,
         quantity: input.quantity,
@@ -75,15 +78,10 @@ export class CartOrchestrator {
 
     const items: CartItemData[] = cart.items.map((item) => {
       if (item.id !== itemId) {
-        return {
-          productId: item.productId,
-          quantity: item.quantity,
-          observations: item.observations,
-          optionIds: item.optionIds,
-        }
+        return toItemData(item)
       }
       return {
-        productId: item.productId,
+        ...toItemData(item),
         quantity: patch.quantity ?? item.quantity,
         observations: patch.observations !== undefined ? patch.observations : item.observations,
         optionIds,
@@ -102,14 +100,7 @@ export class CartOrchestrator {
       throw new DomainException(ERROR_CODES.cartItemNotFound, 'Ítem del carrito no encontrado', 404)
     }
 
-    const items: CartItemData[] = cart.items
-      .filter((item) => item.id !== itemId)
-      .map((item) => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        observations: item.observations,
-        optionIds: item.optionIds,
-      }))
+    const items: CartItemData[] = cart.items.filter((item) => item.id !== itemId).map(toItemData)
 
     const total = await this.computeTotal(items)
     const updated = await this.cartService.replaceItems(cart.id, items, total)
@@ -117,7 +108,13 @@ export class CartOrchestrator {
   }
 
   async confirmCart(clientId: string): Promise<PublicCart> {
-    const cart = await this.getCart(clientId)
+    // No se crea el carrito bajo demanda: confirmar un carrito inexistente o
+    // vacío debe rechazarse. El contrato sólo define `CART_NOT_FOUND` para este
+    // caso (no existe un `CART_EMPTY`), así que ambos escenarios responden 404.
+    const cart = await this.cartService.findActiveByClient(clientId)
+    if (!cart || cart.items.length === 0) {
+      throw new DomainException(ERROR_CODES.cartNotFound, 'Carrito vacío o inexistente', 404)
+    }
     const confirmed = await this.cartService.confirm(cart.id)
     return confirmed ?? this.notFound()
   }
@@ -131,7 +128,10 @@ export class CartOrchestrator {
 
   private async requireAvailableProduct(productId: string): Promise<PublicProduct> {
     const product = await this.productService.findById(productId)
-    if (!product || !product.available) {
+    if (!product) {
+      throw new DomainException(ERROR_CODES.productNotFound, 'Producto no encontrado', 404)
+    }
+    if (!product.available) {
       throw new DomainException(ERROR_CODES.productUnavailable, 'Producto no disponible', 400)
     }
     return product

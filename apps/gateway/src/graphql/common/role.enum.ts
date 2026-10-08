@@ -19,7 +19,7 @@ const ROLE_BY_STRING: Record<string, Role> = {
 export const roleToRest = (role: Role): string => role.toLowerCase()
 
 export const roleFromRest = (value: string): Role => {
-  const role = ROLE_BY_STRING[value]
+  const role = ROLE_BY_STRING[String(value).toLowerCase()]
   if (!role) {
     throw new Error(`Unknown role: ${value}`)
   }

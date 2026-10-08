@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { isValidObjectId, Model } from 'mongoose'
 import { Role } from '../config/constants'
 import { User, UserDocument } from './user.model'
 
@@ -44,11 +44,13 @@ export class UserRepository {
     return this.model.findOne({ email }).select('+passwordHash').exec()
   }
 
-  findById(id: string): Promise<UserDocument | null> {
+  async findById(id: string): Promise<UserDocument | null> {
+    if (!isValidObjectId(id)) return null
     return this.model.findById(id).exec()
   }
 
-  findByIdWithPassword(id: string): Promise<UserDocument | null> {
+  async findByIdWithPassword(id: string): Promise<UserDocument | null> {
+    if (!isValidObjectId(id)) return null
     return this.model.findById(id).select('+passwordHash').exec()
   }
 
@@ -74,15 +76,18 @@ export class UserRepository {
     return { data, total }
   }
 
-  update(id: string, patch: UpdateUserData): Promise<UserDocument | null> {
+  async update(id: string, patch: UpdateUserData): Promise<UserDocument | null> {
+    if (!isValidObjectId(id)) return null
     return this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
   }
 
-  setActive(id: string, active: boolean): Promise<UserDocument | null> {
+  async setActive(id: string, active: boolean): Promise<UserDocument | null> {
+    if (!isValidObjectId(id)) return null
     return this.model.findByIdAndUpdate(id, { $set: { active } }, { new: true }).exec()
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {
+    if (!isValidObjectId(id)) return
     await this.model.updateOne({ _id: id }, { $set: { passwordHash } }).exec()
   }
 }

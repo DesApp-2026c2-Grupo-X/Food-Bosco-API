@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { isValidObjectId, Model } from 'mongoose'
 import { Shift, ShiftDocument } from './shift.model'
 
 export interface CreateShiftData {
@@ -22,6 +22,7 @@ export class ShiftRepository {
   }
 
   findById(id: string): Promise<ShiftDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
     return this.model.findById(id).exec()
   }
 
@@ -38,6 +39,7 @@ export class ShiftRepository {
   }
 
   setActive(id: string, active: boolean): Promise<ShiftDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
     return this.model.findByIdAndUpdate(id, { $set: { active } }, { new: true }).exec()
   }
 }

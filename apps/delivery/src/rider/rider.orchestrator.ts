@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, RiderStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { AuthClient } from '../config/http/auth.client'
-import { PublicRider, Vehicle } from './rider.model'
+import { normalizeVehicle, PublicRider, Vehicle } from './rider.model'
 import { RiderService } from './rider.service'
 
 export interface UpdateRiderProfileInput {
   phone?: string
+  firstName?: string
+  lastName?: string
 }
 
 export interface UpdateVehicleInput {
@@ -76,7 +78,7 @@ export class RiderOrchestrator {
       userId,
       firstName: user.firstName,
       lastName: user.lastName,
-      vehicle: null,
+      vehicle: normalizeVehicle(user.vehicle),
       phone: user.phone,
     })
   }

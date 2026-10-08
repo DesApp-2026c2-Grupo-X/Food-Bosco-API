@@ -1,4 +1,5 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class CreateCategoryDto {
   @IsString()
@@ -7,6 +8,6 @@ export class CreateCategoryDto {
   name!: string
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   active?: boolean
 }

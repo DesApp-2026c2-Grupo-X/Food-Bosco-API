@@ -224,7 +224,7 @@ describe('SetAvailableDto (RQ-CAT-03)', () => {
 })
 
 describe('CreateConfigGroupDto (RQ-CAT-07)', () => {
-  const base = { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single, required: true }
+  const base = { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single, required: true, min: 1 }
 
   const cases: Array<{
     name: string
@@ -241,7 +241,7 @@ describe('CreateConfigGroupDto (RQ-CAT-07)', () => {
     { name: 'min y max en 0 (límite)', payload: { ...base, min: 0, max: 0 }, valid: true },
     {
       name: 'sin nombre',
-      payload: { type: CONFIG_GROUP_TYPE.single, required: true },
+      payload: { type: CONFIG_GROUP_TYPE.single, required: true, min: 1 },
       valid: false,
       failed: ['name'],
     },
@@ -255,7 +255,7 @@ describe('CreateConfigGroupDto (RQ-CAT-07)', () => {
     { name: 'tipo inválido', payload: { ...base, type: 'triple' }, valid: false, failed: ['type'] },
     {
       name: 'sin tipo',
-      payload: { name: 'Tamaño', required: true },
+      payload: { name: 'Tamaño', required: true, min: 1 },
       valid: false,
       failed: ['type'],
     },
@@ -286,16 +286,18 @@ describe('CreateConfigGroupDto (RQ-CAT-07)', () => {
     }
   })
 
-  // KNOWN BUG: RQ-CAT-07 exige coherencia required/min/max. El DTO valida cada campo por
-  // separado pero no la relación, por lo que `required: true` sin `min` y `min > max`
-  // pasan la validación sin error.
+  // RQ-CAT-07 exige coherencia entre required/min/max: `required: true` sin `min` y
+  // `min > max` se rechazan en la validación del DTO.
   it.each([
-    { name: 'required true sin min', payload: base },
+    {
+      name: 'required true sin min',
+      payload: { name: 'Salsas', type: CONFIG_GROUP_TYPE.single, required: true },
+    },
     { name: 'min mayor que max', payload: { ...base, min: 5, max: 1 } },
-  ])('KNOWN BUG: acepta grupo inconsistente ($name)', async ({ payload }) => {
+  ])('rechaza grupo inconsistente ($name)', async ({ payload }) => {
     const { invalid } = await check(CreateConfigGroupDto, payload)
 
-    expect(invalid).toEqual([])
+    expect(invalid.length).toBeGreaterThan(0)
   })
 })
 
@@ -308,6 +310,7 @@ describe('UpdateConfigGroupDto (RQ-CAT-07)', () => {
     { name: 'nombre vacío', payload: { name: '' }, valid: false },
     { name: 'min negativo', payload: { min: -1 }, valid: false },
     { name: 'max decimal', payload: { max: 2.5 }, valid: false },
+    { name: 'min mayor que max', payload: { min: 5, max: 1 }, valid: false },
     { name: 'required no booleano', payload: { required: 'si' }, valid: false },
   ])('$name → $valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateConfigGroupDto, payload)
@@ -366,15 +369,14 @@ describe('CreateConfigOptionDto (RQ-CAT-08)', () => {
     }
   })
 
-  // KNOWN BUG: RQ-CAT-08 modela la variación como `+$`; el DTO acepta precios extra
-  // negativos porque no tiene @Min(0), permitiendo abaratar una opción de configuración.
+  // RQ-CAT-08 modela la variación como `+$`; el DTO exige extraPrice >= 0.
   it.each([
     { name: 'precio extra negativo', extraPrice: -10 },
     { name: 'precio extra muy negativo', extraPrice: -999 },
-  ])('KNOWN BUG: acepta $name sin error', async ({ extraPrice }) => {
+  ])('rechaza $name', async ({ extraPrice }) => {
     const { invalid } = await check(CreateConfigOptionDto, { name: 'Descuento', extraPrice })
 
-    expect(invalid).toEqual([])
+    expect(invalid).toContain('extraPrice')
   })
 })
 
@@ -386,6 +388,7 @@ describe('UpdateConfigOptionDto (RQ-CAT-08)', () => {
     { name: 'available false', payload: { available: false }, valid: true },
     { name: 'nombre vacío', payload: { name: '' }, valid: false },
     { name: 'precio extra string', payload: { extraPrice: 'x' }, valid: false },
+    { name: 'precio extra negativo', payload: { extraPrice: -5 }, valid: false },
     { name: 'available no booleano', payload: { available: 'no' }, valid: false },
   ])('$name → $valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateConfigOptionDto, payload)
@@ -397,7 +400,7 @@ describe('UpdateConfigOptionDto (RQ-CAT-08)', () => {
 describe('RecipeOptionAdjustmentDto (RQ-CAT-12)', () => {
   it.each([
     { name: 'ajuste válido', payload: { optionId: 'opt1', quantity: 2 }, valid: true },
-    { name: 'cantidad 0 (límite)', payload: { optionId: 'opt1', quantity: 0 }, valid: true },
+    { name: 'cantidad 0', payload: { optionId: 'opt1', quantity: 0 }, valid: false },
     { name: 'cantidad decimal', payload: { optionId: 'opt1', quantity: 1.5 }, valid: true },
     { name: 'sin optionId', payload: { quantity: 2 }, valid: false },
     { name: 'optionId vacío', payload: { optionId: '', quantity: 2 }, valid: false },
@@ -411,19 +414,18 @@ describe('RecipeOptionAdjustmentDto (RQ-CAT-12)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  // KNOWN BUG: la cantidad base/ajustada de un ingrediente debería ser > 0. @Min(0) permite
-  // 0, que en el cálculo de requerimientos (order.orchestrator) anula el ingrediente.
-  it('KNOWN BUG: acepta cantidad 0 como ajuste de receta', async () => {
+  // RQ-CAT-12: la cantidad ajustada por opción debe ser > 0.
+  it('rechaza cantidad 0 como ajuste de receta', async () => {
     const { invalid } = await check(RecipeOptionAdjustmentDto, { optionId: 'opt1', quantity: 0 })
 
-    expect(invalid).toEqual([])
+    expect(invalid).toContain('quantity')
   })
 })
 
 describe('RecipeItemDto (RQ-CAT-11/12)', () => {
   it.each([
     { name: 'ítem válido', payload: { ingredientId: 'ing1', quantity: 2 }, valid: true },
-    { name: 'cantidad 0 (límite)', payload: { ingredientId: 'ing1', quantity: 0 }, valid: true },
+    { name: 'cantidad 0', payload: { ingredientId: 'ing1', quantity: 0 }, valid: false },
     { name: 'cantidad decimal', payload: { ingredientId: 'ing1', quantity: 0.5 }, valid: true },
     {
       name: 'con ajustes por opción válidos',
@@ -567,13 +569,99 @@ describe('ProductQueryDto (RQ-CAT-05)', () => {
     expect(instance.available).toBe(expected)
   })
 
-  // KNOWN BUG: el @Transform de `available` coacciona cualquier valor desconocido a false
-  // en lugar de rechazarlo. `available=garbage` se acepta como "no disponibles", ocultando
-  // datos en el catálogo público por un parámetro malformado.
-  it('KNOWN BUG: available con valor inválido se coacciona a false sin error', async () => {
-    const { instance, invalid } = await check(ProductQueryDto, { available: 'garbage' })
+  // INT-03: con el ValidationPipe real (`enableImplicitConversion: true`) el tipo union
+  // evita que el string 'false' se coaccione a `true` antes del @Transform.
+  it.each([
+    { name: 'false', input: 'false', expected: false },
+    { name: 'true', input: 'true', expected: true },
+  ])('con enableImplicitConversion ?available=$name → $expected', async ({ input, expected }) => {
+    const instance = plainToInstance(
+      ProductQueryDto,
+      { available: input },
+      { enableImplicitConversion: true },
+    )
+    const errors = await validate(instance)
 
-    expect(invalid).toEqual([])
-    expect(instance.available).toBe(false)
+    expect(errors).toHaveLength(0)
+    expect(instance.available).toBe(expected)
+  })
+
+  // RQ-CAT-05: `available` con un valor que no sea booleano ni 'true'/'false' se rechaza
+  // en lugar de coaccionarse silenciosamente a false.
+  it('rechaza available con valor inválido', async () => {
+    const { invalid } = await check(ProductQueryDto, { available: 'garbage' })
+
+    expect(invalid).toContain('available')
+  })
+})
+
+// INT-03: con `enableImplicitConversion` (config real del ValidationPipe) un
+// string/número en un campo booleano de body se coaccionaba a `true` y pasaba
+// `@IsBoolean`. Sólo `true`/`false` reales deben ser válidos.
+describe('INT-03: campos booleanos de body con coerción implícita activa', () => {
+  const cases: Array<{
+    name: string
+    dto: new () => object
+    property: string
+    base: Record<string, unknown>
+  }> = [
+    {
+      name: 'CreateProductDto.available',
+      dto: CreateProductDto,
+      property: 'available',
+      base: validProduct,
+    },
+    { name: 'UpdateProductDto.available', dto: UpdateProductDto, property: 'available', base: {} },
+    { name: 'SetAvailableDto.available', dto: SetAvailableDto, property: 'available', base: {} },
+    {
+      name: 'CreateConfigGroupDto.required',
+      dto: CreateConfigGroupDto,
+      property: 'required',
+      base: { name: 'Tamaño', type: CONFIG_GROUP_TYPE.single, min: 1 },
+    },
+    {
+      name: 'UpdateConfigGroupDto.required',
+      dto: UpdateConfigGroupDto,
+      property: 'required',
+      base: {},
+    },
+    {
+      name: 'CreateConfigOptionDto.available',
+      dto: CreateConfigOptionDto,
+      property: 'available',
+      base: { name: 'Bacon', extraPrice: 25 },
+    },
+    {
+      name: 'UpdateConfigOptionDto.available',
+      dto: UpdateConfigOptionDto,
+      property: 'available',
+      base: {},
+    },
+  ]
+
+  it.each(cases)('$name acepta booleanos reales', async ({ dto, property, base }) => {
+    for (const value of [true, false]) {
+      const instance = plainToInstance(
+        dto,
+        { ...base, [property]: value },
+        { enableImplicitConversion: true },
+      )
+      const errors = await validate(instance)
+
+      expect(errors.map((error) => error.property)).toEqual([])
+    }
+  })
+
+  it.each(cases)('$name rechaza valores no booleanos', async ({ dto, property, base }) => {
+    for (const value of ['false', 'true', 123, 'yes', 0]) {
+      const instance = plainToInstance(
+        dto,
+        { ...base, [property]: value },
+        { enableImplicitConversion: true },
+      )
+      const errors = await validate(instance)
+
+      expect(errors.map((error) => error.property)).toContain(property)
+    }
   })
 })

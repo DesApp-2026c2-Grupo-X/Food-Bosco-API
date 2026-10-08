@@ -1,4 +1,5 @@
 import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql'
+import { Order } from '../commerce/commerce.types'
 import { GeoPoint } from '../common/geo-point'
 import { OrderStatus, orderStatusFromRest } from '../common/order-status.enum'
 import { TripStatus, tripStatusFromRest } from '../common/trip-status.enum'
@@ -89,6 +90,9 @@ export class TripOrder {
 
   @Field(() => String, { nullable: true })
   deliveredAt!: string | null
+
+  @Field(() => Order, { nullable: true })
+  order?: Order | null
 }
 
 @ObjectType()

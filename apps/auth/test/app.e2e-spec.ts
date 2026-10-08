@@ -6,12 +6,14 @@ import jwt from 'jsonwebtoken'
 import { Model } from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { createHash } from 'node:crypto'
+import { createMongoServer } from './mongo'
 import request from 'supertest'
 import type { App } from 'supertest/types'
 import { AddressModule } from '../src/address/address.module'
 import { AuthModule } from '../src/auth/auth.module'
 import { env } from '../src/config/env'
 import { HttpExceptionFilter } from '../src/config/exceptions/http-exception.filter'
+import { CommerceClient } from '../src/config/http/commerce.client'
 import { SecurityModule } from '../src/config/security/security.module'
 import { EMAIL_PROVIDER } from '../src/email/email.model'
 import { PasswordRecoveryModule } from '../src/password-recovery/password-recovery.module'
@@ -46,6 +48,7 @@ describe('Auth Service (e2e)', () => {
   let recoveryModel: Model<RecoveryRow>
 
   const emailSend = jest.fn().mockResolvedValue(undefined)
+  const branchExists = jest.fn().mockResolvedValue(true)
 
   let customerToken = ''
   let customerId = ''
@@ -61,7 +64,7 @@ describe('Auth Service (e2e)', () => {
     })
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create()
+    mongod = await createMongoServer()
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -76,6 +79,8 @@ describe('Auth Service (e2e)', () => {
     })
       .overrideProvider(EMAIL_PROVIDER)
       .useValue({ send: emailSend })
+      .overrideProvider(CommerceClient)
+      .useValue({ branchExists })
       .compile()
 
     app = moduleFixture.createNestApplication()
@@ -88,6 +93,7 @@ describe('Auth Service (e2e)', () => {
     )
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
+    await app.listen(0)
 
     userModel = app.get<Model<UserRow>>(getModelToken('User'))
     recoveryModel = app.get<Model<RecoveryRow>>(getModelToken('PasswordRecovery'))
@@ -410,6 +416,48 @@ describe('Auth Service (e2e)', () => {
       expect(res.body.branchId).toBe('branch-1')
     })
 
+    it('rechaza 404 si la sucursal no existe en Commerce (RQ-AUTH-13)', async () => {
+      branchExists.mockResolvedValueOnce(false)
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/users/staff')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          firstName: 'S',
+          lastName: 'S',
+          email: 'staff-missing@test.com',
+          phone: '1',
+          password: 'password123',
+          branchId: 'no-existe',
+        })
+        .expect(404)
+
+      expect(res.body.code).toBe('BRANCH_NOT_FOUND')
+    })
+
+    it('valida la sucursal al reasignar branchId con PATCH (NEW-02)', async () => {
+      const list = await request(app.getHttpServer())
+        .get('/v1/users?search=staff@test.com')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+      const staffId = list.body.data[0].id as string
+
+      const ok = await request(app.getHttpServer())
+        .patch(`/v1/users/${staffId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ branchId: 'branch-1' })
+        .expect(200)
+      expect(ok.body.branchId).toBe('branch-1')
+
+      branchExists.mockResolvedValueOnce(false)
+      const res = await request(app.getHttpServer())
+        .patch(`/v1/users/${staffId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ branchId: 'no-existe' })
+        .expect(404)
+      expect(res.body.code).toBe('BRANCH_NOT_FOUND')
+    })
+
     it('crea otro super_admin', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/users/admins')
@@ -491,18 +539,40 @@ describe('Auth Service (e2e)', () => {
     })
   })
 
-  describe('auto-registro de repartidor (register-rider)', () => {
-    it('registra un rider con vehicle', async () => {
+  describe('registro de repartidor por admin (register-rider, Security)', () => {
+    const riderBody = {
+      firstName: 'R',
+      lastName: 'R',
+      email: 'rider-self@test.com',
+      phone: '1',
+      password: 'password123',
+      vehicle: 'Bici',
+    }
+
+    it('rechaza sin token con 401', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .send({
-          firstName: 'R',
-          lastName: 'R',
-          email: 'rider-self@test.com',
-          phone: '1',
-          password: 'password123',
-          vehicle: 'Bici',
-        })
+        .send(riderBody)
+        .expect(401)
+
+      expect(res.body.code).toBe('UNAUTHENTICATED')
+    })
+
+    it('rechaza a un cliente con 403', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/register-rider')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send(riderBody)
+        .expect(403)
+
+      expect(res.body.code).toBe('FORBIDDEN')
+    })
+
+    it('permite a un super_admin registrar un rider con vehicle', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/register-rider')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(riderBody)
         .expect(201)
 
       const payload = jwt.decode(res.body.accessToken as string) as jwt.JwtPayload

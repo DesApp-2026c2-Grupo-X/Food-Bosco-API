@@ -10,6 +10,7 @@ import type {
   PublicProduct,
   PublicRecipeItem,
 } from './product.model'
+import { ProductOrchestrator } from './product.orchestrator'
 import { ProductService } from './product.service'
 import type { ProductListResponse } from './product.service'
 import { CreateConfigGroupDto } from './dto/create-config-group.dto'
@@ -24,7 +25,10 @@ import { UpdateProductDto } from './dto/update-product.dto'
 
 @Controller('v1/catalog/products')
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly orchestrator: ProductOrchestrator,
+  ) {}
 
   @Get()
   list(
@@ -32,7 +36,8 @@ export class ProductController {
     @Query() query: ProductQueryDto,
   ): Promise<ProductListResponse> {
     const isAdmin = auth.roles.includes(ROLES.superAdmin)
-    const available = query.available ?? (isAdmin ? undefined : true)
+    const requestedAvailable = query.available as boolean | undefined
+    const available = requestedAvailable ?? (isAdmin ? undefined : true)
     return this.productService.list({
       categoryId: query.categoryId,
       search: query.search,
@@ -45,7 +50,7 @@ export class ProductController {
   @Post()
   @Roles(ROLES.superAdmin)
   create(@Body() dto: CreateProductDto): Promise<PublicProduct> {
-    return this.productService.create(dto)
+    return this.orchestrator.create(dto)
   }
 
   @Get(':productId')
@@ -63,7 +68,7 @@ export class ProductController {
     @Param('productId') productId: string,
     @Body() dto: UpdateProductDto,
   ): Promise<PublicProduct> {
-    const product = await this.productService.update(productId, dto)
+    const product = await this.orchestrator.update(productId, dto)
     if (!product) {
       throw new DomainException(ERROR_CODES.productNotFound, 'Producto no encontrado', 404)
     }
@@ -156,7 +161,8 @@ export class ProductController {
     @Param('optionId') optionId: string,
     @Body() dto: UpdateConfigOptionDto,
   ): Promise<PublicConfigOption> {
-    await this.requireProduct(productId)
+    const product = await this.requireProduct(productId)
+    this.requireConfigGroup(product, groupId)
     const option = await this.productService.updateConfigOption(productId, groupId, optionId, dto)
     if (!option) {
       throw new DomainException(ERROR_CODES.configOptionNotFound, 'Opción no encontrada', 404)
@@ -171,7 +177,8 @@ export class ProductController {
     @Param('groupId') groupId: string,
     @Param('optionId') optionId: string,
   ): Promise<{ ok: boolean }> {
-    await this.requireProduct(productId)
+    const product = await this.requireProduct(productId)
+    this.requireConfigGroup(product, groupId)
     const removed = await this.productService.removeConfigOption(productId, groupId, optionId)
     if (!removed) {
       throw new DomainException(ERROR_CODES.configOptionNotFound, 'Opción no encontrada', 404)
@@ -193,7 +200,7 @@ export class ProductController {
     @Body() dto: SetRecipeDto,
   ): Promise<PublicProduct> {
     await this.requireProduct(productId)
-    const product = await this.productService.setRecipe(productId, dto.items)
+    const product = await this.orchestrator.setRecipe(productId, dto.items)
     return product ?? this.notFoundProduct()
   }
 
@@ -204,7 +211,7 @@ export class ProductController {
     @Body() dto: RecipeItemDto,
   ): Promise<PublicProduct> {
     await this.requireProduct(productId)
-    const product = await this.productService.addRecipeItem(productId, dto)
+    const product = await this.orchestrator.addRecipeItem(productId, dto)
     return product ?? this.notFoundProduct()
   }
 
@@ -216,7 +223,7 @@ export class ProductController {
     @Body() dto: RecipeItemDto,
   ): Promise<PublicProduct> {
     await this.requireProduct(productId)
-    const product = await this.productService.updateRecipeItem(productId, itemId, dto)
+    const product = await this.orchestrator.updateRecipeItem(productId, itemId, dto)
     if (!product) {
       throw new DomainException(ERROR_CODES.recipeItemNotFound, 'Ítem de receta no encontrado', 404)
     }
@@ -243,6 +250,12 @@ export class ProductController {
       throw new DomainException(ERROR_CODES.productNotFound, 'Producto no encontrado', 404)
     }
     return product
+  }
+
+  private requireConfigGroup(product: PublicProduct, groupId: string): void {
+    if (!product.configGroups.some((group) => group.id === groupId)) {
+      throw new DomainException(ERROR_CODES.configGroupNotFound, 'Grupo no encontrado', 404)
+    }
   }
 
   private notFoundProduct(): never {

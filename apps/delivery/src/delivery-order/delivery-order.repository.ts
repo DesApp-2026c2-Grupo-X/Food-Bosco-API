@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { DELIVERY_ORDER_STATUS } from '../config/constants'
-import { DeliveryOrder, DeliveryOrderDocument } from './delivery-order.model'
+import {
+  DeliveryOrder,
+  DeliveryOrderDocument,
+  ProcessedEvent,
+  ProcessedEventDocument,
+} from './delivery-order.model'
 
 export interface UpsertDeliveryOrderData {
   orderId: string
@@ -11,32 +16,63 @@ export interface UpsertDeliveryOrderData {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+const isDuplicateKeyError = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: number }).code === 11000
+
+const IN_FLIGHT_STATUSES = [DELIVERY_ORDER_STATUS.reserved, DELIVERY_ORDER_STATUS.assigned]
+
 @Injectable()
 export class DeliveryOrderRepository {
   constructor(
     @InjectModel(DeliveryOrder.name) private readonly model: Model<DeliveryOrderDocument>,
+    @InjectModel(ProcessedEvent.name)
+    private readonly processedModel: Model<ProcessedEventDocument>,
   ) {}
 
-  upsertReady(data: UpsertDeliveryOrderData): Promise<DeliveryOrderDocument | null> {
-    return this.model
-      .findOneAndUpdate(
-        { orderId: data.orderId },
-        {
-          $set: {
-            branchId: data.branchId,
-            branchLocation: data.branchLocation,
-            deliveryAddress: data.deliveryAddress,
-            status: DELIVERY_ORDER_STATUS.ready,
-            tripId: null,
-            reservedUntil: null,
-            rotationRoster: null,
-            rotationIndex: null,
-            rotationTurnUntil: null,
+  async markProcessed(eventId: string): Promise<boolean> {
+    try {
+      await this.processedModel.create({ eventId })
+      return true
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return false
+      throw error
+    }
+  }
+
+  async isEventProcessed(eventId: string): Promise<boolean> {
+    const existing = await this.processedModel.exists({ eventId }).exec()
+    return existing !== null
+  }
+
+  findByOrderId(orderId: string): Promise<DeliveryOrderDocument | null> {
+    return this.model.findOne({ orderId }).exec()
+  }
+
+  async upsertReady(data: UpsertDeliveryOrderData): Promise<DeliveryOrderDocument | null> {
+    try {
+      return await this.model
+        .findOneAndUpdate(
+          { orderId: data.orderId, status: { $nin: IN_FLIGHT_STATUSES } },
+          {
+            $set: {
+              branchId: data.branchId,
+              branchLocation: data.branchLocation,
+              deliveryAddress: data.deliveryAddress,
+              status: DELIVERY_ORDER_STATUS.ready,
+              tripId: null,
+              reservedUntil: null,
+              rotationRoster: null,
+              rotationIndex: null,
+              rotationTurnUntil: null,
+            },
           },
-        },
-        { new: true, upsert: true },
-      )
-      .exec()
+          { new: true, upsert: true },
+        )
+        .exec()
+    } catch (error) {
+      if (isDuplicateKeyError(error)) return null
+      throw error
+    }
   }
 
   remove(orderId: string): Promise<unknown> {

@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import jwt from 'jsonwebtoken'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import type { Model } from 'mongoose'
+import { createMongoServer } from './mongo'
 import request from 'supertest'
 import type { Response as SupertestResponse } from 'supertest'
 import type { App } from 'supertest/types'
@@ -154,7 +155,7 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       .send({ status })
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create()
+    mongod = await createMongoServer()
 
     moduleFixture = await Test.createTestingModule({
       imports: [
@@ -190,6 +191,7 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
     )
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
+    await app.listen(0)
 
     const category = await http()
       .post('/v1/catalog/categories')
@@ -406,7 +408,7 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       expect(res.body.quantity).toBe(7)
     })
 
-    it('B5: se registra un movimiento con reason "adjust" y el delta aplicado', async () => {
+    it('B5: se registra un movimiento con el reason recibido y el delta aplicado', async () => {
       await setStock(branchA, ingredientIds.ingD2, 10)
       await movementModel.deleteMany({ branchId: branchA, ingredientId: ingredientIds.ingD2 })
 
@@ -430,10 +432,28 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
         branchId: branchA,
         ingredientId: ingredientIds.ingD2,
         delta: 4,
-        reason: 'adjust',
+        reason: 'reposicion',
         orderId: null,
       })
       expect(movements[0].createdAt).toBeInstanceOf(Date)
+    })
+
+    it('B5b: sin reason se registra "adjust" por defecto', async () => {
+      await setStock(branchA, ingredientIds.ingD2, 10)
+      await movementModel.deleteMany({ branchId: branchA, ingredientId: ingredientIds.ingD2 })
+
+      await http()
+        .post('/v1/stock/adjustments')
+        .set(...auth(superToken))
+        .send({ branchId: branchA, ingredientId: ingredientIds.ingD2, delta: 2 })
+        .expect(201)
+
+      const movements = await movementModel
+        .find({ branchId: branchA, ingredientId: ingredientIds.ingD2 })
+        .lean()
+        .exec()
+      expect(movements).toHaveLength(1)
+      expect(movements[0]).toMatchObject({ delta: 2, reason: 'adjust' })
     })
 
     it('B6: branch_admin enviando otro branchId queda forzado a su sucursal', async () => {
@@ -618,7 +638,7 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       expect(await getStock(branchA, ingredientIds.ingA)).toBe(30)
     })
 
-    it('D7 (bug conocido): el movimiento conserva el delta solicitado al recortar a 0', async () => {
+    it('D7: el movimiento registra el cambio real cuando el stock se recorta a 0', async () => {
       await setStock(branchA, ingredientIds.ingA, 10)
       const order = await placeOrder('cust-d7', productIds.pMain, 2)
       await transition(order.body.id, 'confirmed').expect(200)
@@ -634,9 +654,9 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
         .find({ branchId: branchA, ingredientId: ingredientIds.ingA, reason: 'preparing' })
         .lean()
         .exec()
-      // El stock real bajó 1 (de 1 a 0), pero el movimiento registra el requerimiento completo.
+      // El stock real bajó 1 (de 1 a 0) y el movimiento registra ese cambio real.
       expect(movements).toHaveLength(1)
-      expect(movements[0].delta).toBe(-4)
+      expect(movements[0].delta).toBe(-1)
     })
 
     it('D8: dos pedidos distintos acumulan el descuento', async () => {

@@ -1,5 +1,7 @@
 # Matriz de cobertura — suite de tests del API
 
+> **Estado:** VIGENTE — matriz de cobertura capability → reglas → casos → tests.
+
 **Fecha:** 2026-09-19
 
 Matriz **capability → reglas → casos válidos → casos inválidos → unit tests → integration

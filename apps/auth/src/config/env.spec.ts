@@ -186,7 +186,11 @@ describe('env — valores por defecto y override', () => {
     },
     {
       name: 'nodeEnv',
-      values: { NODE_ENV: 'production' },
+      values: {
+        NODE_ENV: 'production',
+        JWT_SECRET: 'prod-secret',
+        INTERNAL_API_TOKEN: 'prod-internal-token',
+      },
       pick: (env: Env) => env.nodeEnv,
       expected: 'production',
     },
@@ -257,5 +261,106 @@ describe('env — configuración de email', () => {
     })
     expect(env.email.passwordResetPath).toBe('/auth/reset')
     expect(env.passwordRecoveryMinIntervalMs).toBe(30_000)
+  })
+})
+
+describe('env — secretos en producción (Security)', () => {
+  it('falla el arranque si JWT_SECRET e INTERNAL_API_TOKEN usan los defaults de desarrollo', async () => {
+    await expect(loadEnv({ NODE_ENV: 'production' })).rejects.toThrow(
+      /JWT_SECRET y INTERNAL_API_TOKEN/,
+    )
+  })
+
+  it('falla el arranque si sólo INTERNAL_API_TOKEN conserva el default', async () => {
+    await expect(loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'prod-secret' })).rejects.toThrow(
+      /INTERNAL_API_TOKEN/,
+    )
+  })
+
+  it('falla el arranque si sólo JWT_SECRET conserva el default', async () => {
+    await expect(
+      loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'prod-internal-token' }),
+    ).rejects.toThrow(/JWT_SECRET/)
+  })
+
+  it('permite el arranque en producción con secretos propios', async () => {
+    const env = await loadEnv({
+      NODE_ENV: 'production',
+      JWT_SECRET: 'prod-secret',
+      INTERNAL_API_TOKEN: 'prod-internal-token',
+    })
+
+    expect(env.nodeEnv).toBe('production')
+    expect(env.jwtSecret).toBe('prod-secret')
+    expect(env.internalApiToken).toBe('prod-internal-token')
+  })
+
+  it.each([
+    {
+      name: 'JWT_SECRET vacío',
+      values: {
+        NODE_ENV: 'production',
+        JWT_SECRET: '',
+        INTERNAL_API_TOKEN: 'prod-internal-token',
+      },
+      expected: /JWT_SECRET/,
+    },
+    {
+      name: 'JWT_SECRET con sólo espacios',
+      values: {
+        NODE_ENV: 'production',
+        JWT_SECRET: '   ',
+        INTERNAL_API_TOKEN: 'prod-internal-token',
+      },
+      expected: /JWT_SECRET/,
+    },
+    {
+      name: 'INTERNAL_API_TOKEN vacío',
+      values: {
+        NODE_ENV: 'production',
+        JWT_SECRET: 'prod-secret',
+        INTERNAL_API_TOKEN: '',
+      },
+      expected: /INTERNAL_API_TOKEN/,
+    },
+    {
+      name: 'INTERNAL_API_TOKEN con sólo espacios',
+      values: {
+        NODE_ENV: 'production',
+        JWT_SECRET: 'prod-secret',
+        INTERNAL_API_TOKEN: '   ',
+      },
+      expected: /INTERNAL_API_TOKEN/,
+    },
+  ])('falla el arranque en producción con $name', async ({ values, expected }) => {
+    await expect(loadEnv(values)).rejects.toThrow(expected)
+  })
+
+  it.each(['development', 'test'])(
+    'no falla con secretos vacíos en NODE_ENV=%s',
+    async (nodeEnv) => {
+      const env = await loadEnv({
+        NODE_ENV: nodeEnv,
+        JWT_SECRET: '',
+        INTERNAL_API_TOKEN: '   ',
+      })
+
+      expect(env.jwtSecret).toBe('')
+      expect(env.internalApiToken).toBe('   ')
+    },
+  )
+
+  it('mantiene los defaults en desarrollo', async () => {
+    const env = await loadEnv({ NODE_ENV: 'development' })
+
+    expect(env.jwtSecret).toBe('dev-secret-change-me')
+    expect(env.internalApiToken).toBe('dev-internal-token')
+  })
+
+  it('mantiene los defaults en test', async () => {
+    const env = await loadEnv({ NODE_ENV: 'test' })
+
+    expect(env.jwtSecret).toBe('dev-secret-change-me')
+    expect(env.internalApiToken).toBe('dev-internal-token')
   })
 })

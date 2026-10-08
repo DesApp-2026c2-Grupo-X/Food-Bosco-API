@@ -18,7 +18,7 @@ export class PromotionController {
   @Roles(ROLES.superAdmin)
   list(@Query() query: PromotionQueryDto): Promise<PromotionListResponse> {
     return this.promotionService.list({
-      activeOnly: query.activeOnly,
+      activeOnly: query.activeOnly === undefined ? undefined : query.activeOnly === true,
       limit: query.limit ?? 20,
       offset: query.offset ?? 0,
     })

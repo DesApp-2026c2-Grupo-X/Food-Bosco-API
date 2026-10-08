@@ -48,6 +48,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => AuthTokens)
+  @Roles(ROLES.superAdmin)
   registerRider(@Args('input') input: RegisterRiderInput): Promise<AuthTokens> {
     return this.rest.post('/v1/auth/register-rider', { body: input })
   }

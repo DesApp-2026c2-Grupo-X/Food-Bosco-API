@@ -1,5 +1,7 @@
 # Reporte de bugs e inconsistencias detectados por la suite de tests
 
+> **Estado:** VIGENTE — hallazgos conocidos y regresiones documentadas por la suite de tests.
+
 **Fecha:** 2026-09-19
 **Alcance:** apps `auth`, `commerce`, `delivery` y `gateway`.
 **Origen:** suite de tests unitarios y de integración construida para validar la lógica de negocio del API.
@@ -7,7 +9,7 @@
 > Los tests que documentan estos hallazgos se agregaron como regresión de la
 > **conducta actual** (marcados con `// KNOWN BUG:`) para no dejar la suite en rojo.
 > **No se modificó ninguna regla de negocio.** Cuando el comportamiento correcto es
-> inequívoco según `docs/requerimientos-backend-rest.md`, `docs/*/plan.md` o la
+> inequívoco según `docs/especificaciones/requerimientos-backend-rest.md`, `docs/historico/planes/*.md` o la
 > arquitectura existente, el bug queda listado como candidato a corrección.
 
 ## Cómo leer este documento
@@ -65,6 +67,72 @@ interpretación; `Baja` = caso latente o deuda menor.
 | GW-05   | gateway  | Upload: propagar `path` downstream         | Baja          |
 | GW-06   | gateway  | `TripOrder.order` ausente del esquema      | Media         |
 | GW-07   | gateway  | `ConfigGroupType` con casing incorrecto    | Alta          |
+
+---
+
+## Estado de corrección — 2026-10-08
+
+Se corrigieron los bugs documentados y se actualizaron los tests `// KNOWN BUG:` para que
+verifiquen la conducta correcta (se quitaron los comentarios de "conducta actual").
+
+| Estado                   | IDs                                                                                 |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| ✅ Corregidos            | AUTH-01, AUTH-02, AUTH-03, COM-01…COM-09, COM-11…COM-18, DLV-01…DLV-04, GW-01…GW-07 |
+| ✅ Ya corregido antes    | AUTH-04 (el repositorio ya filtraba `active:true`)                                  |
+| ⏸️ Pendiente de decisión | COM-10 (id de subdocumento `''`: admite lanzar error o sintetizar id)               |
+
+Resultado: **32/33 corregidos**.
+
+### Segunda ola — 2026-10-08
+
+Por decisión del equipo se resolvieron además:
+
+- **COM-10** (id de subdocumento sintetizado de forma estable).
+- **NEW-01…NEW-15**.
+- **Seguridad (alta prioridad):** `register-rider` restringido a `super_admin` (auth + gateway); `@Roles` en `GET /v1/orders`; validación de secretos por defecto en producción (`JWT_SECRET`/`INTERNAL_API_TOKEN`) en los 4 servicios.
+
+---
+
+## Nuevos hallazgos — 2026-10-08 (NO corregidos)
+
+Detectados durante la corrección. Se documentan para decisión; su comportamiento no fue modificado.
+
+| ID     | App               | Hallazgo                                                                                                   | Archivo(s)                                                                                                                     | Impacto                                                    |
+| ------ | ----------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| NEW-01 | commerce/delivery | El filtro de excepciones mapea 409/422/429 a `INTERNAL_SERVER_ERROR` (mismo defecto que AUTH-01).          | `apps/commerce/src/config/exceptions/http-exception.filter.ts`, `apps/delivery/src/config/exceptions/http-exception.filter.ts` | conflictos de negocio reportados como fallo de servidor    |
+| NEW-02 | auth              | `PATCH /v1/users/:userId` cambia `branchId` sin validarlo contra Commerce (misma clase que AUTH-03).       | `apps/auth/src/user/user.controller.ts`, `apps/auth/src/user/dto/update-user.dto.ts`                                           | colaborador vinculado a sucursal inexistente               |
+| NEW-03 | auth              | `CommerceClient` lanza `Error` genérico si Commerce cae → 500 en auth en vez de 502/503.                   | `apps/auth/src/config/http/commerce.client.ts`                                                                                 | diagnóstico erróneo                                        |
+| NEW-04 | commerce          | `activeOnly` coacciona valores inválidos a `false` en query DTOs (misma clase que COM-09).                 | `apps/commerce/src/{ingredient,category,promotion}/dto/*-query.dto.ts`                                                         | un query malformado devuelve sólo inactivos                |
+| NEW-05 | commerce          | índices `unique` sobre `name` sin traducir `E11000` (COM-18 sólo cubrió categoría).                        | `apps/commerce/src/{ingredient,product,promotion}/*.repository.ts`                                                             | alta duplicada propaga error crudo / 500                   |
+| NEW-06 | commerce          | La receta valida `ingredientId` pero no que `optionAdjustments[].optionId` exista.                         | `apps/commerce/src/product/product.service.ts`, `apps/commerce/src/product/dto/recipe-item.dto.ts`                             | ajustes apuntan a opciones fantasma                        |
+| NEW-07 | commerce          | `removeConfigGroup`/`removeConfigOption` devuelven `CONFIG_*_NOT_FOUND` también si falta el producto.      | `apps/commerce/src/product/product.controller.ts`                                                                              | código de error inexacto                                   |
+| NEW-08 | commerce          | `parameter.repository.update` usa `upsert`: actualizar una clave inexistente crea un doc sin `unit`.       | `apps/commerce/src/parameter/parameter.repository.ts`                                                                          | parámetros malformados; `PARAMETER_NOT_FOUND` inalcanzable |
+| NEW-09 | commerce          | El DTO de horarios acepta `closed:false` con `opening/closing` nulos.                                      | `apps/commerce/src/branch/dto/branch-hours.dto.ts`                                                                             | día "abierto" sin ventana → sucursal inasignable           |
+| NEW-10 | delivery          | `rider.repository.updateProfile` hace `$set` sin `runValidators`.                                          | `apps/delivery/src/rider/rider.repository.ts`                                                                                  | cualquier caller interno puede persistir `phone:null`      |
+| NEW-11 | delivery          | `isOrderInFlight` + `upsertReady` es un read-then-write no atómico (TOCTOU).                               | `apps/delivery/src/delivery-order/delivery-order.service.ts`                                                                   | doble asignación posible bajo concurrencia                 |
+| NEW-12 | delivery          | `consume(..., { noAck:true })` + `markProcessed` antes de procesar: un fallo del handler pierde el evento. | `apps/delivery/src/config/messaging/rabbit.transport.ts`, `apps/delivery/src/delivery-order/delivery-order.service.ts`         | pérdida silenciosa de eventos                              |
+| NEW-13 | gateway           | `roleFromRest` no normaliza a minúsculas → `Unknown role` → 500 en `me`/`users`.                           | `apps/gateway/src/graphql/common/role.enum.ts`                                                                                 | degradación de queries con rol en mayúsculas               |
+| NEW-14 | gateway           | `asNumber`/`nullableNumber` devuelven `NaN` con string no numérico.                                        | `apps/gateway/src/graphql/common/mappers.ts`                                                                                   | `Float` no serializable con datos upstream corruptos       |
+| NEW-15 | gateway           | El loader de `order` no propaga contexto/auth.                                                             | `apps/gateway/src/graphql/commerce/commerce.dataloaders.ts`                                                                    | `TripOrder.order` daría `null` con Commerce real           |
+
+### Nuevos hallazgos de la segunda ola — 2026-10-08 (NO corregidos)
+
+Detectados al corregir lo anterior. No se modificó su comportamiento.
+
+- **NEW-16 (auth/delivery/gateway, seguridad):** el guard de secretos de producción no cubre strings vacíos: `JWT_SECRET=''`/`INTERNAL_API_TOKEN=''` **no** igualan los defaults y evaden el control. Archivos: `apps/*/src/config/env.ts`.
+- **NEW-17 (auth):** `CommerceClient` hace `fetch` sin `AbortController`/timeout; una conexión colgada bloquea indefinidamente. `apps/auth/src/config/http/commerce.client.ts`.
+- **NEW-18 (commerce):** renombrar `name` a uno existente vía `update` no traduce `E11000` (sólo `create` lo hace). `apps/commerce/src/{product,ingredient,promotion,category}/*.repository.ts`.
+- **NEW-19 (commerce):** `updateConfigOption`/`removeConfigOption` devuelven `CONFIG_OPTION_NOT_FOUND` también cuando falta el **grupo** (debería `CONFIG_GROUP_NOT_FOUND`). `apps/commerce/src/product/product.controller.ts`.
+- **NEW-20 (commerce, seguridad):** `OrderController.list` con JWT `customer` sin `userId` deja `clientId: undefined` y podría listar sin scope. `apps/commerce/src/order/order.controller.ts`, `apps/*/src/config/security/jwt.service.ts`.
+- **NEW-21 (commerce):** `UpdateBranchHoursDto` no valida unicidad de `dayOfWeek` ni rechaza `hours: []`. `apps/commerce/src/branch/dto/branch-hours.dto.ts`.
+- **NEW-22 (delivery):** `InProcessTransport.subscribe` hace `void handler(event)` sin `catch` → unhandled promise rejection. `apps/delivery/src/config/messaging/in-process.transport.ts`.
+- **NEW-23 (delivery):** `ProcessedEvent` (dedupe por `eventId`) no tiene TTL/purga: crece sin límite. `apps/delivery/src/delivery-order/delivery-order.model.ts`.
+- **NEW-24 (delivery):** `RabbitTransport.dispatch` no captura `ack`/`nack` sobre canal cerrado y `nack(requeue=true)` no tiene límite/DLQ (bucle ante fallo determinístico). `apps/delivery/src/config/messaging/rabbit.transport.ts`.
+- **NEW-25 (commerce, funcional):** no hay endpoint de alta de parámetros; `create`/`upsertByKey` sólo son alcanzables por el seed. `apps/commerce/src/parameter/`. **Decisión 2026-10-08:** el contrato (§7.7 / RQ-CFG-08 / G-15) sólo define `GET /v1/config/parameters` y `PATCH /v1/config/parameters/{key}`; **no** define `POST`, por lo que se documenta como gap de contrato y **no se implementa**. Test que lo fija: `test/config.e2e-spec.ts` › _POST /v1/config/parameters — gap sin implementar (NEW-25)_.
+- **NEW-26 (calidad):** `isDuplicateKeyError` quedó duplicado en 4 repositories de commerce; conviene extraerlo a `config/`.
+
+> Hallazgos de seguridad y arquitectura previos (auditoría histórica) siguen en
+> `docs/auditoria/09-SEGURIDAD.md` y `docs/auditoria/10-DOMINIO-CONSISTENCIA.md`.
 
 ---
 
@@ -315,7 +383,7 @@ interpretación; `Baja` = caso latente o deuda menor.
 
 ### DLV-01 — El onboarding lazy descarta el vehículo de Auth (pérdida de datos)
 
-- **Capability:** onboarding del rider (`GET /v1/riders/me`, RQ-DLV-11 / plan.md §2.6).
+- **Capability:** onboarding del rider (`GET /v1/riders/me`, RQ-DLV-11 / docs/historico/planes/delivery-plan.md §2.6).
 - **Escenario:** rider existente en Auth con `vehicle: "Moto"`; primer `GET /v1/riders/me`.
 - **Esperado:** persistir el vehículo de Auth (el plan indica snapshot de `firstName/lastName/vehicle/phone`).
 - **Actual:** `RiderOrchestrator.ensureProfile` llama a `create({ ..., vehicle: null })` (`rider.orchestrator.ts:79`).
@@ -454,3 +522,40 @@ interpretación; `Baja` = caso latente o deuda menor.
 2. **Integridad de datos:** AUTH-03, COM-01, COM-04, COM-13, DLV-02.
 3. **Contratos/validaciones:** COM-02, COM-03, COM-05, AUTH-01, GW-01.
 4. **Robustez/latentes:** el resto.
+
+---
+
+## Hallazgos de la suite de integración — 2026-10-08 (NO corregidos)
+
+Detectados al construir las suites e2e de cobertura (`docs/testing/endpoint-coverage.md`). Fijados en
+los tests con `// KNOWN BUG:` (regresión de la conducta actual); **no se modificó el código**.
+
+| ID     | App                    | Hallazgo                                                                                                                                                                                             | Impacto                                                                                                                 |
+| ------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| INT-01 | auth                   | `POST /v1/seed` acepta cualquier JWT válido (p. ej. `customer`) → 201, porque sólo tiene `@Internal()` sin `@Roles`.                                                                                 | Escalada de privilegios: cualquier usuario logueado dispara el seed. Mismo patrón en commerce/delivery/gateway `/seed`. |
+| INT-02 | auth/commerce/delivery | Id de path no-ObjectId (p. ej. `abc`) lanza `CastError` → **500** en vez de 404 (`USER_NOT_FOUND`/`ZONE_NOT_FOUND`/`SHIFT_NOT_FOUND`/`TRIP_NOT_FOUND`/`ADDRESS_NOT_FOUND`).                          | Un id malformado filtra un 500.                                                                                         |
+| INT-03 | auth/commerce/delivery | `enableImplicitConversion` coacciona `'false'`→`true`: filtros booleanos (`active`, `activeOnly`, `available`) no pueden filtrar por `false` vía HTTP; `active:'false'`/`123` en PATCH también pasa. | Filtros/activaciones inalcanzables o incorrectas.                                                                       |
+| INT-04 | auth                   | `POST /v1/seed` no valida `branchId` no-string (se coacciona a string antes de validar) → 201.                                                                                                       | Validación inefectiva.                                                                                                  |
+| INT-05 | auth                   | `PATCH /v1/users/:userId` no tiene vía `@Internal()` (401 con `x-internal-token`).                                                                                                                   | Si el gateway espera operar internamente sobre usuarios, la ruta no lo permite.                                         |
+| INT-06 | commerce               | `POST /v1/carts/items` con producto inexistente → 400 `PRODUCT_UNAVAILABLE` (esperado 404).                                                                                                          | Se confunde "no existe" con "no disponible".                                                                            |
+| INT-07 | commerce               | `POST /v1/carts/confirm` con carrito vacío/inexistente → 200 (crea y confirma un carrito vacío).                                                                                                     | No señaliza el caso de borde.                                                                                           |
+| INT-08 | commerce               | `POST /v1/config/order-states` con `code` duplicado → 500 (E11000 sin traducir).                                                                                                                     | Duplicado de negocio como error interno.                                                                                |
+| INT-09 | commerce               | `GET /:branchId/products` y `PATCH /:branchId/products/:pid/availability` con sucursal/producto inexistente → 200.                                                                                   | Faltan 404; puede operar sobre datos inexistentes.                                                                      |
+| INT-10 | commerce               | `GET /v1/branches/nearby` sin `lat/lng` → 200 `[]` (esperado 400).                                                                                                                                   | Validación ausente.                                                                                                     |
+| INT-11 | commerce               | Reporting: `limit` no implementado (se descarta); `categoryId` no filtra el catálogo en `least-sold`.                                                                                                | Filtros con efecto incorrecto/inexistente.                                                                              |
+| INT-12 | delivery               | `PATCH /v1/riders/me` no puede cambiar `firstName`/`lastName` (DTO sólo expone `phone`; whitelist los descarta).                                                                                     | Campos del perfil no editables.                                                                                         |
+| INT-13 | gateway                | Throttle GraphQL excedido → HTTP **200** con `data:null` y `code:INTERNAL_SERVER_ERROR` en vez de HTTP 429.                                                                                          | El cliente no ve el rate-limit.                                                                                         |
+| INT-14 | gateway                | `POST /v1/uploads` no valida mimetype: un archivo no-imagen se reenvía a Commerce (201).                                                                                                             | Acepta uploads inválidos.                                                                                               |
+| INT-15 | gateway                | `POST /seed` ante fallo downstream pierde `code`/`message` (500 genérico).                                                                                                                           | Diagnóstico degradado.                                                                                                  |
+
+### Resolución final — 2026-10-08
+
+| Estado                         | Bugs                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ Corregido                   | INT-02…INT-15                                                                                                                                                                                                                                                                                                                     |
+| ✅ Corregido (además)          | NEW-19, NEW-21, NEW-26, dedup de receta (set/add/update), validación cruzada de fechas en el DTO de promoción, coerción booleana (`activeOnly`/`active`/`available`/`online`/`closed`) en query y body, validación de coords en `branches/available[/products]`, `updateRecipeItem` (duplicados), defensas de `CastError` en auth |
+| ↪️ No era bug / decisión       | INT-05 (la vía interna no aplica por contrato), NEW-25 (el contrato sólo define GET/PATCH de parámetros)                                                                                                                                                                                                                          |
+| 🟢 Intencional (no se corrige) | INT-01: el seed es **público por decisión del equipo**                                                                                                                                                                                                                                                                            |
+
+Estado de la suite tras las correcciones: `unit` **3224** + integración **1283** (56 suites), con `lint`,
+`typecheck`, `build` y `format:check` en verde y **cero** marcadores `KNOWN BUG`.

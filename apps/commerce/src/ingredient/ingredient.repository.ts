@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { Ingredient, IngredientDocument } from './ingredient.model'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
+import { DomainException } from '../config/exceptions/domain.exception'
+import { INGREDIENT_ALREADY_EXISTS, Ingredient, IngredientDocument } from './ingredient.model'
 
 export interface CreateIngredientData {
   name: string
@@ -36,8 +38,19 @@ export class IngredientRepository {
     return this.model.find({ _id: { $in: ids } }).exec()
   }
 
-  create(data: CreateIngredientData): Promise<IngredientDocument> {
-    return this.model.create({ ...data, active: data.active ?? true })
+  async create(data: CreateIngredientData): Promise<IngredientDocument> {
+    try {
+      return await this.model.create({ ...data, active: data.active ?? true })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          INGREDIENT_ALREADY_EXISTS,
+          'Ya existe un ingrediente con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   upsertByName(data: CreateIngredientData): Promise<IngredientDocument | null> {
@@ -63,8 +76,19 @@ export class IngredientRepository {
     return { data, total }
   }
 
-  update(id: string, patch: UpdateIngredientData): Promise<IngredientDocument | null> {
-    return this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+  async update(id: string, patch: UpdateIngredientData): Promise<IngredientDocument | null> {
+    try {
+      return await this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          INGREDIENT_ALREADY_EXISTS,
+          'Ya existe un ingrediente con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   setActive(id: string, active: boolean): Promise<IngredientDocument | null> {

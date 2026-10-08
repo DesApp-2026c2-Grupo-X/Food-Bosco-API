@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { Promotion, PromotionDocument } from './promotion.model'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
+import { DomainException } from '../config/exceptions/domain.exception'
+import { Promotion, PromotionDocument, PROMOTION_ALREADY_EXISTS } from './promotion.model'
 
 export interface CreatePromotionData {
   name: string
@@ -31,8 +33,19 @@ export class PromotionRepository {
     return this.model.findById(id).exec()
   }
 
-  create(data: CreatePromotionData): Promise<PromotionDocument> {
-    return this.model.create({ ...data, active: true })
+  async create(data: CreatePromotionData): Promise<PromotionDocument> {
+    try {
+      return await this.model.create({ ...data, active: true })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          PROMOTION_ALREADY_EXISTS,
+          'Ya existe una promoción con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   upsertByName(data: CreatePromotionData): Promise<PromotionDocument | null> {
@@ -57,8 +70,19 @@ export class PromotionRepository {
     return { data, total }
   }
 
-  update(id: string, patch: UpdatePromotionData): Promise<PromotionDocument | null> {
-    return this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+  async update(id: string, patch: UpdatePromotionData): Promise<PromotionDocument | null> {
+    try {
+      return await this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          PROMOTION_ALREADY_EXISTS,
+          'Ya existe una promoción con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   setActive(id: string, active: boolean): Promise<PromotionDocument | null> {

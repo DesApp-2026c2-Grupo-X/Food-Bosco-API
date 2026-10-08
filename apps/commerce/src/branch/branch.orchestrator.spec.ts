@@ -1,3 +1,5 @@
+import { ERROR_CODES } from '../config/constants'
+import type { DomainException } from '../config/exceptions/domain.exception'
 import type { PublicProduct } from '../product/product.model'
 import type { ProductService } from '../product/product.service'
 import { BranchOrchestrator } from './branch.orchestrator'
@@ -29,13 +31,31 @@ const branch = (id: string): PublicBranch => ({
 })
 
 const makeOrchestrator = () => {
-  const branchService = { getAvailabilityMap: jest.fn(), findAvailable: jest.fn() }
-  const productService = { findAll: jest.fn() }
+  const branchService = {
+    findById: jest.fn().mockResolvedValue(branch('b1')),
+    getAvailabilityMap: jest.fn(),
+    findAvailable: jest.fn(),
+    setProductAvailability: jest.fn(),
+  }
+  const productService = { findAll: jest.fn(), findById: jest.fn() }
   const orchestrator = new BranchOrchestrator(
     branchService as unknown as BranchService,
     productService as unknown as ProductService,
   )
   return { orchestrator, branchService, productService }
+}
+
+const captureError = async (promise: Promise<unknown>): Promise<DomainException> => {
+  const error = await promise.then(
+    () => {
+      throw new Error('Se esperaba un DomainException')
+    },
+    (rejection: unknown) => rejection,
+  )
+  if (!(error instanceof Error) || !('code' in error)) {
+    throw new Error('Se esperaba un DomainException')
+  }
+  return error as unknown as DomainException
 }
 
 describe('BranchOrchestrator.listProducts (RQ-CAT-16)', () => {
@@ -96,5 +116,64 @@ describe('BranchOrchestrator.listZoneProducts (RQ-BRN-08)', () => {
     expect(result).toEqual({ data: [] })
     expect(productService.findAll).not.toHaveBeenCalled()
     expect(branchService.getAvailabilityMap).not.toHaveBeenCalled()
+  })
+})
+
+describe('BranchOrchestrator — sucursal inexistente (INT-09)', () => {
+  it('listProducts con sucursal inexistente → BRANCH_NOT_FOUND (404) sin consultar productos', async () => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    branchService.findById.mockResolvedValue(null)
+
+    const error = await captureError(orchestrator.listProducts('missing'))
+
+    expect(error).toMatchObject({
+      code: ERROR_CODES.branchNotFound,
+      message: 'Sucursal no encontrada',
+    })
+    expect(error.getStatus()).toBe(404)
+    expect(productService.findAll).not.toHaveBeenCalled()
+    expect(branchService.getAvailabilityMap).not.toHaveBeenCalled()
+  })
+})
+
+describe('BranchOrchestrator.setProductAvailability (INT-09)', () => {
+  it('sucursal inexistente → BRANCH_NOT_FOUND (404) sin tocar disponibilidad', async () => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    branchService.findById.mockResolvedValue(null)
+
+    const error = await captureError(orchestrator.setProductAvailability('missing', 'p1', false))
+
+    expect(error).toMatchObject({ code: ERROR_CODES.branchNotFound })
+    expect(error.getStatus()).toBe(404)
+    expect(productService.findById).not.toHaveBeenCalled()
+    expect(branchService.setProductAvailability).not.toHaveBeenCalled()
+  })
+
+  it('producto inexistente → PRODUCT_NOT_FOUND (404) sin tocar disponibilidad', async () => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    productService.findById.mockResolvedValue(null)
+
+    const error = await captureError(orchestrator.setProductAvailability('b1', 'missing', true))
+
+    expect(error).toMatchObject({
+      code: ERROR_CODES.productNotFound,
+      message: 'Producto no encontrado',
+    })
+    expect(error.getStatus()).toBe(404)
+    expect(branchService.setProductAvailability).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: 'pausar', available: false },
+    { name: 'reactivar', available: true },
+  ])('$name un producto existente delega en el servicio', async ({ available }) => {
+    const { orchestrator, branchService, productService } = makeOrchestrator()
+    productService.findById.mockResolvedValue(product())
+    branchService.setProductAvailability.mockResolvedValue(undefined)
+
+    await expect(
+      orchestrator.setProductAvailability('b1', 'p1', available),
+    ).resolves.toBeUndefined()
+    expect(branchService.setProductAvailability).toHaveBeenCalledWith('b1', 'p1', available)
   })
 })

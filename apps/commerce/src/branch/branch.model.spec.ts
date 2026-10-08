@@ -88,20 +88,23 @@ describe('isBranchOpenNow — selección de día', () => {
   })
 })
 
-describe('isBranchOpenNow — rango nocturno', () => {
-  // KNOWN BUG: no soporta horarios que cruzan medianoche (22:00 → 02:00).
-  // `current >= opening && current < closing` da false para 23:00 porque el
-  // cierre (02:00 → 120) es menor que la apertura (22:00 → 1320).
-  // Impacto: una sucursal con turno noche aparece siempre cerrada.
+describe('isBranchOpenNow — rango nocturno (RQ-BRN-03)', () => {
+  // Un horario 22:00 → 02:00 cruza medianoche: el cierre es menor que la apertura,
+  // por lo que la sucursal está abierta desde las 22:00 hasta las 02:00 del día siguiente.
   const overnightHours = [
     hour({ dayOfWeek: 1, opening: '22:00', closing: '02:00' }),
     hour({ dayOfWeek: 2, opening: '22:00', closing: '02:00' }),
   ]
 
   it.each([
-    { name: 'antes de medianoche', at: new Date(2026, 7, 24, 23, 0), expected: false },
-    { name: 'después de medianoche', at: new Date(2026, 7, 25, 1, 0), expected: false },
-  ])('$name → $expected (comportamiento actual)', ({ at, expected }) => {
+    { name: 'justo al abrir (22:00)', at: new Date(2026, 7, 24, 22, 0), expected: true },
+    { name: 'antes de medianoche (23:00)', at: new Date(2026, 7, 24, 23, 0), expected: true },
+    { name: 'un minuto antes de cerrar (01:59)', at: new Date(2026, 7, 25, 1, 59), expected: true },
+    { name: 'justo al cerrar (02:00)', at: new Date(2026, 7, 25, 2, 0), expected: false },
+    { name: 'de madrugada cerrado (03:00)', at: new Date(2026, 7, 25, 3, 0), expected: false },
+    { name: 'antes de abrir (21:59)', at: new Date(2026, 7, 24, 21, 59), expected: false },
+    { name: 'pleno mediodía cerrado (12:00)', at: new Date(2026, 7, 24, 12, 0), expected: false },
+  ])('$name → $expected', ({ at, expected }) => {
     expect(isBranchOpenNow(overnightHours, at)).toBe(expected)
   })
 })

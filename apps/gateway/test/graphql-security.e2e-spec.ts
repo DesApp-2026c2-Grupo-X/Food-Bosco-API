@@ -85,6 +85,7 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -111,6 +112,11 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
       { name: 'branchStock', query: 'query { branchStock { ingredientId } }' },
       { name: 'orderStates', query: 'query { orderStates { code } }' },
       { name: 'ingredients', query: 'query { ingredients { id } }' },
+      {
+        name: 'registerRider',
+        query:
+          'mutation { registerRider(input: { firstName: "R", lastName: "R", email: "r@b.com", phone: "1", password: "password", vehicle: "Moto" }) { accessToken } }',
+      },
     ]
 
     it.each(cases)('$name sin token → UNAUTHENTICATED', async ({ query }) => {
@@ -152,6 +158,12 @@ describe('Gateway security (e2e) — RBAC, contexto e internal token', () => {
       {
         name: 'bestSellingProducts con customer',
         query: 'query { bestSellingProducts { position } }',
+        role: 'customer',
+      },
+      {
+        name: 'registerRider con customer',
+        query:
+          'mutation { registerRider(input: { firstName: "R", lastName: "R", email: "r@b.com", phone: "1", password: "password", vehicle: "Moto" }) { accessToken } }',
         role: 'customer',
       },
     ]

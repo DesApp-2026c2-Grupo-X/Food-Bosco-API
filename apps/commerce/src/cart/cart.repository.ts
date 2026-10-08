@@ -5,6 +5,7 @@ import { CART_STATUS } from '../config/constants'
 import { Cart, CartDocument } from './cart.model'
 
 export interface CartItemData {
+  id?: string
   productId: string
   quantity: number
   observations: string | null
@@ -28,7 +29,12 @@ export class CartRepository {
   }
 
   setItemsAndTotal(id: string, items: CartItemData[], total: number): Promise<CartDocument | null> {
-    return this.model.findByIdAndUpdate(id, { $set: { items, total } }, { new: true }).exec()
+    const documents = items.map(({ id: itemId, ...item }) =>
+      itemId ? { _id: itemId, ...item } : item,
+    )
+    return this.model
+      .findByIdAndUpdate(id, { $set: { items: documents, total } }, { new: true })
+      .exec()
   }
 
   confirm(id: string): Promise<CartDocument | null> {

@@ -30,7 +30,7 @@ export class StockController {
     if (!branchId) {
       throw new DomainException(ERROR_CODES.forbidden, 'Sin sucursal asignada', 403)
     }
-    return this.stockService.adjust(branchId, dto.ingredientId, dto.delta)
+    return this.stockService.adjust(branchId, dto.ingredientId, dto.delta, dto.reason)
   }
 
   private resolveBranchId(auth: AuthContext, branchId?: string): string | undefined {

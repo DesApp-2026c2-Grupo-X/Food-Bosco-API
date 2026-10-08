@@ -29,6 +29,9 @@ export interface UploadedImageResponse {
 const headerValue = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value
 
+const isImageMimetype = (mimetype: string | undefined): boolean =>
+  typeof mimetype === 'string' && mimetype.startsWith('image/')
+
 @Controller('v1/uploads')
 @UseGuards(RolesGuard)
 @UseFilters(UploadExceptionFilter)
@@ -43,6 +46,24 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: env.uploads.maxSizeBytes, files: 1 },
+      fileFilter: (_request, file, callback) => {
+        if (isImageMimetype(file.mimetype)) {
+          callback(null, true)
+          return
+        }
+
+        callback(
+          new HttpException(
+            {
+              code: ERROR_CODES.invalidImageType,
+              message: 'Formato de imagen no permitido',
+              path: '/v1/uploads',
+            },
+            HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+          ),
+          false,
+        )
+      },
     }),
   )
   async uploadImage(

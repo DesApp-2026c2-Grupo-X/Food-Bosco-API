@@ -96,6 +96,7 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -116,14 +117,41 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
     expect(res.body.data.login).toEqual({ accessToken: 'at-login', refreshToken: 'rt-login' })
   })
 
-  it('expone el auto-registro de repartidor', async () => {
+  const registerRiderMutation =
+    'mutation { registerRider(input: { firstName: "R", lastName: "R", email: "r@b.com", phone: "1", password: "password", vehicle: "Moto" }) { accessToken refreshToken } }'
+
+  it('rechaza registerRider sin token con UNAUTHENTICATED', async () => {
     const res = await request(app.getHttpServer())
       .post('/graphql')
-      .send(
-        gql(
-          'mutation { registerRider(input: { firstName: "R", lastName: "R", email: "r@b.com", phone: "1", password: "password", vehicle: "Moto" }) { accessToken refreshToken } }',
-        ),
-      )
+      .send(gql(registerRiderMutation))
+      .expect(200)
+
+    expect(res.body.data).toBeNull()
+    expect(res.body.errors).toHaveLength(1)
+    expect(res.body.errors[0].extensions.code).toBe('UNAUTHENTICATED')
+  })
+
+  it('rechaza registerRider con rol insuficiente con FORBIDDEN (403)', async () => {
+    const token = sign({ userId: 'u1', roles: ['customer'] })
+
+    const res = await request(app.getHttpServer())
+      .post('/graphql')
+      .set('Authorization', `Bearer ${token}`)
+      .send(gql(registerRiderMutation))
+      .expect(200)
+
+    expect(res.body.data).toBeNull()
+    expect(res.body.errors).toHaveLength(1)
+    expect(res.body.errors[0].extensions.code).toBe('FORBIDDEN')
+  })
+
+  it('permite registerRider con super_admin y devuelve los tokens', async () => {
+    const token = sign({ userId: 'admin-1', roles: ['super_admin'] })
+
+    const res = await request(app.getHttpServer())
+      .post('/graphql')
+      .set('Authorization', `Bearer ${token}`)
+      .send(gql(registerRiderMutation))
       .expect(200)
 
     expect(res.body.data.registerRider).toEqual({

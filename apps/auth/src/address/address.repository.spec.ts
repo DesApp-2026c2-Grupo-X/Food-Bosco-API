@@ -1,4 +1,5 @@
 import type { Model } from 'mongoose'
+import { ERROR_CODES } from '../config/constants'
 import type { AddressDocument } from './address.model'
 import { AddressRepository } from './address.repository'
 
@@ -6,6 +7,10 @@ interface QueryChain<T> {
   sort: jest.Mock
   exec: jest.Mock<Promise<T>, []>
 }
+
+const ADDRESS_ID = '507f1f77bcf86cd799439021'
+const USER_ID = '507f1f77bcf86cd799439011'
+const OTHER_USER_ID = '507f1f77bcf86cd799439022'
 
 const chainable = <T>(result: T): QueryChain<T> => {
   const chain = {
@@ -19,7 +24,7 @@ const chainable = <T>(result: T): QueryChain<T> => {
 const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): AddressDocument =>
   ({
     _id: { toString: () => 'a1' },
-    userId: 'u1',
+    userId: USER_ID,
     label: 'Casa',
     text: 'Av. Siempre Viva 123',
     city: 'CABA',
@@ -49,9 +54,9 @@ describe('AddressRepository.listByUser (RQ-AUTH-19)', () => {
     const chain = chainable([buildDoc()])
     model.find.mockReturnValue(chain)
 
-    const result = await repository.listByUser('u1')
+    const result = await repository.listByUser(USER_ID)
 
-    expect(model.find).toHaveBeenCalledWith({ userId: 'u1', active: true })
+    expect(model.find).toHaveBeenCalledWith({ userId: USER_ID, active: true })
     expect(chain.sort).toHaveBeenCalledWith({ createdAt: -1 })
     expect(chain.exec).toHaveBeenCalledTimes(1)
     expect(result).toHaveLength(1)
@@ -61,7 +66,14 @@ describe('AddressRepository.listByUser (RQ-AUTH-19)', () => {
     const { model, repository } = makeRepository()
     model.find.mockReturnValue(chainable([]))
 
-    await expect(repository.listByUser('u1')).resolves.toEqual([])
+    await expect(repository.listByUser(USER_ID)).resolves.toEqual([])
+  })
+
+  it('devuelve [] sin consultar la base cuando el userId no es ObjectId (JWT defensivo)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.listByUser('not-a-valid-object-id')).resolves.toEqual([])
+    expect(model.find).not.toHaveBeenCalled()
   })
 })
 
@@ -71,9 +83,9 @@ describe('AddressRepository.findOwnedById (RQ-AUTH-20: aislamiento)', () => {
     const chain = chainable(buildDoc())
     model.findOne.mockReturnValue(chain)
 
-    await repository.findOwnedById('a1', 'u1')
+    await repository.findOwnedById(ADDRESS_ID, USER_ID)
 
-    expect(model.findOne).toHaveBeenCalledWith({ _id: 'a1', userId: 'u1', active: true })
+    expect(model.findOne).toHaveBeenCalledWith({ _id: ADDRESS_ID, userId: USER_ID, active: true })
     expect(chain.exec).toHaveBeenCalledTimes(1)
   })
 
@@ -81,16 +93,30 @@ describe('AddressRepository.findOwnedById (RQ-AUTH-20: aislamiento)', () => {
     const { model, repository } = makeRepository()
     model.findOne.mockReturnValue(chainable(null))
 
-    await expect(repository.findOwnedById('a1', 'otro')).resolves.toBeNull()
+    await expect(repository.findOwnedById(ADDRESS_ID, OTHER_USER_ID)).resolves.toBeNull()
   })
 
   it('devuelve null si la dirección está desactivada', async () => {
     const { model, repository } = makeRepository()
     model.findOne.mockReturnValue(chainable(null))
 
-    await repository.findOwnedById('a1', 'u1')
+    await repository.findOwnedById(ADDRESS_ID, USER_ID)
 
-    expect(model.findOne).toHaveBeenCalledWith({ _id: 'a1', userId: 'u1', active: true })
+    expect(model.findOne).toHaveBeenCalledWith({ _id: ADDRESS_ID, userId: USER_ID, active: true })
+  })
+
+  it('devuelve null con un id no-ObjectId sin consultar la base (apto para 404)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.findOwnedById('not-a-valid-object-id', USER_ID)).resolves.toBeNull()
+    expect(model.findOne).not.toHaveBeenCalled()
+  })
+
+  it('devuelve null con un userId no-ObjectId sin consultar la base (JWT defensivo)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.findOwnedById(ADDRESS_ID, 'not-a-valid-object-id')).resolves.toBeNull()
+    expect(model.findOne).not.toHaveBeenCalled()
   })
 })
 
@@ -105,9 +131,9 @@ describe('AddressRepository.create (RQ-AUTH-20/22)', () => {
       longitude: -58.4,
     }
 
-    await repository.create('u1', data)
+    await repository.create(USER_ID, data)
 
-    expect(model.create).toHaveBeenCalledWith({ ...data, userId: 'u1', active: true })
+    expect(model.create).toHaveBeenCalledWith({ ...data, userId: USER_ID, active: true })
   })
 
   it('conserva los campos opcionales recibidos', async () => {
@@ -122,9 +148,25 @@ describe('AddressRepository.create (RQ-AUTH-20/22)', () => {
       longitude: 2,
     }
 
-    await repository.create('u2', data)
+    await repository.create(OTHER_USER_ID, data)
 
-    expect(model.create).toHaveBeenCalledWith({ ...data, userId: 'u2', active: true })
+    expect(model.create).toHaveBeenCalledWith({ ...data, userId: OTHER_USER_ID, active: true })
+  })
+
+  it('rechaza con USER_NOT_FOUND 404 un userId no-ObjectId sin persistir (JWT defensivo)', async () => {
+    const { model, repository } = makeRepository()
+    const data = {
+      label: 'Casa',
+      text: 'Av. Siempre Viva 123',
+      latitude: -34.6,
+      longitude: -58.4,
+    }
+
+    await expect(repository.create('not-a-valid-object-id', data)).rejects.toMatchObject({
+      code: ERROR_CODES.userNotFound,
+      status: 404,
+    })
+    expect(model.create).not.toHaveBeenCalled()
   })
 })
 
@@ -134,10 +176,10 @@ describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
     const chain = chainable(buildDoc({ label: 'Trabajo' }))
     model.findOneAndUpdate.mockReturnValue(chain)
 
-    await repository.updateOwned('a1', 'u1', { label: 'Trabajo' })
+    await repository.updateOwned(ADDRESS_ID, USER_ID, { label: 'Trabajo' })
 
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1', active: true },
+      { _id: ADDRESS_ID, userId: USER_ID, active: true },
       { $set: { label: 'Trabajo' } },
       { new: true },
     )
@@ -148,11 +190,11 @@ describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
     const { model, repository } = makeRepository()
     model.findOneAndUpdate.mockReturnValue(chainable(null))
 
-    const result = await repository.updateOwned('a1', 'u1', { label: 'Trabajo' })
+    const result = await repository.updateOwned(ADDRESS_ID, USER_ID, { label: 'Trabajo' })
 
     expect(result).toBeNull()
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1', active: true },
+      { _id: ADDRESS_ID, userId: USER_ID, active: true },
       { $set: { label: 'Trabajo' } },
       { new: true },
     )
@@ -162,7 +204,27 @@ describe('AddressRepository.updateOwned (RQ-AUTH-20)', () => {
     const { model, repository } = makeRepository()
     model.findOneAndUpdate.mockReturnValue(chainable(null))
 
-    await expect(repository.updateOwned('a1', 'otro', { label: 'X' })).resolves.toBeNull()
+    await expect(
+      repository.updateOwned(ADDRESS_ID, OTHER_USER_ID, { label: 'X' }),
+    ).resolves.toBeNull()
+  })
+
+  it('devuelve null con un id no-ObjectId sin consultar la base (apto para 404)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(
+      repository.updateOwned('not-a-valid-object-id', USER_ID, { label: 'X' }),
+    ).resolves.toBeNull()
+    expect(model.findOneAndUpdate).not.toHaveBeenCalled()
+  })
+
+  it('devuelve null con un userId no-ObjectId sin consultar la base (JWT defensivo)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(
+      repository.updateOwned(ADDRESS_ID, 'not-a-valid-object-id', { label: 'X' }),
+    ).resolves.toBeNull()
+    expect(model.findOneAndUpdate).not.toHaveBeenCalled()
   })
 })
 
@@ -171,10 +233,10 @@ describe('AddressRepository.softDeleteOwned (RQ-AUTH-21)', () => {
     const { model, repository } = makeRepository()
     model.updateOne.mockReturnValue(chainable({ acknowledged: true, modifiedCount: 1 }))
 
-    const result = await repository.softDeleteOwned('a1', 'u1')
+    const result = await repository.softDeleteOwned(ADDRESS_ID, USER_ID)
 
     expect(model.updateOne).toHaveBeenCalledWith(
-      { _id: 'a1', userId: 'u1', active: true },
+      { _id: ADDRESS_ID, userId: USER_ID, active: true },
       { $set: { active: false } },
     )
     expect(result).toBe(true)
@@ -188,13 +250,29 @@ describe('AddressRepository.softDeleteOwned (RQ-AUTH-21)', () => {
     const { model, repository } = makeRepository()
     model.updateOne.mockReturnValue(chainable({ acknowledged: true, modifiedCount }))
 
-    await expect(repository.softDeleteOwned('a1', 'u1')).resolves.toBe(false)
+    await expect(repository.softDeleteOwned(ADDRESS_ID, USER_ID)).resolves.toBe(false)
   })
 
   it('devuelve false si el resultado no reporta modifiedCount', async () => {
     const { model, repository } = makeRepository()
     model.updateOne.mockReturnValue(chainable({}))
 
-    await expect(repository.softDeleteOwned('a1', 'u1')).resolves.toBe(false)
+    await expect(repository.softDeleteOwned(ADDRESS_ID, USER_ID)).resolves.toBe(false)
+  })
+
+  it('devuelve false con un id no-ObjectId sin consultar la base (apto para 404)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.softDeleteOwned('not-a-valid-object-id', USER_ID)).resolves.toBe(false)
+    expect(model.updateOne).not.toHaveBeenCalled()
+  })
+
+  it('devuelve false con un userId no-ObjectId sin consultar la base (JWT defensivo)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.softDeleteOwned(ADDRESS_ID, 'not-a-valid-object-id')).resolves.toBe(
+      false,
+    )
+    expect(model.updateOne).not.toHaveBeenCalled()
   })
 })

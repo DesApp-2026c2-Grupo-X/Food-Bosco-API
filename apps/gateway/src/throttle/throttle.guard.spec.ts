@@ -6,6 +6,7 @@ import {
   ThrottlerStorageService,
   type ThrottlerRequest,
 } from '@nestjs/throttler'
+import { GraphQLError } from 'graphql'
 import type { Request, Response } from 'express'
 import { HEADERS } from '../config/constants'
 import { GatewayThrottlerGuard } from './throttle.guard'
@@ -222,5 +223,33 @@ describe('GatewayThrottlerGuard.canActivate — límite por ventana', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+})
+
+describe('GatewayThrottlerGuard.canActivate — throttle GraphQL (INT-13)', () => {
+  it('al exceder el cupo lanza GraphQLError TOO_MANY_REQUESTS con http.status 429', async () => {
+    const { guard } = makeGuard([{ ttl: 60_000, limit: 1 }])
+    await guard.onModuleInit()
+
+    const req = { headers: { [HEADERS.authorization]: 'Bearer a' } }
+    const res = { header: jest.fn() }
+    jest.spyOn(GqlExecutionContext, 'create').mockReturnValue({
+      getContext: () => ({ req, res }),
+    } as unknown as GqlExecutionContext)
+
+    const context = {
+      getType: () => 'graphql',
+      getHandler: () => ({}),
+      getClass: () => ({}),
+    } as unknown as ExecutionContext
+
+    await expect(guard.canActivate(context)).resolves.toBe(true)
+    const error = await guard.canActivate(context).catch((thrown: unknown) => thrown)
+
+    expect(error).toBeInstanceOf(GraphQLError)
+    expect((error as GraphQLError).extensions).toMatchObject({
+      code: 'TOO_MANY_REQUESTS',
+      http: { status: 429 },
+    })
   })
 })

@@ -1,5 +1,4 @@
 import {
-  IsBoolean,
   IsLatitude,
   IsLongitude,
   IsNotEmpty,
@@ -7,6 +6,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class UpdateBranchDto {
   @IsOptional()
@@ -35,6 +35,6 @@ export class UpdateBranchDto {
   phone?: string
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   active?: boolean
 }

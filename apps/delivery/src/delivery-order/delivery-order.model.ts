@@ -49,6 +49,29 @@ export const DeliveryOrderSchema = SchemaFactory.createForClass(DeliveryOrder)
 
 DeliveryOrderSchema.index({ status: 1, createdAt: 1 })
 
+// NEW-23: ventana de dedupe de eventos. Pasado este plazo el registro puede purgarse,
+// ya que RabbitMQ no reentrega mensajes más viejos que su TTL/expiración.
+export const PROCESSED_EVENT_TTL_SECONDS = 7 * 24 * 60 * 60
+
+@Schema({ collection: 'processedEvents', timestamps: { createdAt: true, updatedAt: false } })
+export class ProcessedEvent {
+  @Prop({ required: true, unique: true, index: true })
+  eventId!: string
+
+  @Prop({ required: true, type: Date, default: () => new Date() })
+  processedAt!: Date
+
+  createdAt!: Date
+}
+
+export type ProcessedEventDocument = HydratedDocument<ProcessedEvent>
+
+export const ProcessedEventSchema = SchemaFactory.createForClass(ProcessedEvent)
+
+// NEW-23: TTL para purgar automáticamente los eventos procesados y evitar que la
+// colección de dedupe crezca sin límite.
+ProcessedEventSchema.index({ processedAt: 1 }, { expireAfterSeconds: PROCESSED_EVENT_TTL_SECONDS })
+
 export interface PublicDeliveryOrder {
   orderId: string
   branchId: string

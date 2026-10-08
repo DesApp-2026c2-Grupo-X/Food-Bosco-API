@@ -1,4 +1,5 @@
 import type { Model } from 'mongoose'
+import { INGREDIENT_ALREADY_EXISTS } from './ingredient.model'
 import type { IngredientDocument } from './ingredient.model'
 import { IngredientRepository } from './ingredient.repository'
 
@@ -98,6 +99,27 @@ describe('IngredientRepository.create (RQ-CAT-09)', () => {
 
     expect(model.create).toHaveBeenCalledWith({ ...input, active: expected })
   })
+
+  // Un nombre duplicado (E11000) se traduce a un error de dominio en lugar de filtrar el
+  // error crudo de Mongo.
+  it('traduce el E11000 a un error de dominio INGREDIENT_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    model.create.mockRejectedValue(duplicateError)
+
+    await expect(repository.create({ name: 'Papa', unit: 'kg' })).rejects.toMatchObject({
+      code: INGREDIENT_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error del repositorio sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const failure = new Error('conexión caída')
+    model.create.mockRejectedValue(failure)
+
+    await expect(repository.create({ name: 'Papa', unit: 'kg' })).rejects.toBe(failure)
+  })
 })
 
 describe('IngredientRepository.list (RQ-CAT-09)', () => {
@@ -181,5 +203,28 @@ describe('IngredientRepository.update / setActive', () => {
     model.findByIdAndUpdate.mockReturnValue(chainable(null))
 
     await expect(repository.setActive('missing', false)).resolves.toBeNull()
+  })
+
+  it('traduce el E11000 al renombrar a un nombre existente → INGREDIENT_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    chain.exec.mockRejectedValue(duplicateError)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('ing1', { name: 'Papa' })).rejects.toMatchObject({
+      code: INGREDIENT_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error de update sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const failure = new Error('conexión caída')
+    chain.exec.mockRejectedValue(failure)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('ing1', { name: 'Nuevo' })).rejects.toBe(failure)
   })
 })

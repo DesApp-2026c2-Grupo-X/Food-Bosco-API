@@ -5,12 +5,50 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+export const DEV_JWT_SECRET = 'dev-secret-change-me'
+export const DEV_INTERNAL_API_TOKEN = 'dev-internal-token'
+
+export interface SecretConfig {
+  nodeEnv: string
+  jwtSecret: string
+  internalApiToken: string
+}
+
+const isInsecureSecret = (value: string, devDefault: string): boolean =>
+  value.trim() === '' || value === devDefault
+
+export const assertProductionSecrets = ({
+  nodeEnv,
+  jwtSecret,
+  internalApiToken,
+}: SecretConfig): void => {
+  if (nodeEnv !== 'production') return
+
+  const insecure = [
+    isInsecureSecret(jwtSecret, DEV_JWT_SECRET) ? 'JWT_SECRET' : null,
+    isInsecureSecret(internalApiToken, DEV_INTERNAL_API_TOKEN) ? 'INTERNAL_API_TOKEN' : null,
+  ].filter((name): name is string => name !== null)
+
+  if (insecure.length > 0) {
+    throw new Error(
+      `Configuración insegura en producción: ${insecure.join(' y ')} no puede(n) quedar vacío(s) ni ` +
+        `usar el valor por defecto de desarrollo. Definí un secreto propio en el entorno.`,
+    )
+  }
+}
+
+const nodeEnv = process.env.NODE_ENV ?? 'development'
+const jwtSecret = process.env.JWT_SECRET ?? DEV_JWT_SECRET
+const internalApiToken = process.env.INTERNAL_API_TOKEN ?? DEV_INTERNAL_API_TOKEN
+
+assertProductionSecrets({ nodeEnv, jwtSecret, internalApiToken })
+
 export const env = {
   port: toNumber(process.env.PORT, 4202),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
+  nodeEnv,
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/fastfood',
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
-  internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
+  jwtSecret,
+  internalApiToken,
   brokerUrl: process.env.BROKER_URL ?? '',
   uploads: {
     maxSizeBytes: toNumber(process.env.UPLOAD_MAX_SIZE_BYTES, 5 * 1024 * 1024),

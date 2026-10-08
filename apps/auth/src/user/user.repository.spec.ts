@@ -10,6 +10,8 @@ interface QueryChain<T> {
   exec: jest.Mock<Promise<T>, []>
 }
 
+const VALID_ID = '507f1f77bcf86cd799439011'
+
 const chainable = <T>(result: T): QueryChain<T> => {
   const chain = {
     sort: jest.fn(),
@@ -77,13 +79,20 @@ describe('UserRepository.findByEmail / findById', () => {
     expect(chain.select).toHaveBeenCalledWith('+passwordHash')
   })
 
-  it('findById consulta por id y devuelve null si no existe', async () => {
+  it('findById consulta por id válido y devuelve null si no existe', async () => {
     const { model, repository } = makeRepository()
     const chain = chainable(null)
     model.findById.mockReturnValue(chain)
 
-    await expect(repository.findById('missing')).resolves.toBeNull()
-    expect(model.findById).toHaveBeenCalledWith('missing')
+    await expect(repository.findById(VALID_ID)).resolves.toBeNull()
+    expect(model.findById).toHaveBeenCalledWith(VALID_ID)
+  })
+
+  it('findById con un id no-ObjectId devuelve null sin consultar la base (apto para 404)', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.findById('not-a-valid-object-id')).resolves.toBeNull()
+    expect(model.findById).not.toHaveBeenCalled()
   })
 
   it('findByIdWithPassword selecciona explícitamente el hash', async () => {
@@ -91,10 +100,17 @@ describe('UserRepository.findByEmail / findById', () => {
     const chain = chainable(buildDoc())
     model.findById.mockReturnValue(chain)
 
-    await repository.findByIdWithPassword('u1')
+    await repository.findByIdWithPassword(VALID_ID)
 
-    expect(model.findById).toHaveBeenCalledWith('u1')
+    expect(model.findById).toHaveBeenCalledWith(VALID_ID)
     expect(chain.select).toHaveBeenCalledWith('+passwordHash')
+  })
+
+  it('findByIdWithPassword con un id no-ObjectId devuelve null sin consultar la base', async () => {
+    const { model, repository } = makeRepository()
+
+    await expect(repository.findByIdWithPassword('not-a-valid-object-id')).resolves.toBeNull()
+    expect(model.findById).not.toHaveBeenCalled()
   })
 })
 
@@ -249,10 +265,10 @@ describe('UserRepository.update / setActive', () => {
     const chain = chainable(buildDoc({ firstName: 'Ana' }))
     model.findByIdAndUpdate.mockReturnValue(chain)
 
-    await repository.update('u1', { firstName: 'Ana' })
+    await repository.update(VALID_ID, { firstName: 'Ana' })
 
     expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
-      'u1',
+      VALID_ID,
       { $set: { firstName: 'Ana' } },
       { new: true },
     )
@@ -266,17 +282,46 @@ describe('UserRepository.update / setActive', () => {
     const { model, repository } = makeRepository()
     model.findByIdAndUpdate.mockReturnValue(chainable(buildDoc({ active })))
 
-    await repository.setActive('u1', active)
+    await repository.setActive(VALID_ID, active)
 
-    expect(model.findByIdAndUpdate).toHaveBeenCalledWith('u1', { $set: { active } }, { new: true })
+    expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
+      VALID_ID,
+      { $set: { active } },
+      { new: true },
+    )
   })
 
   it('devuelve null cuando el id no existe al actualizar', async () => {
     const { model, repository } = makeRepository()
     model.findByIdAndUpdate.mockReturnValue(chainable(null))
 
-    await expect(repository.update('missing', { firstName: 'X' })).resolves.toBeNull()
+    await expect(repository.update(VALID_ID, { firstName: 'X' })).resolves.toBeNull()
+    expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
+      VALID_ID,
+      { $set: { firstName: 'X' } },
+      { new: true },
+    )
   })
+
+  it.each([
+    {
+      name: 'update',
+      run: (repository: UserRepository) =>
+        repository.update('not-a-valid-object-id', { firstName: 'X' }),
+    },
+    {
+      name: 'setActive',
+      run: (repository: UserRepository) => repository.setActive('not-a-valid-object-id', true),
+    },
+  ])(
+    '$name con un id no-ObjectId devuelve null sin consultar la base (apto para 404)',
+    async ({ run }) => {
+      const { model, repository } = makeRepository()
+
+      await expect(run(repository)).resolves.toBeNull()
+      expect(model.findByIdAndUpdate).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('UserRepository.updatePassword (RQ-AUTH-03)', () => {
@@ -285,12 +330,20 @@ describe('UserRepository.updatePassword (RQ-AUTH-03)', () => {
     const chain = chainable({ acknowledged: true, modifiedCount: 1 })
     model.updateOne.mockReturnValue(chain)
 
-    await repository.updatePassword('u1', '$2a$10$nuevoHash')
+    await repository.updatePassword(VALID_ID, '$2a$10$nuevoHash')
 
     expect(model.updateOne).toHaveBeenCalledWith(
-      { _id: 'u1' },
+      { _id: VALID_ID },
       { $set: { passwordHash: '$2a$10$nuevoHash' } },
     )
     expect(chain.exec).toHaveBeenCalledTimes(1)
+  })
+
+  it('con un id no-ObjectId no consulta la base', async () => {
+    const { model, repository } = makeRepository()
+
+    await repository.updatePassword('not-a-valid-object-id', '$2a$10$nuevoHash')
+
+    expect(model.updateOne).not.toHaveBeenCalled()
   })
 })

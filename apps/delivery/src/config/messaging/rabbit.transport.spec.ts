@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common'
 import { connect } from 'amqplib'
 import type { DomainEvent, OrderStatusChangedEvent } from './events'
 import type { EventHandler } from './transport'
@@ -25,6 +26,8 @@ const makeChannel = () => ({
   bindQueue: jest.fn().mockResolvedValue(undefined),
   publish: jest.fn(),
   consume: jest.fn().mockResolvedValue(undefined),
+  ack: jest.fn(),
+  nack: jest.fn(),
   close: jest.fn().mockResolvedValue(undefined),
 })
 
@@ -92,7 +95,9 @@ describe('RabbitTransport.publish (sin broker real)', () => {
 describe('RabbitTransport.subscribe (sin broker real)', () => {
   beforeEach(() => jest.clearAllMocks())
 
-  it('declara la cola durable, la bindea al exchange y consume con noAck', async () => {
+  const flush = () => new Promise((resolve) => setImmediate(resolve))
+
+  it('declara la cola durable, la bindea al exchange y consume con ack explícito', async () => {
     const { transport, channel } = setup()
     const handler: EventHandler = jest.fn()
 
@@ -109,19 +114,52 @@ describe('RabbitTransport.subscribe (sin broker real)', () => {
     expect(channel.consume).toHaveBeenCalledWith(
       'delivery.order.status_changed',
       expect.any(Function),
-      { noAck: true },
+      { noAck: false },
     )
   })
 
-  it('deserializa el mensaje y lo entrega al handler', async () => {
+  it('deserializa el mensaje, lo entrega al handler y hace ack tras el éxito', async () => {
     const { transport, channel } = setup()
     const handler: EventHandler = jest.fn()
+    const message = { content: Buffer.from(JSON.stringify(event)) }
 
     await transport.subscribe('order.status_changed', handler)
     const consumer = channel.consume.mock.calls[0][1] as (message: unknown) => void
-    consumer({ content: Buffer.from(JSON.stringify(event)) })
+    consumer(message)
+    await flush()
 
     expect(handler).toHaveBeenCalledWith(event)
+    expect(channel.ack).toHaveBeenCalledWith(message)
+    expect(channel.nack).not.toHaveBeenCalled()
+  })
+
+  it('NEW-12: reencola (nack con requeue) si el handler falla, sin hacer ack', async () => {
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn().mockRejectedValue(new Error('handler caído'))
+    const message = { content: Buffer.from(JSON.stringify(event)) }
+
+    await transport.subscribe('order.status_changed', handler)
+    const consumer = channel.consume.mock.calls[0][1] as (message: unknown) => void
+    consumer(message)
+    await flush()
+
+    expect(channel.nack).toHaveBeenCalledWith(message, false, true)
+    expect(channel.ack).not.toHaveBeenCalled()
+  })
+
+  it('NEW-12: descarta un payload ilegible sin invocar al handler ni reencolarlo', async () => {
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn()
+    const message = { content: Buffer.from('no-es-json') }
+
+    await transport.subscribe('order.status_changed', handler)
+    const consumer = channel.consume.mock.calls[0][1] as (message: unknown) => void
+    consumer(message)
+    await flush()
+
+    expect(handler).not.toHaveBeenCalled()
+    expect(channel.ack).toHaveBeenCalledWith(message)
+    expect(channel.nack).not.toHaveBeenCalled()
   })
 
   it('ignora mensajes nulos del broker', async () => {
@@ -131,8 +169,10 @@ describe('RabbitTransport.subscribe (sin broker real)', () => {
     await transport.subscribe('order.status_changed', handler)
     const consumer = channel.consume.mock.calls[0][1] as (message: unknown) => void
     consumer(null)
+    await flush()
 
     expect(handler).not.toHaveBeenCalled()
+    expect(channel.ack).not.toHaveBeenCalled()
   })
 })
 
@@ -166,17 +206,31 @@ describe('RabbitTransport.close (sin broker real)', () => {
     await expect(transport.close()).resolves.toBeUndefined()
   })
 
-  // KNOWN BUG: close() limpia channel/connection pero no connectPromise. Una publicación
-  // posterior a close() reutiliza el canal ya cerrado en lugar de reconectar.
-  it('KNOWN BUG: no reconecta tras close(): publica sobre el canal cerrado', async () => {
-    const { transport, channel } = setup()
+  // RQ-COM-04 / ciclo de vida: tras close() el transporte debe reconectar de forma
+  // explícita en lugar de publicar sobre el canal cerrado.
+  it('reconecta tras close() y vuelve a publicar sobre un canal nuevo', async () => {
+    const { transport, channel, connection } = setup()
     await transport.publish(event)
     await transport.close()
 
     await transport.publish({ ...event, eventId: 'e2' })
 
-    expect(connectMock).toHaveBeenCalledTimes(1)
+    expect(connectMock).toHaveBeenCalledTimes(2)
+    expect(connection.createChannel).toHaveBeenCalledTimes(2)
     expect(channel.publish).toHaveBeenCalledTimes(2)
+  })
+
+  it('reintenta la conexión tras un fallo previo en lugar de reusar la promesa rechazada', async () => {
+    const channel = makeChannel()
+    const connection = makeConnection(channel)
+    connectMock.mockRejectedValueOnce(new Error('broker caído')).mockResolvedValue(connection)
+    const transport = new RabbitTransport('amqp://broker')
+
+    await expect(transport.publish(event)).rejects.toThrow('broker caído')
+    await transport.publish({ ...event, eventId: 'e2' })
+
+    expect(connectMock).toHaveBeenCalledTimes(2)
+    expect(channel.publish).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -200,5 +254,134 @@ describe('RabbitTransport tipado', () => {
       expect.any(Buffer),
       { persistent: true },
     )
+  })
+})
+
+describe('RabbitTransport.dispatch: confirmaciones y límite de reintentos (NEW-24)', () => {
+  beforeEach(() => jest.clearAllMocks())
+  afterEach(() => jest.restoreAllMocks())
+
+  const flush = () => new Promise((resolve) => setImmediate(resolve))
+
+  const consumeMessage = async (
+    channel: ReturnType<typeof makeChannel>,
+    transport: RabbitTransport,
+    handler: EventHandler,
+    message: unknown,
+  ) => {
+    await transport.subscribe('order.status_changed', handler)
+    const consumer = channel.consume.mock.calls[0][1] as (message: unknown) => void
+    consumer(message)
+    await flush()
+  }
+
+  it('un ack que lanza por canal cerrado se traga y no rompe el consumidor', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn()
+    channel.ack.mockImplementation(() => {
+      throw new Error('channel closed')
+    })
+
+    await consumeMessage(channel, transport, handler, {
+      content: Buffer.from(JSON.stringify(event)),
+    })
+
+    expect(handler).toHaveBeenCalledWith(event)
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('channel closed'))
+  })
+
+  it('un ack que devuelve promesa rechazada también se captura', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn()
+    channel.ack.mockImplementation(() => Promise.reject(new Error('ack timeout')))
+
+    await consumeMessage(channel, transport, handler, {
+      content: Buffer.from(JSON.stringify(event)),
+    })
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('ack timeout'))
+  })
+
+  it('un nack que lanza por canal cerrado se traga y no rompe el consumidor', async () => {
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn().mockRejectedValue(new Error('handler caído'))
+    channel.nack.mockImplementation(() => {
+      throw new Error('channel closed')
+    })
+
+    await consumeMessage(channel, transport, handler, {
+      content: Buffer.from(JSON.stringify(event)),
+    })
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('channel closed'))
+  })
+
+  type RetryCase = {
+    name: string
+    headers?: Record<string, unknown>
+    redelivered?: boolean
+    requeue: boolean
+  }
+
+  const retryCases: RetryCase[] = [
+    { name: 'primer intento', requeue: true },
+    { name: 'reentrega sin x-death', redelivered: true, requeue: true },
+    {
+      name: 'x-death count=1 + redelivered (bajo el umbral)',
+      headers: { 'x-death': [{ count: 1 }] },
+      redelivered: true,
+      requeue: true,
+    },
+    {
+      name: 'x-death count=1 + count=2 (suma en el umbral)',
+      headers: { 'x-death': [{ count: 1 }, { count: 2 }] },
+      requeue: false,
+    },
+    {
+      name: 'x-death count=3 (en el umbral)',
+      headers: { 'x-death': [{ count: 3 }] },
+      requeue: false,
+    },
+  ]
+
+  it.each(retryCases)('NEW-24: $name → $requeue', async ({ headers, redelivered, requeue }) => {
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined)
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined)
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn().mockRejectedValue(new Error('fallo'))
+    const message = {
+      content: Buffer.from(JSON.stringify(event)),
+      properties: headers ? { headers } : {},
+      fields: { redelivered: Boolean(redelivered) },
+    }
+
+    await consumeMessage(channel, transport, handler, message)
+
+    if (requeue) {
+      expect(channel.nack).toHaveBeenCalledWith(message, false, true)
+      expect(channel.ack).not.toHaveBeenCalled()
+    } else {
+      expect(channel.ack).toHaveBeenCalledWith(message)
+      expect(channel.nack).not.toHaveBeenCalled()
+    }
+  })
+
+  it('NEW-24: al exceder reintentos loguea el descarte del evento', async () => {
+    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined)
+    const { transport, channel } = setup()
+    const handler: EventHandler = jest.fn().mockRejectedValue(new Error('fallo determinístico'))
+    const message = {
+      content: Buffer.from(JSON.stringify(event)),
+      properties: { headers: { 'x-death': [{ count: 3 }] } },
+      fields: { redelivered: true },
+    }
+
+    await consumeMessage(channel, transport, handler, message)
+
+    expect(channel.ack).toHaveBeenCalledWith(message)
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('reintentos agotados'))
   })
 })

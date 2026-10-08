@@ -1,3 +1,4 @@
+import 'reflect-metadata'
 import { plainToInstance } from 'class-transformer'
 import { validate } from 'class-validator'
 import { CreateOrderStateDto, SetActiveDto, UpdateOrderStateDto } from './order-state.dto'
@@ -113,5 +114,34 @@ describe('SetActiveDto (RQ-CFG-06)', () => {
     await expect(errorProperties(plainToInstance(SetActiveDto, payload))).resolves.toContain(
       'active',
     )
+  })
+})
+
+// INT-03: con `enableImplicitConversion` (config real del ValidationPipe) un
+// string/número en `active` de body se coaccionaba a `true` y pasaba
+// `@IsBoolean`. Sólo `true`/`false` reales deben ser válidos.
+describe('INT-03: SetActiveDto.active con coerción implícita activa', () => {
+  it.each([true, false])('acepta el booleano real %s', async (value) => {
+    const instance = plainToInstance(
+      SetActiveDto,
+      { active: value },
+      {
+        enableImplicitConversion: true,
+      },
+    )
+
+    await expect(errorProperties(instance)).resolves.toEqual([])
+  })
+
+  it.each(['false', 'true', 123, 'yes', 0])('rechaza el valor no booleano %p', async (value) => {
+    const instance = plainToInstance(
+      SetActiveDto,
+      { active: value },
+      {
+        enableImplicitConversion: true,
+      },
+    )
+
+    await expect(errorProperties(instance)).resolves.toContain('active')
   })
 })

@@ -18,6 +18,7 @@ describe('Gateway rate limiting (e2e) — RQ-GW-10', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {

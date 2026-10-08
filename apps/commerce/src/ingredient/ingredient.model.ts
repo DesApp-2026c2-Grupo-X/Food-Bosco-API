@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
 
+export const INGREDIENT_ALREADY_EXISTS = 'INGREDIENT_ALREADY_EXISTS'
+
 @Schema({ collection: 'ingredients', timestamps: { createdAt: true, updatedAt: true } })
 export class Ingredient {
   @Prop({ required: true, unique: true, index: true, trim: true })

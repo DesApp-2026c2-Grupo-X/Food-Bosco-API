@@ -1,8 +1,10 @@
 import {
   ArgumentsHost,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
+  HttpStatus,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common'
@@ -116,6 +118,49 @@ describe('HttpExceptionFilter', () => {
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({ code: ERROR_CODES.internal, message: 'teapot' }),
     )
+  })
+
+  it.each([
+    {
+      name: 'ConflictException (409)',
+      exception: new ConflictException('la oferta ya fue tomada'),
+      status: HttpStatus.CONFLICT,
+      code: ERROR_CODES.conflict,
+    },
+    {
+      name: 'HttpException 422',
+      exception: new HttpException('entidad inválida', HttpStatus.UNPROCESSABLE_ENTITY),
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      code: ERROR_CODES.unprocessableEntity,
+    },
+    {
+      name: 'HttpException 429',
+      exception: new HttpException('demasiadas solicitudes', HttpStatus.TOO_MANY_REQUESTS),
+      status: HttpStatus.TOO_MANY_REQUESTS,
+      code: ERROR_CODES.tooManyRequests,
+    },
+  ])(
+    'un HttpException $name usa un code coherente con el status',
+    ({ exception, status, code }) => {
+      const { host, status: statusFn, json } = makeHost()
+
+      filter.catch(exception, host)
+
+      expect(statusFn).toHaveBeenCalledWith(status)
+      expect(json).toHaveBeenCalledWith(expect.objectContaining({ code }))
+    },
+  )
+
+  it('preserva mensaje y path de un ConflictException (409)', () => {
+    const { host, json } = makeHost('/v1/trips')
+
+    filter.catch(new ConflictException('conflicto de negocio'), host)
+
+    expect(json).toHaveBeenCalledWith({
+      code: ERROR_CODES.conflict,
+      message: 'conflicto de negocio',
+      path: '/v1/trips',
+    })
   })
 
   it('convierte errores desconocidos en 500 INTERNAL_SERVER_ERROR', () => {

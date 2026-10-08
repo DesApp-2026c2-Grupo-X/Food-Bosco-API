@@ -23,10 +23,16 @@ export const ERROR_CODES = {
   invalidOrExpiredToken: 'INVALID_OR_EXPIRED_TOKEN',
   emailSendFailed: 'EMAIL_SEND_FAILED',
   addressNotFound: 'ADDRESS_NOT_FOUND',
+  branchNotFound: 'BRANCH_NOT_FOUND',
   validationError: 'VALIDATION_ERROR',
   forbidden: 'FORBIDDEN',
   unauthenticated: 'UNAUTHENTICATED',
   notFound: 'NOT_FOUND',
+  conflict: 'CONFLICT',
+  unprocessableEntity: 'UNPROCESSABLE_ENTITY',
+  tooManyRequests: 'TOO_MANY_REQUESTS',
+  badGateway: 'BAD_GATEWAY',
+  serviceUnavailable: 'SERVICE_UNAVAILABLE',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

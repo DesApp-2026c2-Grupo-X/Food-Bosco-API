@@ -5,15 +5,22 @@ import { DomainException } from './domain.exception'
 
 type ErrorBody = string | { message?: string | string[] }
 
-const codeForStatus = (status: number): string => {
-  if (status === HttpStatus.UNAUTHORIZED) return ERROR_CODES.unauthenticated
-  if (status === HttpStatus.FORBIDDEN) return ERROR_CODES.forbidden
-  if (status === HttpStatus.BAD_REQUEST) return ERROR_CODES.validationError
-  if (status === HttpStatus.NOT_FOUND) return ERROR_CODES.notFound
-  if (status === HttpStatus.PAYLOAD_TOO_LARGE) return ERROR_CODES.payloadTooLarge
-  if (status === HttpStatus.UNSUPPORTED_MEDIA_TYPE) return ERROR_CODES.invalidImageType
-  return ERROR_CODES.internal
+const STATUS_CODES: Record<number, string> = {
+  [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,
+  [HttpStatus.UNAUTHORIZED]: ERROR_CODES.unauthenticated,
+  [HttpStatus.FORBIDDEN]: ERROR_CODES.forbidden,
+  [HttpStatus.NOT_FOUND]: ERROR_CODES.notFound,
+  [HttpStatus.CONFLICT]: ERROR_CODES.conflict,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: ERROR_CODES.unprocessableEntity,
+  [HttpStatus.TOO_MANY_REQUESTS]: ERROR_CODES.tooManyRequests,
+  [HttpStatus.PAYLOAD_TOO_LARGE]: ERROR_CODES.payloadTooLarge,
+  [HttpStatus.UNSUPPORTED_MEDIA_TYPE]: ERROR_CODES.invalidImageType,
 }
+
+const codeForStatus = (status: number): string => STATUS_CODES[status] ?? ERROR_CODES.internal
+
+const isCastError = (exception: unknown): boolean =>
+  exception instanceof Error && exception.name === 'CastError'
 
 const extractMessage = (body: ErrorBody): string => {
   if (typeof body === 'string') return body
@@ -43,6 +50,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       response.status(status).json({
         code: codeForStatus(status),
         message: extractMessage(exception.getResponse() as ErrorBody),
+        path,
+      })
+      return
+    }
+
+    // INT-02: un id de path que no es ObjectId hace que Mongoose lance `CastError`.
+    // Se traduce a 404 (recurso no encontrado) en lugar de filtrar un 500.
+    if (isCastError(exception)) {
+      response.status(HttpStatus.NOT_FOUND).json({
+        code: ERROR_CODES.notFound,
+        message: 'Recurso no encontrado',
         path,
       })
       return

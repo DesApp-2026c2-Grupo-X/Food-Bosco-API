@@ -18,7 +18,19 @@ const addWindow = (now: Date): Date =>
 export class DeliveryOrderService {
   constructor(private readonly repository: DeliveryOrderRepository) {}
 
+  // Consumo at-least-once: primero se aplica el efecto y recién después se registra el
+  // eventId. Si el handler falla, el evento no queda marcado y el transporte lo reintenta;
+  // las escrituras (upsertReady condicional / remove) son idempotentes.
   async handleOrderStatusChanged(event: OrderStatusChangedEvent): Promise<void> {
+    if (await this.repository.isEventProcessed(event.eventId)) {
+      return
+    }
+
+    await this.applyEvent(event)
+    await this.repository.markProcessed(event.eventId)
+  }
+
+  private async applyEvent(event: OrderStatusChangedEvent): Promise<void> {
     if (event.status === ORDER_STATUS.readyForDelivery) {
       await this.repository.upsertReady({
         orderId: event.orderId,

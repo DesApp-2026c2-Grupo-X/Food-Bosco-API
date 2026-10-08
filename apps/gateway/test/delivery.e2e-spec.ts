@@ -104,6 +104,7 @@ describe('Gateway delivery (e2e) — frontend → GraphQL → REST', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {

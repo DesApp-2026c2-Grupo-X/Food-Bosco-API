@@ -38,10 +38,14 @@ export interface ReportQuery {
   groupBy?: ReportGroupBy
   categoryId?: string
   status?: OrderStatus
+  limit?: number
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const DEFAULT_RANGE_DAYS = 30
+
+const applyLimit = <T>(rows: T[], limit?: number): T[] =>
+  limit === undefined ? rows : rows.slice(0, limit)
 
 const roundTo = (value: number, decimals = 1): number => {
   const factor = 10 ** decimals
@@ -58,48 +62,51 @@ export class ReportingService {
   async bestSellers(query: ReportQuery = {}): Promise<ProductReportRow[]> {
     const { products, categories, sales } = await this.loadBase(this.toFilter(query))
 
-    return products
+    const ranked = products
       .map((product) => ({ product, sales: sales.get(product.id) ?? { quantity: 0, revenue: 0 } }))
       .filter((entry) => entry.sales.quantity > 0)
       .sort((a, b) => b.sales.quantity - a.sales.quantity)
-      .map((entry, index) => ({
-        position: index + 1,
-        product: entry.product,
-        category: categories.get(entry.product.categoryId) ?? null,
-        quantity: entry.sales.quantity,
-        revenue: null,
-      }))
+
+    return applyLimit(ranked, query.limit).map((entry, index) => ({
+      position: index + 1,
+      product: entry.product,
+      category: categories.get(entry.product.categoryId) ?? null,
+      quantity: entry.sales.quantity,
+      revenue: null,
+    }))
   }
 
   async leastSold(query: ReportQuery = {}): Promise<ProductReportRow[]> {
     const { products, categories, sales } = await this.loadBase(this.toFilter(query))
 
-    return products
+    const ranked = products
       .map((product) => ({ product, sales: sales.get(product.id) ?? { quantity: 0, revenue: 0 } }))
       .sort((a, b) => a.sales.quantity - b.sales.quantity)
-      .map((entry, index) => ({
-        position: index + 1,
-        product: entry.product,
-        category: categories.get(entry.product.categoryId) ?? null,
-        quantity: entry.sales.quantity,
-        revenue: null,
-      }))
+
+    return applyLimit(ranked, query.limit).map((entry, index) => ({
+      position: index + 1,
+      product: entry.product,
+      category: categories.get(entry.product.categoryId) ?? null,
+      quantity: entry.sales.quantity,
+      revenue: null,
+    }))
   }
 
   async highestRevenue(query: ReportQuery = {}): Promise<ProductReportRow[]> {
     const { products, categories, sales } = await this.loadBase(this.toFilter(query))
 
-    return products
+    const ranked = products
       .map((product) => ({ product, sales: sales.get(product.id) ?? { quantity: 0, revenue: 0 } }))
       .filter((entry) => entry.sales.revenue > 0)
       .sort((a, b) => b.sales.revenue - a.sales.revenue)
-      .map((entry, index) => ({
-        position: index + 1,
-        product: entry.product,
-        category: categories.get(entry.product.categoryId) ?? null,
-        quantity: null,
-        revenue: entry.sales.revenue,
-      }))
+
+    return applyLimit(ranked, query.limit).map((entry, index) => ({
+      position: index + 1,
+      product: entry.product,
+      category: categories.get(entry.product.categoryId) ?? null,
+      quantity: null,
+      revenue: entry.sales.revenue,
+    }))
   }
 
   async outOfStock(branchId?: string): Promise<OutOfStockRow[]> {
@@ -192,8 +199,12 @@ export class ReportingService {
       this.repository.aggregateSales(filter),
     ])
 
+    const products = filter.categoryId
+      ? productDocs.filter((doc) => doc.categoryId === filter.categoryId)
+      : productDocs
+
     return {
-      products: productDocs.map(serializeProduct),
+      products: products.map(serializeProduct),
       categories: new Map(
         categoryDocs.map((doc) => {
           const category = serializeCategory(doc)

@@ -68,16 +68,29 @@ describe('RiderOrchestrator.getProfile (onboarding, RQ-DLV-11)', () => {
       userId: 'u1',
       firstName: 'Juan',
       lastName: 'Perez',
-      vehicle: null,
+      vehicle: { type: 'moto', model: 'Moto' },
       phone: '11223344',
     })
     expect(result.userId).toBe('u1')
   })
 
-  // KNOWN BUG: el onboarding lazy ignora el vehículo registrado en Auth (createRider con vehicle)
-  // y lo persiste como null. RQ-AUTH-15 / RQ-DLV-11 y el e2e esperan conservarlo.
-  // Se documenta el comportamiento actual hasta que el source lo corrija (ver reporte).
-  it('ignora el vehículo de Auth al crear el rider (KNOWN BUG)', async () => {
+  // RQ-DLV-11 / plan.md §2.6: el onboarding copia el snapshot del vehículo de Auth,
+  // normalizando el string legado al objeto `Vehicle` (mismo criterio que el seed).
+  it.each([
+    {
+      name: 'moto',
+      vehicle: 'Moto Honda CG Titan',
+      expected: { type: 'moto', model: 'Moto Honda CG Titan' },
+    },
+    {
+      name: 'bicicleta',
+      vehicle: 'Bici rodado 29',
+      expected: { type: 'bici', model: 'Bici rodado 29' },
+    },
+    { name: 'sin vehículo (null)', vehicle: null, expected: null },
+    { name: 'sin vehículo (undefined)', vehicle: undefined, expected: null },
+    { name: 'string vacío', vehicle: '', expected: null },
+  ])('normaliza el vehículo de Auth ($name)', async ({ vehicle, expected }) => {
     const { orchestrator, riderService, authClient } = makeOrchestrator()
     riderService.findByUserId.mockResolvedValue(null)
     authClient.getUser.mockResolvedValue({
@@ -85,14 +98,14 @@ describe('RiderOrchestrator.getProfile (onboarding, RQ-DLV-11)', () => {
       firstName: 'Juan',
       lastName: 'Perez',
       phone: '11223344',
-      vehicle: 'Moto',
+      vehicle,
       role: 'rider',
     })
     riderService.create.mockResolvedValue(rider)
 
     await orchestrator.getProfile('u1')
 
-    expect(riderService.create).toHaveBeenCalledWith(expect.objectContaining({ vehicle: null }))
+    expect(riderService.create).toHaveBeenCalledWith(expect.objectContaining({ vehicle: expected }))
   })
 
   it('lanza RIDER_NOT_FOUND si Auth no conoce al usuario', async () => {
@@ -150,6 +163,28 @@ describe('RiderOrchestrator.updateProfile (RQ-DLV-11)', () => {
     expect(riderService.findByUserId).toHaveBeenCalledWith('u1')
     expect(riderService.updateProfile).toHaveBeenCalledWith('u1', { phone: '999' })
     expect(result.phone).toBe('999')
+  })
+
+  it('propaga firstName/lastName al servicio primario', async () => {
+    const { orchestrator, riderService } = makeOrchestrator()
+    riderService.findByUserId.mockResolvedValue(rider)
+    riderService.updateProfile.mockResolvedValue({
+      ...rider,
+      firstName: 'Nuevo',
+      lastName: 'Cambiado',
+    })
+
+    const result = await orchestrator.updateProfile('u1', {
+      firstName: 'Nuevo',
+      lastName: 'Cambiado',
+    })
+
+    expect(riderService.updateProfile).toHaveBeenCalledWith('u1', {
+      firstName: 'Nuevo',
+      lastName: 'Cambiado',
+    })
+    expect(result.firstName).toBe('Nuevo')
+    expect(result.lastName).toBe('Cambiado')
   })
 
   it('hace onboarding y luego actualiza si el rider no existe', async () => {

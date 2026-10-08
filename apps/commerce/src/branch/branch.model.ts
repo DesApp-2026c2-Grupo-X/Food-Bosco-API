@@ -114,5 +114,10 @@ export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date(
   }
 
   const current = now.getHours() * 60 + now.getMinutes()
+
+  if (closing < opening) {
+    return current >= opening || current < closing
+  }
+
   return current >= opening && current < closing
 }

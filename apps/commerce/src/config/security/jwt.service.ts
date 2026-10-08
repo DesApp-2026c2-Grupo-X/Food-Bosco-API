@@ -36,10 +36,15 @@ export class JwtService {
 
     try {
       const payload = jwt.verify(bearerToken, env.jwtSecret) as TokenPayload
+      const userId = payload.userId ?? payload.sub ?? null
+
+      if (!userId) {
+        return anonymous()
+      }
 
       return {
         authenticated: true,
-        userId: payload.userId ?? payload.sub ?? null,
+        userId,
         roles: payload.roles ?? [],
         branchId: payload.branchId ?? null,
         internal: false,

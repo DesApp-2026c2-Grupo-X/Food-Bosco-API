@@ -53,6 +53,12 @@ describe('CreateOrderDto (RQ-ORD-02/05)', () => {
       payload: { addressId: '', deliveryAddress: validAddress },
       valid: false,
     },
+    { name: 'sin deliveryAddress', payload: { addressId: 'a1' }, valid: false },
+    {
+      name: 'deliveryAddress nulo',
+      payload: { addressId: 'a1', deliveryAddress: null },
+      valid: false,
+    },
     {
       name: 'texto de la dirección vacío',
       payload: { addressId: 'a1', deliveryAddress: { ...validAddress, text: '' } },
@@ -91,12 +97,11 @@ describe('CreateOrderDto (RQ-ORD-02/05)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  // KNOWN BUG: RQ-ORD-05 exige la dirección de entrega (snapshot). El DTO no marca
-  // `deliveryAddress` con @IsNotEmpty ni @ValidateIf, y @ValidateNested omite los valores
-  // undefined, por lo que un pedido sin dirección pasa la validación y el orchestrator
-  // falla más tarde con un TypeError (500) al leer `deliveryAddress.latitude`.
-  it('KNOWN BUG: acepta el pedido sin deliveryAddress', async () => {
-    expect(await check(CreateOrderDto, { addressId: 'a1' })).toEqual([])
+  // RQ-ORD-05 exige la dirección de entrega (snapshot). Con @IsNotEmpty sobre
+  // `deliveryAddress`, un pedido sin dirección se rechaza en la validación (400)
+  // en lugar de fallar más tarde con un TypeError (500) en el orchestrator.
+  it('rechaza el pedido sin deliveryAddress', async () => {
+    expect(await check(CreateOrderDto, { addressId: 'a1' })).toContain('deliveryAddress')
   })
 })
 

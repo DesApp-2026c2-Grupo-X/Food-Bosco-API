@@ -1,12 +1,5 @@
-import {
-  IsBoolean,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-  MaxLength,
-  Min,
-} from 'class-validator'
+import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class CreateProductDto {
   @IsString()
@@ -33,6 +26,6 @@ export class CreateProductDto {
   image?: string
 
   @IsOptional()
-  @IsBoolean()
+  @ToBoolean()
   available?: boolean
 }

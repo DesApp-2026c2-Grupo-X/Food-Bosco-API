@@ -10,6 +10,7 @@ import type { PublicBranch, PublicBranchHour } from './branch.model'
 import { BranchService } from './branch.service'
 import type { BranchListResponse } from './branch.service'
 import { BranchHourDto, UpdateBranchHoursDto } from './dto/branch-hours.dto'
+import { BranchCoordsQueryDto } from './dto/branch-coords-query.dto'
 import { BranchQueryDto } from './dto/branch-query.dto'
 import { CreateBranchDto } from './dto/create-branch.dto'
 import { SetActiveDto } from './dto/set-active.dto'
@@ -34,7 +35,7 @@ export class BranchController {
   @Roles(ROLES.superAdmin)
   list(@Query() query: BranchQueryDto): Promise<BranchListResponse> {
     return this.branchService.list({
-      active: query.active,
+      active: query.active === undefined ? undefined : query.active === true,
       search: query.search,
       limit: query.limit ?? 20,
       offset: query.offset ?? 0,
@@ -48,21 +49,20 @@ export class BranchController {
   }
 
   @Get('available')
-  async available(@Query('lat') lat: string, @Query('lng') lng: string): Promise<PublicBranch[]> {
-    return this.branchService.findAvailable(Number(lat), Number(lng))
+  async available(@Query() query: BranchCoordsQueryDto): Promise<PublicBranch[]> {
+    return this.branchService.findAvailable(query.lat, query.lng)
   }
 
   @Get('nearby')
-  async nearby(@Query('lat') lat: string, @Query('lng') lng: string): Promise<PublicBranch[]> {
-    return this.branchService.findInZone(Number(lat), Number(lng))
+  async nearby(@Query() query: BranchCoordsQueryDto): Promise<PublicBranch[]> {
+    return this.branchService.findInZone(query.lat, query.lng)
   }
 
   @Get('available/products')
   async availableProducts(
-    @Query('lat') lat: string,
-    @Query('lng') lng: string,
+    @Query() query: BranchCoordsQueryDto,
   ): Promise<BranchProductListResponse> {
-    return this.orchestrator.listZoneProducts(Number(lat), Number(lng))
+    return this.orchestrator.listZoneProducts(query.lat, query.lng)
   }
 
   @Get(':branchId')
@@ -88,11 +88,13 @@ export class BranchController {
   }
 
   @Patch(':branchId/active')
-  @Roles(ROLES.superAdmin)
+  @Roles(ROLES.branchAdmin, ROLES.superAdmin)
   async setActive(
+    @CurrentUser() auth: AuthContext,
     @Param('branchId') branchId: string,
     @Body() dto: SetActiveDto,
   ): Promise<PublicBranch> {
+    this.assertBranchAccess(auth, branchId)
     const branch = await this.branchService.setActive(branchId, dto.active)
     if (!branch) {
       throw new DomainException(ERROR_CODES.branchNotFound, 'Sucursal no encontrada', 404)
@@ -141,7 +143,7 @@ export class BranchController {
     @Body() dto: SetProductAvailabilityDto,
   ): Promise<{ ok: boolean }> {
     this.assertBranchAccess(auth, branchId)
-    await this.branchService.setProductAvailability(branchId, productId, dto.available)
+    await this.orchestrator.setProductAvailability(branchId, productId, dto.available)
     return { ok: true }
   }
 

@@ -42,6 +42,22 @@ describe('UploadExceptionFilter.catch', () => {
     })
   })
 
+  it('propaga el path downstream del HttpException en lugar del request.url (RQ-GW-07)', () => {
+    const { host, json } = buildHost('/v1/uploads')
+    const exception = new HttpException(
+      { code: 'DUPLICATE_IMAGE', message: 'Imagen duplicada', path: '/v1/catalog/uploads' },
+      HttpStatus.CONFLICT,
+    )
+
+    filter.catch(exception, host)
+
+    expect(json).toHaveBeenCalledWith({
+      code: 'DUPLICATE_IMAGE',
+      message: 'Imagen duplicada',
+      path: '/v1/catalog/uploads',
+    })
+  })
+
   it('un code del payload tiene prioridad sobre el mapeo por status', () => {
     const { host, json } = buildHost()
     const exception = new HttpException({ code: 'CUSTOM_CODE', message: 'x' }, 400)
@@ -58,6 +74,7 @@ describe('UploadExceptionFilter.catch', () => {
     { name: '403 → FORBIDDEN', status: 403, expected: ERROR_CODES.forbidden },
     { name: '400 → BAD_REQUEST', status: 400, expected: ERROR_CODES.badRequest },
     { name: '413 → PAYLOAD_TOO_LARGE', status: 413, expected: ERROR_CODES.payloadTooLarge },
+    { name: '415 → INVALID_IMAGE_TYPE', status: 415, expected: ERROR_CODES.invalidImageType },
     { name: '500 → INTERNAL_SERVER_ERROR', status: 500, expected: ERROR_CODES.internal },
     { name: '422 → INTERNAL_SERVER_ERROR', status: 422, expected: ERROR_CODES.internal },
   ]

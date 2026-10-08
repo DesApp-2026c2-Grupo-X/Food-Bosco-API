@@ -1,5 +1,6 @@
 import { ERROR_CODES } from '../config/constants'
 import { IngredientController } from './ingredient.controller'
+import { IngredientOrchestrator } from './ingredient.orchestrator'
 import type { IngredientListResponse } from './ingredient.service'
 import { IngredientService } from './ingredient.service'
 
@@ -9,6 +10,7 @@ const makeController = (
   overrides: Partial<
     Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>
   > = {},
+  orchestratorOverrides: Partial<Record<'setActive', jest.Mock>> = {},
 ) => {
   const service = {
     list: jest.fn().mockResolvedValue(emptyList),
@@ -18,7 +20,18 @@ const makeController = (
     setActive: jest.fn(),
     ...overrides,
   }
-  return { service, controller: new IngredientController(service as unknown as IngredientService) }
+  const orchestrator = {
+    setActive: jest.fn(),
+    ...orchestratorOverrides,
+  }
+  return {
+    service,
+    orchestrator,
+    controller: new IngredientController(
+      service as unknown as IngredientService,
+      orchestrator as unknown as IngredientOrchestrator,
+    ),
+  }
 }
 
 describe('IngredientController.list (RQ-CAT-09)', () => {
@@ -88,7 +101,7 @@ describe('IngredientController.update / setActive — error de dominio', () => {
   })
 
   it('lanza INGREDIENT_NOT_FOUND 404 al activar/desactivar un id inexistente', async () => {
-    const { controller } = makeController({ setActive: jest.fn().mockResolvedValue(null) })
+    const { controller } = makeController({}, { setActive: jest.fn().mockResolvedValue(null) })
 
     await expect(controller.setActive('missing', { active: false })).rejects.toMatchObject({
       code: ERROR_CODES.ingredientNotFound,
@@ -97,15 +110,18 @@ describe('IngredientController.update / setActive — error de dominio', () => {
     })
   })
 
-  it('pasa el nuevo estado al servicio al activar/desactivar', async () => {
-    const { service, controller } = makeController({
-      setActive: jest
-        .fn()
-        .mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: false }),
-    })
+  it('pasa el nuevo estado al orchestrator al activar/desactivar', async () => {
+    const { orchestrator, controller } = makeController(
+      {},
+      {
+        setActive: jest
+          .fn()
+          .mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: false }),
+      },
+    )
 
     await controller.setActive('ing1', { active: false })
 
-    expect(service.setActive).toHaveBeenCalledWith('ing1', false)
+    expect(orchestrator.setActive).toHaveBeenCalledWith('ing1', false)
   })
 })
