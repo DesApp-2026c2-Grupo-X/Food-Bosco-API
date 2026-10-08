@@ -2,10 +2,16 @@ import { Transform, Type } from 'class-transformer'
 import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
 
 export class CategoryQueryDto {
+  // El tipo union evita que `enableImplicitConversion` coaccione el string
+  // 'false' a `true` (Boolean('false') === true) antes de este transform.
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true
+    if (value === 'false' || value === false) return false
+    return value
+  })
   @IsBoolean()
-  activeOnly?: boolean
+  activeOnly?: boolean | string
 
   @IsOptional()
   @IsString()

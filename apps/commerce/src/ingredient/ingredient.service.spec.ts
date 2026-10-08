@@ -16,6 +16,7 @@ const makeService = (repository: Partial<Record<string, jest.Mock>> = {}) => {
   const mock = {
     list: jest.fn(),
     findById: jest.fn(),
+    findByIds: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     setActive: jest.fn(),
@@ -141,20 +142,21 @@ describe('IngredientService.setActive', () => {
   })
 })
 
-describe('IngredientService.setActive — RQ-CAT-10 / INGREDIENT_IN_USE (KNOWN BUG)', () => {
-  // KNOWN BUG: la regla "un ingrediente usado en recetas activas no deberá eliminarse"
-  // (RQ-CAT-10) no se aplica. ERROR_CODES.ingredientInUse existe en constants.ts pero ningún
-  // servicio ni orchestrator lo usa; IngredientService sólo conoce su repositorio y por lo
-  // tanto desactiva siempre, sin poder determinar si el ingrediente está en uso.
-  // Esperado: rechazar con code INGREDIENT_IN_USE. Actual: desactiva sin validar.
-  it('desactiva un ingrediente en uso porque la validación no existe (comportamiento actual)', async () => {
+describe('IngredientService.findByIds', () => {
+  it.each([
+    { name: 'varios ingredientes', ids: ['ing1', 'ing2'], expected: 2 },
+    { name: 'un ingrediente', ids: ['ing1'], expected: 1 },
+    { name: 'ninguno', ids: [], expected: 0 },
+  ])('serializa la lista ($name)', async ({ ids, expected }) => {
+    const docs = ids.map((id) => buildDoc({ _id: { toString: () => id } }))
     const { repository, service } = makeService({
-      setActive: jest.fn().mockResolvedValue(buildDoc({ active: false })),
+      findByIds: jest.fn().mockResolvedValue(docs),
     })
 
-    const result = await service.setActive('ing1', false)
+    const result = await service.findByIds(ids)
 
-    expect(repository.setActive).toHaveBeenCalledWith('ing1', false)
-    expect(result?.active).toBe(false)
+    expect(repository.findByIds).toHaveBeenCalledWith(ids)
+    expect(result).toHaveLength(expected)
+    result.forEach((ingredient) => expect(typeof ingredient.id).toBe('string'))
   })
 })

@@ -91,6 +91,7 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -203,7 +204,7 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
       expect(callsTo(downstream, '/v1/catalog/products/p1')).toHaveLength(1)
     })
 
-    it('TripOrder.order todavía no existe en el esquema', async () => {
+    it('TripOrder.order resuelve la orden vía Commerce/DataLoader (RQ-GW-08/09)', async () => {
       downstream.setResponder(
         responderFor({
           'GET /v1/trips/t1': {
@@ -220,18 +221,95 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
               },
             ],
           },
+          'GET /v1/orders/ord-1': rawOrder('ord-1', 'u1', 'b1'),
         }),
       )
 
       const res = await run('query { trip(id: "t1") { orders { order { id } } } }', 'rider').expect(
-        400,
+        200,
       )
       const body = res.body as GraphQLBody
 
-      // KNOWN BUG (RQ-GW-08/RQ-GW-09): el documento lista `TripOrder.order` como unión
-      // cross-service con DataLoader, pero el tipo TripOrder no expone el campo `order`.
-      expect(body.errors?.[0].extensions?.code).toBe('GRAPHQL_VALIDATION_FAILED')
-      expect(body.errors?.[0].message).toContain('Cannot query field "order" on type "TripOrder"')
+      expect(body.errors).toBeUndefined()
+      expect(body.data).toEqual({ trip: { orders: [{ order: { id: 'ord-1' } }] } })
+      expect(callsTo(downstream, '/v1/orders/ord-1')).toHaveLength(1)
+    })
+
+    it('TripOrder.order propaga el contexto REST (auth) al loader de Commerce (NEW-15)', async () => {
+      downstream.setResponder(
+        responderFor({
+          'GET /v1/trips/t1': {
+            id: 't1',
+            riderId: 'u1',
+            status: 'active',
+            orders: [
+              {
+                orderId: 'ord-1',
+                pickupBranchId: 'b1',
+                pickupLocation: { latitude: 0, longitude: 0 },
+                deliveryAddress: { text: 't', latitude: 0, longitude: 0 },
+                status: 'on_the_way',
+              },
+            ],
+          },
+          'GET /v1/orders/ord-1': rawOrder('ord-1', 'u1', 'b1'),
+        }),
+      )
+
+      const token = signToken({ userId: 'u1', roles: ['rider'] })
+      await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Request-Id', 'req-dataloader-1')
+        .send(gql('query { trip(id: "t1") { orders { order { id } } } }'))
+        .expect(200)
+
+      const orderCall = callsTo(downstream, '/v1/orders/ord-1')[0]
+      expect(orderCall).toBeDefined()
+      expect(orderCall.headers.authorization).toBe(`Bearer ${token}`)
+      expect(orderCall.headers['x-user-id']).toBe('u1')
+      expect(orderCall.headers['x-user-roles']).toBe('rider')
+      expect(orderCall.headers['x-request-id']).toBe('req-dataloader-1')
+    })
+
+    it('TripOrder.order deduplica la misma orden referenciada dos veces en el lote', async () => {
+      downstream.setResponder(
+        responderFor({
+          'GET /v1/trips/t1': {
+            id: 't1',
+            riderId: 'u1',
+            status: 'active',
+            orders: [
+              {
+                orderId: 'ord-1',
+                pickupBranchId: 'b1',
+                pickupLocation: { latitude: 0, longitude: 0 },
+                deliveryAddress: { text: 't', latitude: 0, longitude: 0 },
+                status: 'on_the_way',
+              },
+              {
+                orderId: 'ord-1',
+                pickupBranchId: 'b1',
+                pickupLocation: { latitude: 0, longitude: 0 },
+                deliveryAddress: { text: 't', latitude: 0, longitude: 0 },
+                status: 'on_the_way',
+              },
+            ],
+          },
+          'GET /v1/orders/ord-1': rawOrder('ord-1', 'u1', 'b1'),
+        }),
+      )
+
+      const res = await run('query { trip(id: "t1") { orders { order { id } } } }', 'rider').expect(
+        200,
+      )
+      const body = res.body as GraphQLBody
+
+      expect(body.errors).toBeUndefined()
+      expect(body.data).toEqual({
+        trip: { orders: [{ order: { id: 'ord-1' } }, { order: { id: 'ord-1' } }] },
+      })
+      expect(callsTo(downstream, '/v1/orders/ord-1')).toHaveLength(1)
     })
   })
 
@@ -279,9 +357,8 @@ describe('Gateway DataLoader (e2e) — resolución cross-service y HTTP calls', 
           { id: 'p2', category: { id: 'c1' } },
         ],
       })
-      // KNOWN BUG (RQ-GW-09): la misma categoría se pide dos veces en el mismo lote y el
-      // DataLoader del gateway no deduplica llaves repetidas → 2 llamadas REST en vez de 1.
-      expect(callsTo(downstream, '/v1/catalog/categories/c1')).toHaveLength(2)
+      // RQ-GW-09: la misma categoría se pide una sola vez en el lote.
+      expect(callsTo(downstream, '/v1/catalog/categories/c1')).toHaveLength(1)
     })
   })
 })

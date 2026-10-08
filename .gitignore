@@ -36,6 +36,12 @@ coverage
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+.settings/
+.project
+.classpath
+
+# Documentos fuente (no versionar binarios/PDFs)
+*.pdf
 
 # OS
 .DS_Store

@@ -5,14 +5,43 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const DEV_JWT_SECRET = 'dev-secret-change-me'
+const DEV_INTERNAL_API_TOKEN = 'dev-internal-token'
+
+const nodeEnv = process.env.NODE_ENV ?? 'development'
+const jwtSecret = process.env.JWT_SECRET ?? DEV_JWT_SECRET
+const internalApiToken = process.env.INTERNAL_API_TOKEN ?? DEV_INTERNAL_API_TOKEN
+
+const isInsecureSecret = (value: string, devDefault: string): boolean =>
+  value.trim() === '' || value === devDefault
+
+const assertProductionSecrets = (): void => {
+  if (nodeEnv !== 'production') {
+    return
+  }
+
+  const insecure = [
+    ...(isInsecureSecret(jwtSecret, DEV_JWT_SECRET) ? ['JWT_SECRET'] : []),
+    ...(isInsecureSecret(internalApiToken, DEV_INTERNAL_API_TOKEN) ? ['INTERNAL_API_TOKEN'] : []),
+  ]
+
+  if (insecure.length > 0) {
+    throw new Error(
+      `Configuración insegura en producción: definí ${insecure.join(' y ')} con valores propios (no los defaults de desarrollo ni vacíos).`,
+    )
+  }
+}
+
+assertProductionSecrets()
+
 export const env = {
   port: toNumber(process.env.PORT, 4203),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
+  nodeEnv,
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/fastfood',
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+  jwtSecret,
   authServiceUrl: process.env.AUTH_SERVICE_URL ?? 'http://localhost:4201',
   commerceServiceUrl: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
-  internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
+  internalApiToken,
   brokerUrl: process.env.BROKER_URL ?? '',
   rider: {
     staleAfterMs: toNumber(process.env.RIDER_STALE_AFTER_MS, 300_000),

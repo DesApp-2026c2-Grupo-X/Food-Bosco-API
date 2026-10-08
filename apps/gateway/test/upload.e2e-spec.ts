@@ -68,6 +68,7 @@ describe('Gateway uploads (e2e) — multipart → Commerce REST', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {

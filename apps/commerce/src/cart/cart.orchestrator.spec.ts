@@ -116,6 +116,16 @@ describe('CartOrchestrator.addItem (RQ-CART-02/06/07)', () => {
       orchestrator.addItem('c1', { productId: 'p1', quantity: 1, optionIds: ['missing'] }),
     ).rejects.toMatchObject({ code: ERROR_CODES.productUnavailable })
   })
+
+  it('rechaza un producto inexistente con PRODUCT_NOT_FOUND (404) (INT-06)', async () => {
+    const { orchestrator, cartService, productService } = makeOrchestrator()
+    productService.findById.mockResolvedValue(null)
+
+    await expect(
+      orchestrator.addItem('c1', { productId: 'missing', quantity: 1 }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.productNotFound, status: 404 })
+    expect(cartService.findActiveByClient).not.toHaveBeenCalled()
+  })
 })
 
 describe('CartOrchestrator.removeItem (RQ-CART-05)', () => {
@@ -179,7 +189,7 @@ describe('CartOrchestrator.addItem — apilado y cálculo (RQ-CART-03/06/07)', (
     expect(cartService.replaceItems).toHaveBeenCalledWith(
       'cart1',
       [
-        { productId: 'p1', quantity: 1, observations: 'sin sal', optionIds: [] },
+        { id: 'i1', productId: 'p1', quantity: 1, observations: 'sin sal', optionIds: [] },
         { productId: 'p1', quantity: 2, observations: null, optionIds: [] },
       ],
       300,
@@ -243,7 +253,7 @@ describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
 
     expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
       'cart1',
-      [{ productId: 'p1', quantity: 3, observations: null, optionIds: [] }],
+      [{ id: 'i1', productId: 'p1', quantity: 3, observations: null, optionIds: [] }],
       300,
     )
   })
@@ -256,7 +266,7 @@ describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
 
     expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
       'cart1',
-      [{ productId: 'p1', quantity: 2, observations: 'sin hielo', optionIds: [] }],
+      [{ id: 'i1', productId: 'p1', quantity: 2, observations: 'sin hielo', optionIds: [] }],
       200,
     )
   })
@@ -269,7 +279,7 @@ describe('CartOrchestrator.updateItem (RQ-CART-04)', () => {
 
     expect(mocks.cartService.replaceItems).toHaveBeenCalledWith(
       'cart1',
-      [{ productId: 'p1', quantity: 2, observations: null, optionIds: ['opt1'] }],
+      [{ id: 'i1', productId: 'p1', quantity: 2, observations: null, optionIds: ['opt1'] }],
       300,
     )
   })
@@ -383,9 +393,17 @@ describe('CartOrchestrator.replaceItems (RQ-ORD-17)', () => {
 })
 
 describe('CartOrchestrator.confirmCart (RQ-CART-08/09)', () => {
+  const cartItem = {
+    id: 'i1',
+    productId: 'p1',
+    quantity: 1,
+    observations: null,
+    optionIds: [] as string[],
+  }
+
   it('confirma el carrito activo', async () => {
     const { orchestrator, cartService } = makeOrchestrator()
-    cartService.findActiveByClient.mockResolvedValue(cart())
+    cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem], total: 100 }))
     cartService.confirm.mockResolvedValue(cart({ status: 'confirmed' }))
 
     const result = await orchestrator.confirmCart('c1')
@@ -396,12 +414,34 @@ describe('CartOrchestrator.confirmCart (RQ-CART-08/09)', () => {
 
   it('rechaza con CART_NOT_FOUND si el carrito no puede confirmarse', async () => {
     const { orchestrator, cartService } = makeOrchestrator()
-    cartService.findActiveByClient.mockResolvedValue(cart())
+    cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem], total: 100 }))
     cartService.confirm.mockResolvedValue(null)
 
     await expect(orchestrator.confirmCart('c1')).rejects.toMatchObject({
       code: ERROR_CODES.cartNotFound,
       status: 404,
     })
+  })
+
+  it('rechaza un carrito inexistente con CART_NOT_FOUND (404) (INT-07)', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(null)
+
+    await expect(orchestrator.confirmCart('c1')).rejects.toMatchObject({
+      code: ERROR_CODES.cartNotFound,
+      status: 404,
+    })
+    expect(cartService.confirm).not.toHaveBeenCalled()
+  })
+
+  it('rechaza un carrito vacío con CART_NOT_FOUND (404) (INT-07)', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(cart({ items: [], total: 0 }))
+
+    await expect(orchestrator.confirmCart('c1')).rejects.toMatchObject({
+      code: ERROR_CODES.cartNotFound,
+      status: 404,
+    })
+    expect(cartService.confirm).not.toHaveBeenCalled()
   })
 })

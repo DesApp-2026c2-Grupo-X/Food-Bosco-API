@@ -26,6 +26,7 @@ import { CommerceGraphqlModule } from '../graphql/commerce/commerce.module'
         sortSchema: true,
         context: buildContext(jwtService),
         formatError: formatGraphQLError,
+        preserveHttpStatusForExecutionErrors: false,
         introspection: env.nodeEnv !== 'production',
         playground: env.nodeEnv !== 'production',
       }),

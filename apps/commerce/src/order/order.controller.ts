@@ -23,19 +23,23 @@ export class OrderController {
   ) {}
 
   @Get()
-  @Authenticated()
+  @Roles(ROLES.customer, ROLES.branchAdmin, ROLES.superAdmin)
   list(
     @CurrentUser() auth: AuthContext,
     @Query() query: OrderQueryDto,
   ): Promise<OrderListResponse> {
     const isBranchAdmin = auth.roles.includes(ROLES.branchAdmin)
+    const isCustomer = auth.roles.includes(ROLES.customer)
+    if (isCustomer && !auth.userId) {
+      throw new DomainException(ERROR_CODES.unauthenticated, 'Identidad no resoluble', 401)
+    }
     const branchId = isBranchAdmin ? (auth.branchId ?? '') : query.branchId
     if (isBranchAdmin && !branchId) {
       throw new DomainException(ERROR_CODES.forbidden, 'Sin sucursal asignada', 403)
     }
 
     return this.orderService.list({
-      clientId: auth.roles.includes(ROLES.customer) ? (auth.userId ?? undefined) : undefined,
+      clientId: isCustomer ? (auth.userId ?? undefined) : undefined,
       branchId: branchId || undefined,
       status: query.status,
       search: query.search,

@@ -76,13 +76,17 @@ describe('RequestIdMiddleware (NFR-03)', () => {
     expect(response.setHeader).toHaveBeenCalledWith(HEADERS.requestId, id)
   })
 
-  it('KNOWN BUG: un x-request-id vacío se conserva en vez de generar uno nuevo', () => {
+  it('genera un UUID v4 cuando el x-request-id viene vacío', () => {
     const { request, response, next } = buildContext({ [HEADERS.requestId]: '' })
 
     middleware.use(request, response, next)
 
-    expect(request.headers[HEADERS.requestId]).toBe('')
-    expect(response.setHeader).toHaveBeenCalledWith(HEADERS.requestId, '')
+    const generated = request.headers[HEADERS.requestId]
+    expect(typeof generated).toBe('string')
+    expect(generated).toMatch(UUID_V4)
+    expect(generated).not.toBe('')
+    expect(response.setHeader).toHaveBeenCalledWith(HEADERS.requestId, generated)
+    expect(next).toHaveBeenCalledTimes(1)
   })
 
   it('siempre llama a next exactamente una vez', () => {

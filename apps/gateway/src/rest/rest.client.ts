@@ -17,6 +17,7 @@ export interface RestRequestOptions {
   context?: RestContext
   query?: RestQuery
   body?: unknown
+  errorsAsHttp?: boolean
 }
 
 export interface RestMultipartOptions {
@@ -97,7 +98,7 @@ export class RestClient {
   }
 
   async request<T>(method: HttpMethod, path: string, options: RestRequestOptions = {}): Promise<T> {
-    const { context = {}, query, body } = options
+    const { context = {}, query, body, errorsAsHttp } = options
     const hasBody = body !== undefined
 
     const response = await fetch(this.buildUrl(path, query), {
@@ -111,10 +112,20 @@ export class RestClient {
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
-      throw this.toGraphQLError(path, response.status, errorBody)
+      throw errorsAsHttp
+        ? this.toHttpError(path, response.status, errorBody)
+        : this.toGraphQLError(path, response.status, errorBody)
     }
 
-    return (await response.json()) as T
+    if (response.status === 204) {
+      return undefined as T
+    }
+
+    try {
+      return (await response.json()) as T
+    } catch {
+      return undefined as T
+    }
   }
 
   get<T>(path: string, options?: RestRequestOptions): Promise<T> {

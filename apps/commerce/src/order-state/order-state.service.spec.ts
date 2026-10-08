@@ -1,3 +1,5 @@
+import { DomainException } from '../config/exceptions/domain.exception'
+import { ORDER_STATE_ALREADY_EXISTS } from './order-state.model'
 import type { OrderStateDocument } from './order-state.model'
 import type { UpdateOrderStateData } from './order-state.repository'
 import { OrderStateRepository } from './order-state.repository'
@@ -92,13 +94,17 @@ describe('OrderStateService.create (RQ-CFG-05/06)', () => {
     expect(result).toEqual({ code: 'PREPARING', name: 'Preparando', order: 3, active: true })
   })
 
-  it('propaga el error de código duplicado del repositorio', async () => {
-    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+  it('propaga el error de dominio de código duplicado del repositorio', async () => {
+    const duplicateError = new DomainException(
+      ORDER_STATE_ALREADY_EXISTS,
+      'Ya existe un estado con ese código',
+      409,
+    )
     const { service } = makeService({ create: jest.fn().mockRejectedValue(duplicateError) })
 
     await expect(
       service.create({ code: 'PENDING', name: 'Duplicado', order: 1 }),
-    ).rejects.toMatchObject({ code: 11000 })
+    ).rejects.toMatchObject({ code: ORDER_STATE_ALREADY_EXISTS, status: 409 })
   })
 })
 

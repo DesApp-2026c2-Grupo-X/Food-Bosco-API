@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken'
 import { Model } from 'mongoose'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import request from 'supertest'
+import { createMongoServer } from './mongo'
 import type { App } from 'supertest/types'
 import { env } from '../src/config/env'
 import { HttpExceptionFilter } from '../src/config/exceptions/http-exception.filter'
@@ -37,7 +38,7 @@ describe('Delivery Service (e2e)', () => {
   let commercePatch: jest.Mock
 
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create()
+    mongod = await createMongoServer()
 
     commercePatch = jest.fn().mockResolvedValue(undefined)
     const authClient = {
@@ -79,6 +80,7 @@ describe('Delivery Service (e2e)', () => {
     )
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
+    await app.listen(0)
 
     orderModel = app.get<Model<DeliveryOrderRow>>(getModelToken('DeliveryOrder'))
     eventBus = app.get(EventBus)
@@ -97,10 +99,9 @@ describe('Delivery Service (e2e)', () => {
         .expect(200)
 
       expect(res.body.userId).toBe('rider-1')
-      // KNOWN BUG (RQ-DLV-11 / plan.md §2.6): el onboarding debería copiar el vehículo
-      // de Auth, pero desde el cambio a vehículo estructurado (#8) se guarda null.
-      // Ver docs/testing/bug-report.md.
-      expect(res.body.vehicle).toBeNull()
+      // RQ-DLV-11 / plan.md §2.6: el onboarding copia el vehículo de Auth normalizando
+      // el string legado al objeto Vehicle (mismo criterio que el seed de delivery).
+      expect(res.body.vehicle).toEqual({ type: 'moto', model: 'Moto' })
       expect(res.body.firstName).toBe('Rider')
       expect(res.body.available).toBe(false)
     })
@@ -120,6 +121,22 @@ describe('Delivery Service (e2e)', () => {
 
       expect(res.body.available).toBe(true)
       expect(res.body.currentLocation).toEqual({ latitude: 0, longitude: 0 })
+    })
+
+    it('deja al rider offline con online false', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/v1/riders/me/availability')
+        .set('Authorization', `Bearer ${riderToken}`)
+        .send({ online: false })
+        .expect(200)
+
+      expect(res.body.available).toBe(false)
+
+      await request(app.getHttpServer())
+        .patch('/v1/riders/me/availability')
+        .set('Authorization', `Bearer ${riderToken}`)
+        .send({ online: true })
+        .expect(200)
     })
 
     it('modifica vehículo y teléfono del perfil', async () => {
@@ -168,6 +185,20 @@ describe('Delivery Service (e2e)', () => {
     })
 
     it.each([
+      { name: 'string "false"', body: { online: 'false' } },
+      { name: 'string "true"', body: { online: 'true' } },
+      { name: 'número 123', body: { online: 123 } },
+    ])('rechaza disponibilidad con $name sin coaccionar a true (INT-03)', async ({ body }) => {
+      const res = await request(app.getHttpServer())
+        .patch('/v1/riders/me/availability')
+        .set('Authorization', `Bearer ${riderToken}`)
+        .send(body)
+        .expect(400)
+
+      expect(res.body.code).toBe('VALIDATION_ERROR')
+    })
+
+    it.each([
       { name: 'latitud fuera de rango', body: { lat: 100, lng: 0 } },
       { name: 'longitud fuera de rango', body: { lat: 0, lng: 200 } },
       { name: 'coordenadas faltantes', body: { lat: 0 } },
@@ -176,6 +207,16 @@ describe('Delivery Service (e2e)', () => {
         .patch('/v1/riders/me/location')
         .set('Authorization', `Bearer ${riderToken}`)
         .send(body)
+        .expect(400)
+
+      expect(res.body.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('rechaza phone null en el perfil con 400 VALIDATION_ERROR', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/v1/riders/me')
+        .set('Authorization', `Bearer ${riderToken}`)
+        .send({ phone: null })
         .expect(400)
 
       expect(res.body.code).toBe('VALIDATION_ERROR')
@@ -220,6 +261,60 @@ describe('Delivery Service (e2e)', () => {
 
       const doc = await orderModel.findOne({ orderId: 'ord-evento' }).exec()
       expect(doc).toBeNull()
+    })
+
+    it('deduplica por eventId: el mismo READY publicado dos veces deja una sola orden', async () => {
+      const duplicated = {
+        type: 'order.status_changed' as const,
+        version: 1,
+        eventId: 'e2e-dup',
+        orderId: 'ord-dup',
+        status: 'ready_for_delivery',
+        branchId: 'b1',
+        branchLocation: { latitude: 0.001, longitude: 0 },
+        deliveryAddress: { text: 'Av Dup', latitude: 0.002, longitude: 0 },
+        occurredAt: new Date().toISOString(),
+      }
+
+      eventBus.publish(duplicated)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      eventBus.publish(duplicated)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const count = await orderModel.countDocuments({ orderId: 'ord-dup' }).exec()
+      expect(count).toBe(1)
+
+      await orderModel.deleteOne({ orderId: 'ord-dup' })
+    })
+
+    it('no devuelve al pool una orden ya reservada aunque llegue otro READY', async () => {
+      await orderModel.create({
+        orderId: 'ord-reservada',
+        branchId: 'b1',
+        branchLocation: { latitude: 0.001, longitude: 0 },
+        deliveryAddress: { text: 'Av Reservada', latitude: 0.002, longitude: 0 },
+        status: 'reserved',
+      })
+
+      eventBus.publish({
+        type: 'order.status_changed',
+        version: 1,
+        eventId: 'e2e-ready-reservada',
+        orderId: 'ord-reservada',
+        status: 'ready_for_delivery',
+        branchId: 'b2',
+        branchLocation: { latitude: 0.001, longitude: 0 },
+        deliveryAddress: { text: 'Av Reservada', latitude: 0.002, longitude: 0 },
+        occurredAt: new Date().toISOString(),
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      const doc = await orderModel.findOne({ orderId: 'ord-reservada' }).exec()
+      expect(doc?.status).toBe('reserved')
+      expect(doc?.branchId).toBe('b1')
+
+      await orderModel.deleteOne({ orderId: 'ord-reservada' })
     })
   })
 

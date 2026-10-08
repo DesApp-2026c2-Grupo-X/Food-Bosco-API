@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { isValidObjectId, Model } from 'mongoose'
 import { TRIP_STATUS, TripStatus } from '../config/constants'
 import { Trip, TripDocument, TripOrder } from './trip.model'
 
@@ -23,10 +23,12 @@ export class TripRepository {
   }
 
   findById(id: string): Promise<TripDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
     return this.model.findById(id).exec()
   }
 
   findByIdForRider(id: string, riderId: string): Promise<TripDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
     return this.model.findOne({ _id: id, riderId }).exec()
   }
 

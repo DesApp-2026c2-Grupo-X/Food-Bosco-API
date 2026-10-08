@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import { plainToInstance } from 'class-transformer'
+import type { ClassTransformOptions } from 'class-transformer'
 import { validate } from 'class-validator'
 import type { ValidatorOptions } from 'class-validator'
 import { USER_ROLE_VALUES } from '../../config/constants'
@@ -20,8 +21,9 @@ const check = async (
   cls: DtoClass,
   payload: Record<string, unknown>,
   options: ValidatorOptions = {},
+  transformOptions: ClassTransformOptions = {},
 ): Promise<{ instance: Record<string, unknown>; invalid: string[] }> => {
-  const instance = plainToInstance(cls, payload)
+  const instance = plainToInstance(cls, payload, transformOptions)
   const errors = await validate(instance, options)
   return {
     instance: instance as unknown as Record<string, unknown>,
@@ -224,6 +226,7 @@ describe('UpdateUserDto (RQ-AUTH-16)', () => {
     { name: 'solo branchId', payload: { branchId: 'branch-2' }, valid: true },
     { name: 'firstName de 101 caracteres', payload: { firstName: 'a'.repeat(101) }, valid: false },
     { name: 'phone de 51 caracteres', payload: { phone: '1'.repeat(51) }, valid: false },
+    { name: 'branchId vacío', payload: { branchId: '' }, valid: false },
     { name: 'branchId numérico', payload: { branchId: 123 }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateUserDto, payload)
@@ -241,16 +244,40 @@ describe('UpdateUserDto (RQ-AUTH-16)', () => {
   })
 })
 
-describe('SetActiveDto (RQ-AUTH-16)', () => {
+describe('SetActiveDto (RQ-AUTH-16, INT-03)', () => {
+  const implicit = { enableImplicitConversion: true }
+
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
-    { name: 'active true', payload: { active: true }, valid: true },
-    { name: 'active false', payload: { active: false }, valid: true },
+    { name: 'active true booleano', payload: { active: true }, valid: true },
+    { name: 'active false booleano', payload: { active: false }, valid: true },
     { name: 'sin active', payload: {}, valid: false },
-    { name: 'active string', payload: { active: 'true' }, valid: false },
-    { name: 'active numérico', payload: { active: 1 }, valid: false },
+    { name: 'active "true" string', payload: { active: 'true' }, valid: false },
+    { name: 'active "false" string', payload: { active: 'false' }, valid: false },
+    { name: 'active string no booleano', payload: { active: 'yes' }, valid: false },
+    { name: 'active numérico', payload: { active: 123 }, valid: false },
+    { name: 'active 1', payload: { active: 1 }, valid: false },
+    { name: 'active 0', payload: { active: 0 }, valid: false },
+    { name: 'active null', payload: { active: null }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
-    const { invalid } = await check(SetActiveDto, payload)
+    const { invalid } = await check(SetActiveDto, payload, {}, implicit)
     expect(invalid.length === 0).toBe(valid)
+  })
+
+  it.each(['true', 'false', 123, 1, 0, 'yes', null])(
+    'no coacciona active=%p a true bajo enableImplicitConversion',
+    async (input) => {
+      const { invalid } = await check(SetActiveDto, { active: input }, {}, implicit)
+      expect(invalid).toEqual(['active'])
+    },
+  )
+
+  it.each([
+    { name: 'true booleano se mantiene', input: true, expected: true },
+    { name: 'false booleano se mantiene', input: false, expected: false },
+  ])('acepta y preserva active: $name', async ({ input, expected }) => {
+    const { instance, invalid } = await check(SetActiveDto, { active: input }, {}, implicit)
+    expect(invalid).toEqual([])
+    expect(instance.active).toBe(expected)
   })
 })
 
@@ -296,15 +323,15 @@ describe('UserQueryDto (listado con filtros)', () => {
     { name: '"false" se transforma a false', input: 'false', expected: false },
     { name: 'true booleano se mantiene', input: true, expected: true },
     { name: 'false booleano se mantiene', input: false, expected: false },
-    {
-      name: 'un valor inesperado se coacciona a false (transform sin validación estricta)',
-      input: 'yes',
-      expected: false,
-    },
   ])('active: $name', async ({ input, expected }) => {
     const { instance, invalid } = await check(UserQueryDto, { active: input })
     expect(invalid).toEqual([])
     expect(instance.active).toBe(expected)
+  })
+
+  it('active con un valor no booleano ("yes") es inválido', async () => {
+    const { invalid } = await check(UserQueryDto, { active: 'yes' })
+    expect(invalid).toEqual(['active'])
   })
 
   it('con whitelist descarta parámetros desconocidos', async () => {

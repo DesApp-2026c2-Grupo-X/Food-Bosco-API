@@ -3,6 +3,7 @@ import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { Internal } from '../config/security/internal.decorator'
 import { Roles } from '../config/security/roles.decorator'
+import { StaffOrchestrator } from './staff.orchestrator'
 import { UserService } from './user.service'
 import type { PublicUser, UserListResponse } from './user.service'
 import { CreateAdminDto } from './dto/create-admin.dto'
@@ -14,7 +15,10 @@ import { UserQueryDto } from './dto/user-query.dto'
 
 @Controller('v1/users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly staffOrchestrator: StaffOrchestrator,
+  ) {}
 
   private async requireEditable(userId: string): Promise<void> {
     const target = await this.userService.findById(userId)
@@ -35,7 +39,7 @@ export class UserController {
   list(@Query() query: UserQueryDto): Promise<UserListResponse> {
     return this.userService.list({
       role: query.role,
-      active: query.active,
+      active: typeof query.active === 'boolean' ? query.active : undefined,
       search: query.search,
       limit: query.limit ?? 20,
       offset: query.offset ?? 0,
@@ -56,7 +60,7 @@ export class UserController {
   @Post('staff')
   @Roles(ROLES.superAdmin)
   createStaff(@Body() dto: CreateStaffDto): Promise<PublicUser> {
-    return this.userService.createUser({ ...dto, role: ROLES.branchAdmin })
+    return this.staffOrchestrator.createStaff(dto)
   }
 
   @Post('admins')
@@ -75,7 +79,7 @@ export class UserController {
   @Roles(ROLES.superAdmin)
   async update(@Param('userId') userId: string, @Body() dto: UpdateUserDto): Promise<PublicUser> {
     await this.requireEditable(userId)
-    const user = await this.userService.update(userId, dto)
+    const user = await this.staffOrchestrator.updateUser(userId, dto)
     if (!user) {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)
     }

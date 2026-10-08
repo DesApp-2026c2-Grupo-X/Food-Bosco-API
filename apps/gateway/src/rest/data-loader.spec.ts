@@ -94,16 +94,43 @@ describe('DataLoader', () => {
     expect(batch).toHaveBeenCalledTimes(2)
   })
 
-  it('NO deduplica keys repetidas dentro del mismo lote', async () => {
+  it('deduplica keys repetidas dentro del mismo lote (RQ-GW-09)', async () => {
     const batch = jest.fn(async (keys: readonly string[]) => keys.map((key) => `v:${key}`))
     const loader = new DataLoader<string, string>(batch)
 
     const results = await Promise.all([loader.load('x'), loader.load('x'), loader.load('x')])
 
-    // KNOWN BUG (RQ-GW-09): DataLoader agrupa por tick pero no deduplica keys;
-    // la misma key se envía repetida al batchLoadFn y se pide N veces al servicio REST.
     expect(batch).toHaveBeenCalledTimes(1)
-    expect(batch).toHaveBeenCalledWith(['x', 'x', 'x'])
+    expect(batch).toHaveBeenCalledWith(['x'])
     expect(results).toEqual(['v:x', 'v:x', 'v:x'])
+  })
+
+  it('deduplica preservando el orden de la primera aparición', async () => {
+    const batch = jest.fn(async (keys: readonly string[]) => keys.map((key) => `v:${key}`))
+    const loader = new DataLoader<string, string>(batch)
+
+    const results = await Promise.all([
+      loader.load('b'),
+      loader.load('a'),
+      loader.load('b'),
+      loader.load('c'),
+      loader.load('a'),
+    ])
+
+    expect(batch).toHaveBeenCalledWith(['b', 'a', 'c'])
+    expect(results).toEqual(['v:b', 'v:a', 'v:b', 'v:c', 'v:a'])
+  })
+
+  it('una key repetida rechaza solo si el resultado del lote es un Error', async () => {
+    const failure = new Error('404')
+    const loader = new DataLoader<string, string>(async (keys) =>
+      keys.map((key) => (key === 'x' ? failure : `v:${key}`)),
+    )
+
+    const results = await allSettled([loader.load('x'), loader.load('x'), loader.load('y')])
+
+    expect(results[0]).toEqual({ status: 'rejected', reason: failure })
+    expect(results[1]).toEqual({ status: 'rejected', reason: failure })
+    expect(results[2]).toEqual({ status: 'fulfilled', value: 'v:y' })
   })
 })

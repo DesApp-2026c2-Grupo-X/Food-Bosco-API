@@ -1,19 +1,30 @@
 import { Model } from 'mongoose'
-import { DeliveryOrderDocument, serializeDeliveryOrder } from './delivery-order.model'
+import {
+  DeliveryOrderDocument,
+  ProcessedEventDocument,
+  serializeDeliveryOrder,
+} from './delivery-order.model'
 import { DeliveryOrderRepository } from './delivery-order.repository'
 
 const makeRepository = () => {
   const model = {
+    findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
     deleteOne: jest.fn(),
     find: jest.fn(),
     updateMany: jest.fn(),
   }
-  const repository = new DeliveryOrderRepository(model as unknown as Model<DeliveryOrderDocument>)
-  return { repository, model }
+  const processedModel = { create: jest.fn(), exists: jest.fn() }
+  const repository = new DeliveryOrderRepository(
+    model as unknown as Model<DeliveryOrderDocument>,
+    processedModel as unknown as Model<ProcessedEventDocument>,
+  )
+  return { repository, model, processedModel }
 }
 
 const execChain = (result: unknown) => ({ exec: jest.fn().mockResolvedValue(result) })
+
+const execChainRejects = (error: unknown) => ({ exec: jest.fn().mockRejectedValue(error) })
 
 const upsertInput = {
   orderId: 'ord-1',
@@ -23,7 +34,7 @@ const upsertInput = {
 }
 
 describe('DeliveryOrderRepository', () => {
-  it('upsertReady hace upsert por orderId y resetea reserva y rotación', async () => {
+  it('upsertReady hace upsert condicional por orderId y resetea reserva y rotación', async () => {
     const { repository, model } = makeRepository()
     const saved = { orderId: 'ord-1' }
     model.findOneAndUpdate.mockReturnValue(execChain(saved))
@@ -32,7 +43,7 @@ describe('DeliveryOrderRepository', () => {
 
     expect(result).toBe(saved)
     expect(model.findOneAndUpdate).toHaveBeenCalledWith(
-      { orderId: 'ord-1' },
+      { orderId: 'ord-1', status: { $nin: ['reserved', 'assigned'] } },
       {
         $set: {
           branchId: 'b1',
@@ -50,6 +61,38 @@ describe('DeliveryOrderRepository', () => {
     )
   })
 
+  it('NEW-11: el filtro excluye reserved/assigned para no reintegrar una orden en vuelo', async () => {
+    const { repository, model } = makeRepository()
+    model.findOneAndUpdate.mockReturnValue(execChain({ orderId: 'ord-1' }))
+
+    await repository.upsertReady(upsertInput)
+
+    const [filter] = model.findOneAndUpdate.mock.calls[0]
+    expect(filter).toEqual({
+      orderId: 'ord-1',
+      status: { $nin: ['reserved', 'assigned'] },
+    })
+  })
+
+  it('NEW-11: interleaving — si una reserva gana la carrera el upsert colisiona y no reintegra', async () => {
+    const { repository, model } = makeRepository()
+    const reserved = { orderId: 'ord-1', status: 'reserved' }
+    model.findOneAndUpdate.mockReturnValue(execChainRejects({ code: 11000 }))
+    model.findOne.mockReturnValue(execChain(reserved))
+
+    await expect(repository.upsertReady(upsertInput)).resolves.toBeNull()
+
+    const stillReserved = await repository.findByOrderId('ord-1')
+    expect(stillReserved).toEqual(reserved)
+  })
+
+  it('upsertReady propaga errores de escritura que no sean duplicado', async () => {
+    const { repository, model } = makeRepository()
+    model.findOneAndUpdate.mockReturnValue(execChainRejects(new Error('mongo caído')))
+
+    await expect(repository.upsertReady(upsertInput)).rejects.toThrow('mongo caído')
+  })
+
   it('upsertReady es idempotente por clave: dos eventos del mismo pedido usan el mismo filtro/upsert', async () => {
     const { repository, model } = makeRepository()
     model.findOneAndUpdate.mockReturnValue(execChain({ orderId: 'ord-1' }))
@@ -59,11 +102,61 @@ describe('DeliveryOrderRepository', () => {
 
     const filters = model.findOneAndUpdate.mock.calls.map((call) => call[0])
     const options = model.findOneAndUpdate.mock.calls.map((call) => call[2])
-    expect(filters).toEqual([{ orderId: 'ord-1' }, { orderId: 'ord-1' }])
+    expect(filters).toEqual([
+      { orderId: 'ord-1', status: { $nin: ['reserved', 'assigned'] } },
+      { orderId: 'ord-1', status: { $nin: ['reserved', 'assigned'] } },
+    ])
     expect(options).toEqual([
       { new: true, upsert: true },
       { new: true, upsert: true },
     ])
+  })
+
+  it('markProcessed registra el eventId y devuelve true la primera vez', async () => {
+    const { repository, processedModel } = makeRepository()
+    processedModel.create.mockResolvedValue({ eventId: 'e1' })
+
+    await expect(repository.markProcessed('e1')).resolves.toBe(true)
+    expect(processedModel.create).toHaveBeenCalledWith({ eventId: 'e1' })
+  })
+
+  it('markProcessed devuelve false si el eventId ya estaba procesado (E11000)', async () => {
+    const { repository, processedModel } = makeRepository()
+    processedModel.create.mockRejectedValue({ code: 11000 })
+
+    await expect(repository.markProcessed('e1')).resolves.toBe(false)
+  })
+
+  it('markProcessed propaga otros errores de escritura', async () => {
+    const { repository, processedModel } = makeRepository()
+    processedModel.create.mockRejectedValue(new Error('mongo caído'))
+
+    await expect(repository.markProcessed('e1')).rejects.toThrow('mongo caído')
+  })
+
+  it.each([
+    { name: 'con marca vigente', existing: { _id: 'x' }, expected: true },
+    { name: 'sin marca', existing: null, expected: false },
+  ])(
+    'NEW-12: isEventProcessed consulta el store de dedupe ($name)',
+    async ({ existing, expected }) => {
+      const { repository, processedModel } = makeRepository()
+      processedModel.exists.mockReturnValue(execChain(existing))
+
+      await expect(repository.isEventProcessed('e1')).resolves.toBe(expected)
+      expect(processedModel.exists).toHaveBeenCalledWith({ eventId: 'e1' })
+    },
+  )
+
+  it('findByOrderId busca por orderId', async () => {
+    const { repository, model } = makeRepository()
+    const doc = { orderId: 'ord-1', status: 'reserved' }
+    model.findOne.mockReturnValue(execChain(doc))
+
+    const result = await repository.findByOrderId('ord-1')
+
+    expect(result).toBe(doc)
+    expect(model.findOne).toHaveBeenCalledWith({ orderId: 'ord-1' })
   })
 
   it('remove borra por orderId', async () => {

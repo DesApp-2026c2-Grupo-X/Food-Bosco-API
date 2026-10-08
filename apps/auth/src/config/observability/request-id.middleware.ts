@@ -7,7 +7,8 @@ import { HEADERS } from '../constants'
 export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     const incoming = req.headers[HEADERS.requestId]
-    const requestId = Array.isArray(incoming) ? incoming[0] : (incoming ?? randomUUID())
+    const provided = Array.isArray(incoming) ? incoming[0] : incoming
+    const requestId = provided ? provided : randomUUID()
 
     req.headers[HEADERS.requestId] = requestId
     res.setHeader(HEADERS.requestId, requestId)

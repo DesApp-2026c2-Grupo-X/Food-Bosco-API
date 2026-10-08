@@ -80,6 +80,8 @@ describe('OrderEventsConsumer + EventBus (wiring real, RQ-DLV-03)', () => {
 
   it('un estado no relacionado no dispara escrituras en el pool', async () => {
     const repository = {
+      isEventProcessed: jest.fn().mockResolvedValue(false),
+      markProcessed: jest.fn().mockResolvedValue(true),
       upsertReady: jest.fn().mockResolvedValue(null),
       remove: jest.fn().mockResolvedValue(null),
     }

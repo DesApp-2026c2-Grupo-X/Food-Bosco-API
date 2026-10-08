@@ -26,22 +26,24 @@ const loadEnv = (overrides: Partial<Record<EnvKey, string>> = {}): Env => {
   }
   Object.assign(process.env, overrides)
 
-  let loaded: Env | undefined
-  jest.isolateModules(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- recarga aislada para evaluar los defaults de env
-    loaded = (require('./env') as typeof import('./env')).env
-  })
+  try {
+    let loaded: Env | undefined
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- recarga aislada para evaluar los defaults de env
+      loaded = (require('./env') as typeof import('./env')).env
+    })
 
-  for (const key of MANAGED_KEYS) {
-    const previous = snapshot.get(key)
-    if (previous === undefined) {
-      delete process.env[key]
-    } else {
-      process.env[key] = previous
+    return loaded as Env
+  } finally {
+    for (const key of MANAGED_KEYS) {
+      const previous = snapshot.get(key)
+      if (previous === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = previous
+      }
     }
   }
-
-  return loaded as Env
 }
 
 describe('env', () => {
@@ -86,6 +88,67 @@ describe('env', () => {
     })
     expect(loaded.throttle).toEqual({ ttlMs: 1000, limit: 7 })
     expect(loaded.uploads).toEqual({ maxSizeBytes: 2048 })
+  })
+
+  describe('secretos en producción (NODE_ENV=production)', () => {
+    it('falla el arranque si JWT_SECRET queda en el default de desarrollo', () => {
+      expect(() => loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'token-prod' })).toThrow(
+        /JWT_SECRET/,
+      )
+    })
+
+    it('falla el arranque si INTERNAL_API_TOKEN queda en el default de desarrollo', () => {
+      expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'secreto-prod' })).toThrow(
+        /INTERNAL_API_TOKEN/,
+      )
+    })
+
+    it('falla si ambos secretos quedan en los defaults', () => {
+      expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/JWT_SECRET/)
+    })
+
+    it.each([
+      {
+        name: 'JWT_SECRET vacío',
+        overrides: { JWT_SECRET: '', INTERNAL_API_TOKEN: 'token-prod' },
+        expected: /JWT_SECRET/,
+      },
+      {
+        name: 'JWT_SECRET con sólo espacios',
+        overrides: { JWT_SECRET: '   ', INTERNAL_API_TOKEN: 'token-prod' },
+        expected: /JWT_SECRET/,
+      },
+      {
+        name: 'INTERNAL_API_TOKEN vacío',
+        overrides: { JWT_SECRET: 'secreto-prod', INTERNAL_API_TOKEN: '' },
+        expected: /INTERNAL_API_TOKEN/,
+      },
+      {
+        name: 'INTERNAL_API_TOKEN con sólo espacios',
+        overrides: { JWT_SECRET: 'secreto-prod', INTERNAL_API_TOKEN: '   ' },
+        expected: /INTERNAL_API_TOKEN/,
+      },
+    ])('falla el arranque con $name en producción', ({ overrides, expected }) => {
+      expect(() => loadEnv({ NODE_ENV: 'production', ...overrides })).toThrow(expected)
+    })
+
+    it('arranca en producción con secretos no default', () => {
+      const loaded = loadEnv({
+        NODE_ENV: 'production',
+        JWT_SECRET: 'secreto-prod',
+        INTERNAL_API_TOKEN: 'token-prod',
+      })
+
+      expect(loaded.jwtSecret).toBe('secreto-prod')
+      expect(loaded.internalApiToken).toBe('token-prod')
+    })
+
+    it.each(['development', 'test'])('mantiene los defaults con NODE_ENV=%s', (nodeEnv) => {
+      const loaded = loadEnv({ NODE_ENV: nodeEnv })
+
+      expect(loaded.jwtSecret).toBe('dev-secret-change-me')
+      expect(loaded.internalApiToken).toBe('dev-internal-token')
+    })
   })
 
   const numericCases: Array<{

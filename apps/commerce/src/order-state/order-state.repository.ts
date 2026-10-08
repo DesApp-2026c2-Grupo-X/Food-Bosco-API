@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { OrderState, OrderStateDocument } from './order-state.model'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
+import { DomainException } from '../config/exceptions/domain.exception'
+import { ORDER_STATE_ALREADY_EXISTS, OrderState, OrderStateDocument } from './order-state.model'
 
 export interface CreateOrderStateData {
   code: string
@@ -26,8 +28,19 @@ export class OrderStateRepository {
     return this.model.findOne({ code }).exec()
   }
 
-  create(data: CreateOrderStateData): Promise<OrderStateDocument> {
-    return this.model.create({ ...data, active: true })
+  async create(data: CreateOrderStateData): Promise<OrderStateDocument> {
+    try {
+      return await this.model.create({ ...data, active: true })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          ORDER_STATE_ALREADY_EXISTS,
+          'Ya existe un estado con ese código',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   upsertByCode(data: CreateOrderStateData): Promise<OrderStateDocument | null> {

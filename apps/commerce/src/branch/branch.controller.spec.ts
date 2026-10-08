@@ -41,7 +41,11 @@ const makeController = () => {
     getAvailabilityMap: jest.fn(),
     setProductAvailability: jest.fn(),
   }
-  const orchestrator = { listProducts: jest.fn(), listZoneProducts: jest.fn() }
+  const orchestrator = {
+    listProducts: jest.fn(),
+    listZoneProducts: jest.fn(),
+    setProductAvailability: jest.fn(),
+  }
   const controller = new BranchController(
     branchService as unknown as BranchService,
     orchestrator as unknown as BranchOrchestrator,
@@ -104,7 +108,8 @@ describe('BranchController — sucursal inexistente (RQ-BRN-07)', () => {
       { name: 'update', invoke: (controller) => controller.update('missing', {}) },
       {
         name: 'setActive',
-        invoke: (controller) => controller.setActive('missing', { active: true }),
+        invoke: (controller) =>
+          controller.setActive(auth({ roles: [ROLES.superAdmin] }), 'missing', { active: true }),
       },
       { name: 'getHours', invoke: (controller) => controller.getHours('missing') },
       {
@@ -159,8 +164,19 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
     const { controller, branchService } = makeController()
     branchService.setActive.mockResolvedValue(branch({ active }))
 
-    await expect(controller.setActive('b1', { active })).resolves.toMatchObject({ active })
+    await expect(controller.setActive(auth(), 'b1', { active })).resolves.toMatchObject({ active })
     expect(branchService.setActive).toHaveBeenCalledWith('b1', active)
+  })
+
+  it('setActive: branch_admin de otra sucursal → 403 y no delega', async () => {
+    const { controller, branchService } = makeController()
+
+    const error = await captureDomainError(
+      controller.setActive(auth({ branchId: 'otra' }), 'b1', { active: false }),
+    )
+    expect(error.getStatus()).toBe(403)
+    expect(error.code).toBe(ERROR_CODES.forbidden)
+    expect(branchService.setActive).not.toHaveBeenCalled()
   })
 
   it('getHours devuelve los horarios de la sucursal', async () => {
@@ -197,11 +213,11 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
     },
   )
 
-  it('available convierte lat/lng a número', async () => {
+  it('available delega las coords validadas por el DTO', async () => {
     const { controller, branchService } = makeController()
     branchService.findAvailable.mockResolvedValue([branch()])
 
-    await expect(controller.available('-34.6', '-58.4')).resolves.toHaveLength(1)
+    await expect(controller.available({ lat: -34.6, lng: -58.4 })).resolves.toHaveLength(1)
     expect(branchService.findAvailable).toHaveBeenCalledWith(-34.6, -58.4)
   })
 
@@ -209,7 +225,7 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
     const { controller, branchService } = makeController()
     branchService.findInZone.mockResolvedValue([branch()])
 
-    await expect(controller.nearby('-34.6', '-58.4')).resolves.toHaveLength(1)
+    await expect(controller.nearby({ lat: -34.6, lng: -58.4 })).resolves.toHaveLength(1)
     expect(branchService.findInZone).toHaveBeenCalledWith(-34.6, -58.4)
   })
 
@@ -217,7 +233,7 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
     const { controller, orchestrator } = makeController()
     orchestrator.listZoneProducts.mockResolvedValue({ data: [] })
 
-    await expect(controller.availableProducts('0', '0')).resolves.toEqual({ data: [] })
+    await expect(controller.availableProducts({ lat: 0, lng: 0 })).resolves.toEqual({ data: [] })
     expect(orchestrator.listZoneProducts).toHaveBeenCalledWith(0, 0)
   })
 })
@@ -253,8 +269,8 @@ describe('BranchController — control de acceso (RQ-SEC-05)', () => {
   })
 
   it('super_admin puede cambiar la disponibilidad de cualquier sucursal', async () => {
-    const { controller, branchService } = makeController()
-    branchService.setProductAvailability.mockResolvedValue(undefined)
+    const { controller, orchestrator } = makeController()
+    orchestrator.setProductAvailability.mockResolvedValue(undefined)
 
     await expect(
       controller.setProductAvailability(
@@ -264,11 +280,11 @@ describe('BranchController — control de acceso (RQ-SEC-05)', () => {
         { available: false },
       ),
     ).resolves.toEqual({ ok: true })
-    expect(branchService.setProductAvailability).toHaveBeenCalledWith('b1', 'p1', false)
+    expect(orchestrator.setProductAvailability).toHaveBeenCalledWith('b1', 'p1', false)
   })
 
-  it('branch_admin ajeno → FORBIDDEN (403) en setProductAvailability y no llama al servicio', async () => {
-    const { controller, branchService } = makeController()
+  it('branch_admin ajeno → FORBIDDEN (403) en setProductAvailability y no llama al orchestrator', async () => {
+    const { controller, orchestrator } = makeController()
 
     await expectDomainError(
       controller.setProductAvailability(auth({ branchId: 'b2' }), 'b1', 'p1', { available: true }),
@@ -276,6 +292,6 @@ describe('BranchController — control de acceso (RQ-SEC-05)', () => {
       'Sin acceso a esta sucursal',
       403,
     )
-    expect(branchService.setProductAvailability).not.toHaveBeenCalled()
+    expect(orchestrator.setProductAvailability).not.toHaveBeenCalled()
   })
 })

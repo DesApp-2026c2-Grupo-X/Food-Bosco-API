@@ -14,7 +14,14 @@ export interface CreateRiderData {
 
 export interface UpdateRiderProfileData {
   phone?: string
+  firstName?: string
+  lastName?: string
 }
+
+const definedPatch = <T extends object>(patch: T): Partial<T> =>
+  Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined && value !== null),
+  ) as Partial<T>
 
 @Injectable()
 export class RiderRepository {
@@ -38,7 +45,13 @@ export class RiderRepository {
   }
 
   updateProfile(userId: string, patch: UpdateRiderProfileData): Promise<RiderDocument | null> {
-    return this.model.findOneAndUpdate({ userId }, { $set: patch }, { new: true }).exec()
+    return this.model
+      .findOneAndUpdate(
+        { userId },
+        { $set: definedPatch(patch) },
+        { new: true, runValidators: true },
+      )
+      .exec()
   }
 
   updateVehicle(userId: string, vehicle: Vehicle): Promise<RiderDocument | null> {

@@ -1,4 +1,5 @@
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class CreateOrderStateDto {
   @IsString()
@@ -30,6 +31,6 @@ export class UpdateOrderStateDto {
 }
 
 export class SetActiveDto {
-  @IsBoolean()
+  @ToBoolean()
   active!: boolean
 }

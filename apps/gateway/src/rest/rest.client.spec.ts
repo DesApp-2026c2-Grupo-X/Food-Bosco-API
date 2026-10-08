@@ -173,12 +173,16 @@ describe('RestClient.request', () => {
     expect(headers).toEqual({ accept: 'application/json' })
   })
 
-  it('204 con cuerpo vacío: response.json() rechaza y propaga un SyntaxError crudo', async () => {
+  it('204 con cuerpo vacío: resuelve undefined en vez de lanzar SyntaxError', async () => {
     fetchMock.mockResolvedValue(emptyBodyResponse(204))
 
-    // KNOWN BUG (latente): RestClient siempre hace response.json() y no contempla 204/empty body;
-    // si un servicio responde 204, el gateway lanza un SyntaxError crudo en vez de resolver.
-    await expect(client.delete('/v1/addresses/a1')).rejects.toBeInstanceOf(SyntaxError)
+    await expect(client.delete('/v1/addresses/a1')).resolves.toBeUndefined()
+  })
+
+  it('200 con cuerpo vacío: resuelve undefined (RQ-GW: robustez 2xx)', async () => {
+    fetchMock.mockResolvedValue(emptyBodyResponse(200))
+
+    await expect(client.get('/v1/me')).resolves.toBeUndefined()
   })
 
   describe('mapeo de errores no-2xx a GraphQLError', () => {
@@ -258,6 +262,26 @@ describe('RestClient.request', () => {
     fetchMock.mockRejectedValue(networkError)
 
     await expect(client.get('/v1/me')).rejects.toBe(networkError)
+  })
+
+  it('errorsAsHttp: true traduce el error a HttpException con status, code y path (INT-15)', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(500, {
+        code: 'COMMERCE_DOWN',
+        message: 'Commerce caído',
+        path: '/v1/seed',
+      }),
+    )
+
+    const error = await callAndCatch(client.post('/v1/seed', { errorsAsHttp: true }))
+
+    expect(error).toBeInstanceOf(HttpException)
+    expect((error as HttpException).getStatus()).toBe(500)
+    expect((error as HttpException).getResponse()).toEqual({
+      code: 'COMMERCE_DOWN',
+      message: 'Commerce caído',
+      path: '/v1/seed',
+    })
   })
 })
 

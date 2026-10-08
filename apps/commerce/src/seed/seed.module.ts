@@ -3,6 +3,7 @@ import { DatabaseModule } from '../config/database/database.module'
 import { BranchModule } from '../branch/branch.module'
 import { CategoryModule } from '../category/category.module'
 import { IngredientModule } from '../ingredient/ingredient.module'
+import { OrderModule } from '../order/order.module'
 import { OrderStateModule } from '../order-state/order-state.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
@@ -22,6 +23,7 @@ import { SeedService } from './seed.service'
     StockModule,
     ParameterModule,
     OrderStateModule,
+    OrderModule,
   ],
   controllers: [SeedController],
   providers: [SeedService],

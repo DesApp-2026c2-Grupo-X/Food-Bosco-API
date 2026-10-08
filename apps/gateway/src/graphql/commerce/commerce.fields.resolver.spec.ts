@@ -3,16 +3,26 @@ import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { Role } from '../common/role.enum'
+import type { TripOrder } from '../delivery/delivery.types'
 import {
   BranchStockFieldResolver,
   CartItemFieldResolver,
   OrderFieldResolver,
   ProductFieldResolver,
   RecipeItemFieldResolver,
+  TripOrderFieldResolver,
 } from './commerce.fields.resolver'
 import { BranchStock, CartItem, Order, Product, RecipeItem } from './commerce.types'
 
-const makeCtx = (): GraphQLContext => ({ req: {} as Request }) as unknown as GraphQLContext
+const makeCtx = (): GraphQLContext =>
+  ({
+    req: {} as Request,
+    authorization: 'Bearer test-token',
+    userId: 'u1',
+    roles: ['rider'],
+    branchId: null,
+    requestId: 'rid-1',
+  }) as unknown as GraphQLContext
 
 const makeRest = () => ({ get: jest.fn() })
 
@@ -30,6 +40,7 @@ const asOrder = (fields: {
 }): Order => fields as unknown as Order
 const asBranchStock = (ingredientId: string): BranchStock =>
   ({ ingredientId }) as unknown as BranchStock
+const asTripOrder = (orderId: string): TripOrder => ({ orderId }) as unknown as TripOrder
 
 const rawCategory = { id: 'c1', name: 'Hamburguesas', active: true }
 const rawIngredient = { id: 'i1', name: 'Carne', unit: 'g', active: true }
@@ -132,18 +143,19 @@ describe('ProductFieldResolver.category', () => {
     expect(results.map((entry) => entry?.id)).toEqual(['c1', 'c2', 'c3'])
   })
 
-  it('NO deduplica la misma categoría pedida por dos productos (KNOWN BUG RQ-GW-09)', async () => {
+  it('deduplica la misma categoría pedida por dos productos (RQ-GW-09)', async () => {
     const { commerce, resolver } = build()
     commerce.get.mockResolvedValue(rawCategory)
     const ctx = makeCtx()
 
-    await Promise.all([
+    const results = await Promise.all([
       resolver.category(asProduct('c1'), ctx),
       resolver.category(asProduct('c1'), ctx),
     ])
 
-    // KNOWN BUG (RQ-GW-09): dos productos de la misma categoría disparan dos GET.
-    expect(commerce.get).toHaveBeenCalledTimes(2)
+    expect(commerce.get).toHaveBeenCalledTimes(1)
+    expect(commerce.get).toHaveBeenCalledWith('/v1/catalog/categories/c1')
+    expect(results.map((entry) => entry?.id)).toEqual(['c1', 'c1'])
   })
 })
 
@@ -274,7 +286,7 @@ describe('OrderFieldResolver.client', () => {
     await expect(resolver.client(asOrder({ clientId: 'u9' }), makeCtx())).resolves.toBeNull()
   })
 
-  it('NO reutiliza la carga del mismo cliente en el mismo tick (KNOWN BUG RQ-GW-09)', async () => {
+  it('deduplica la carga del mismo cliente en el mismo tick (RQ-GW-09)', async () => {
     const { auth, resolver } = build()
     auth.get.mockResolvedValue(rawUser)
     const ctx = makeCtx()
@@ -284,8 +296,7 @@ describe('OrderFieldResolver.client', () => {
       resolver.client(asOrder({ clientId: 'u1' }), ctx),
     ])
 
-    // KNOWN BUG (RQ-GW-09): no hay deduplicación de keys repetidas en el lote.
-    expect(auth.get).toHaveBeenCalledTimes(2)
+    expect(auth.get).toHaveBeenCalledTimes(1)
     expect(results.map((entry) => entry?.id)).toEqual(['u1', 'u1'])
   })
 })
@@ -384,5 +395,67 @@ describe('BranchStockFieldResolver.ingredient', () => {
     commerce.get.mockRejectedValue(new Error('404'))
 
     await expect(resolver.ingredient(asBranchStock('i9'), makeCtx())).resolves.toBeNull()
+  })
+})
+
+describe('TripOrderFieldResolver.order', () => {
+  const build = () => {
+    const commerce = makeRest()
+    const auth = makeRest()
+    const resolver = new TripOrderFieldResolver(asClient(commerce), asClient(auth))
+    return { commerce, resolver }
+  }
+
+  const rawOrder = {
+    id: 'ord-1',
+    number: '0001',
+    clientId: 'u1',
+    branchId: 'b1',
+    deliveryAddress: { text: 't', latitude: 0, longitude: 0 },
+    status: 'pending',
+    total: 10,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    items: [],
+    statusHistory: [],
+    availableTransitions: [],
+  }
+
+  it('resuelve la orden con GET /v1/orders/{orderId}', async () => {
+    const { commerce, resolver } = build()
+    commerce.get.mockResolvedValue(rawOrder)
+
+    const result = await resolver.order(asTripOrder('ord-1'), makeCtx())
+
+    expect(commerce.get).toHaveBeenCalledWith('/v1/orders/ord-1', {
+      context: {
+        authorization: 'Bearer test-token',
+        userId: 'u1',
+        roles: ['rider'],
+        branchId: null,
+        requestId: 'rid-1',
+      },
+    })
+    expect(result?.id).toBe('ord-1')
+  })
+
+  it('deduplica la misma orden pedida dos veces en el mismo lote', async () => {
+    const { commerce, resolver } = build()
+    commerce.get.mockResolvedValue(rawOrder)
+    const ctx = makeCtx()
+
+    const results = await Promise.all([
+      resolver.order(asTripOrder('ord-1'), ctx),
+      resolver.order(asTripOrder('ord-1'), ctx),
+    ])
+
+    expect(commerce.get).toHaveBeenCalledTimes(1)
+    expect(results.map((entry) => entry?.id)).toEqual(['ord-1', 'ord-1'])
+  })
+
+  it('devuelve null cuando la orden no existe', async () => {
+    const { commerce, resolver } = build()
+    commerce.get.mockRejectedValue(new Error('404'))
+
+    await expect(resolver.order(asTripOrder('missing'), makeCtx())).resolves.toBeNull()
   })
 })

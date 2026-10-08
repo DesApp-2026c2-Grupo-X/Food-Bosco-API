@@ -1,4 +1,4 @@
-import { PARAMETER_KEYS } from '../config/constants'
+import { ERROR_CODES, PARAMETER_KEYS } from '../config/constants'
 import { env } from '../config/env'
 import type { ParameterDocument } from './parameter.model'
 import { ParameterRepository } from './parameter.repository'
@@ -143,13 +143,15 @@ describe('ParameterService.update (RQ-CFG-02)', () => {
     expect(result).toEqual({ key: PARAMETER_KEYS.basePrepMin, value: 20, unit: 'min' })
   })
 
-  // KNOWN BUG: si el repositorio no devuelve documento, el servicio inventa unit '' en
-  // lugar de fallar con PARAMETER_NOT_FOUND. Se documenta el comportamiento actual.
-  it('ante ausencia de documento devuelve unit vacío en lugar de error', async () => {
-    const { service } = makeService({ update: jest.fn().mockResolvedValue(null) })
+  // RQ-CFG-02: si el parámetro no existe, debe fallar de forma explícita con
+  // PARAMETER_NOT_FOUND en lugar de inventar una unidad vacía.
+  it('ante ausencia de documento lanza PARAMETER_NOT_FOUND', async () => {
+    const { repository, service } = makeService({ update: jest.fn().mockResolvedValue(null) })
 
-    const result = await service.update('CLAVE_INEXISTENTE', 5)
-
-    expect(result).toEqual({ key: 'CLAVE_INEXISTENTE', value: 5, unit: '' })
+    await expect(service.update('CLAVE_INEXISTENTE', 5)).rejects.toMatchObject({
+      code: ERROR_CODES.parameterNotFound,
+      status: 404,
+    })
+    expect(repository.update).toHaveBeenCalledWith('CLAVE_INEXISTENTE', 5)
   })
 })

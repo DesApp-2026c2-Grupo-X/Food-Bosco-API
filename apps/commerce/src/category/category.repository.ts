@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
-import { Category, CategoryDocument } from './category.model'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
+import { DomainException } from '../config/exceptions/domain.exception'
+import { CATEGORY_ALREADY_EXISTS, Category, CategoryDocument } from './category.model'
 
 export interface CreateCategoryData {
   name: string
@@ -34,8 +36,19 @@ export class CategoryRepository {
     return this.model.find({ _id: { $in: ids } }).exec()
   }
 
-  create(data: CreateCategoryData): Promise<CategoryDocument> {
-    return this.model.create({ ...data, active: data.active ?? true })
+  async create(data: CreateCategoryData): Promise<CategoryDocument> {
+    try {
+      return await this.model.create({ ...data, active: data.active ?? true })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          CATEGORY_ALREADY_EXISTS,
+          'Ya existe una categoría con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   upsertByName(name: string): Promise<CategoryDocument | null> {
@@ -61,8 +74,19 @@ export class CategoryRepository {
     return { data, total }
   }
 
-  update(id: string, patch: UpdateCategoryData): Promise<CategoryDocument | null> {
-    return this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+  async update(id: string, patch: UpdateCategoryData): Promise<CategoryDocument | null> {
+    try {
+      return await this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          CATEGORY_ALREADY_EXISTS,
+          'Ya existe una categoría con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   setActive(id: string, active: boolean): Promise<CategoryDocument | null> {

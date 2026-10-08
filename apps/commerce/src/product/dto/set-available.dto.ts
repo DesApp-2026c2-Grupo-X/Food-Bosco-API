@@ -1,6 +1,6 @@
-import { IsBoolean } from 'class-validator'
+import { ToBoolean } from '../../config/validation/is-boolean-value.decorator'
 
 export class SetAvailableDto {
-  @IsBoolean()
+  @ToBoolean()
   available!: boolean
 }

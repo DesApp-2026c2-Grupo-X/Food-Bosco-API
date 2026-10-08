@@ -126,14 +126,88 @@ describe('IngredientQueryDto', () => {
     expect(instance.limit).toBe(25)
   })
 
+  // INT-03/NEW-04: con `enableImplicitConversion` (config real del ValidationPipe) el tipo
+  // union evita que 'false' se coaccione a true y que un valor inválido caiga a false.
   it.each([
     { name: '"true" se transforma a true', input: 'true', expected: true },
-    { name: '"false" se transforma a false', input: 'false', expected: false },
-    { name: 'un valor inesperado se coacciona a false', input: 'nope', expected: false },
+    { name: 'true se mantiene true', input: true, expected: true },
+    {
+      name: '"false" se transforma a false con coerción implícita activa',
+      input: 'false',
+      expected: false,
+    },
+    { name: 'false se mantiene false', input: false, expected: false },
   ])('activeOnly: $name', async ({ input, expected }) => {
-    const { instance, invalid } = await check(IngredientQueryDto, { activeOnly: input })
+    const instance = plainToInstance(
+      IngredientQueryDto,
+      { activeOnly: input },
+      { enableImplicitConversion: true },
+    )
 
-    expect(invalid).toEqual([])
+    await expect(validate(instance)).resolves.toHaveLength(0)
     expect(instance.activeOnly).toBe(expected)
+  })
+
+  // RQ-CAT-05: un `activeOnly` que no sea booleano ni 'true'/'false' se rechaza en lugar
+  // de coaccionarse silenciosamente a false.
+  it.each([
+    { name: 'texto arbitrario', input: 'nope' },
+    { name: 'numérico', input: 1 },
+    { name: 'objeto', input: { value: true } },
+  ])('rechaza activeOnly con valor inválido ($name)', async ({ input }) => {
+    const instance = plainToInstance(
+      IngredientQueryDto,
+      { activeOnly: input },
+      { enableImplicitConversion: true },
+    )
+    const errors = await validate(instance)
+
+    expect(errors.map((error) => error.property)).toContain('activeOnly')
+  })
+})
+
+// INT-03: con `enableImplicitConversion` (config real del ValidationPipe) un
+// string/número en un campo booleano de body se coaccionaba a `true` y pasaba
+// `@IsBoolean`. Sólo `true`/`false` reales deben ser válidos.
+describe('INT-03: campos booleanos de body con coerción implícita activa', () => {
+  const cases: Array<{
+    name: string
+    dto: new () => object
+    property: string
+    base: Record<string, unknown>
+  }> = [
+    {
+      name: 'CreateIngredientDto.active',
+      dto: CreateIngredientDto,
+      property: 'active',
+      base: { name: 'Papa', unit: 'kg' },
+    },
+    { name: 'UpdateIngredientDto.active', dto: UpdateIngredientDto, property: 'active', base: {} },
+    { name: 'SetActiveDto.active', dto: SetActiveDto, property: 'active', base: {} },
+  ]
+
+  it.each(cases)('$name acepta booleanos reales', async ({ dto, property, base }) => {
+    for (const value of [true, false]) {
+      const instance = plainToInstance(
+        dto,
+        { ...base, [property]: value },
+        { enableImplicitConversion: true },
+      )
+
+      await expect(validate(instance)).resolves.toHaveLength(0)
+    }
+  })
+
+  it.each(cases)('$name rechaza valores no booleanos', async ({ dto, property, base }) => {
+    for (const value of ['false', 'true', 123, 'yes', 0]) {
+      const instance = plainToInstance(
+        dto,
+        { ...base, [property]: value },
+        { enableImplicitConversion: true },
+      )
+      const errors = await validate(instance)
+
+      expect(errors.map((error) => error.property)).toContain(property)
+    }
   })
 })

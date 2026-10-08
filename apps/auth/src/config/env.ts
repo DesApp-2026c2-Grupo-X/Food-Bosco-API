@@ -25,17 +25,48 @@ const durationToMs = (value: string): number => {
   return amount * (multipliers[unit] ?? 1)
 }
 
+const DEV_DEFAULTS = {
+  jwtSecret: 'dev-secret-change-me',
+  internalApiToken: 'dev-internal-token',
+} as const
+
+const nodeEnv = process.env.NODE_ENV ?? 'development'
+const jwtSecret = process.env.JWT_SECRET ?? DEV_DEFAULTS.jwtSecret
+const internalApiToken = process.env.INTERNAL_API_TOKEN ?? DEV_DEFAULTS.internalApiToken
+
+const isInsecureSecret = (value: string, devDefault: string): boolean =>
+  value.trim() === '' || value === devDefault
+
+const assertSecureProductionSecrets = (): void => {
+  if (nodeEnv !== 'production') {
+    return
+  }
+
+  const insecureKeys = [
+    isInsecureSecret(jwtSecret, DEV_DEFAULTS.jwtSecret) ? 'JWT_SECRET' : null,
+    isInsecureSecret(internalApiToken, DEV_DEFAULTS.internalApiToken) ? 'INTERNAL_API_TOKEN' : null,
+  ].filter((key): key is string => key !== null)
+
+  if (insecureKeys.length > 0) {
+    throw new Error(
+      `Configuración insegura en producción: ${insecureKeys.join(' y ')} no puede(n) quedar vacío(s) ni usar el valor por defecto de desarrollo`,
+    )
+  }
+}
+
+assertSecureProductionSecrets()
+
 export const env = {
   port: toNumber(process.env.PORT, 4201),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
+  nodeEnv,
   mongoUri: process.env.MONGODB_URI ?? 'mongodb://localhost:27017/fastfood',
-  jwtSecret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+  jwtSecret,
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
   refreshTokenTtlMs: durationToMs(process.env.JWT_REFRESH_EXPIRES_IN ?? '7d'),
   passwordRecoveryTtlMs: durationToMs(process.env.PASSWORD_RECOVERY_EXPIRES_IN ?? '1h'),
   passwordRecoveryMinIntervalMs: durationToMs(process.env.PASSWORD_RECOVERY_MIN_INTERVAL ?? '60s'),
   commerceServiceUrl: process.env.COMMERCE_SERVICE_URL ?? 'http://localhost:4202',
-  internalApiToken: process.env.INTERNAL_API_TOKEN ?? 'dev-internal-token',
+  internalApiToken,
   email: {
     provider: process.env.EMAIL_PROVIDER ?? 'log',
     from: process.env.EMAIL_FROM ?? 'Food Bosco <no-reply@foodbosco.local>',

@@ -1,4 +1,5 @@
 import type { Model } from 'mongoose'
+import { PROMOTION_ALREADY_EXISTS } from './promotion.model'
 import type { PromotionDocument } from './promotion.model'
 import { PromotionRepository } from './promotion.repository'
 
@@ -98,6 +99,28 @@ describe('PromotionRepository.create (RQ-CAT-13)', () => {
       active: true,
     })
   })
+
+  // Un nombre duplicado (E11000) se traduce a un error de dominio en lugar de filtrar el
+  // error crudo de Mongo.
+  it('traduce el E11000 a un error de dominio PROMOTION_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    model.create.mockRejectedValue(duplicateError)
+
+    await expect(
+      repository.create({ name: 'Verano', startDate: start, endDate: end }),
+    ).rejects.toMatchObject({ code: PROMOTION_ALREADY_EXISTS, status: 409 })
+  })
+
+  it('propaga cualquier otro error del repositorio sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const failure = new Error('conexión caída')
+    model.create.mockRejectedValue(failure)
+
+    await expect(
+      repository.create({ name: 'Verano', startDate: start, endDate: end }),
+    ).rejects.toBe(failure)
+  })
 })
 
 describe('PromotionRepository.list (RQ-CAT-13)', () => {
@@ -165,5 +188,28 @@ describe('PromotionRepository.update / setActive', () => {
     model.findByIdAndUpdate.mockReturnValue(chainable(null))
 
     await expect(repository.update('missing', { name: 'X' })).resolves.toBeNull()
+  })
+
+  it('traduce el E11000 al renombrar a un nombre existente → PROMOTION_ALREADY_EXISTS 409', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const duplicateError = Object.assign(new Error('E11000 duplicate key error'), { code: 11000 })
+    chain.exec.mockRejectedValue(duplicateError)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('prom1', { name: '2x1' })).rejects.toMatchObject({
+      code: PROMOTION_ALREADY_EXISTS,
+      status: 409,
+    })
+  })
+
+  it('propaga cualquier otro error de update sin transformarlo', async () => {
+    const { model, repository } = makeRepository()
+    const chain = chainable(buildDoc())
+    const failure = new Error('conexión caída')
+    chain.exec.mockRejectedValue(failure)
+    model.findByIdAndUpdate.mockReturnValue(chain)
+
+    await expect(repository.update('prom1', { name: 'Nueva' })).rejects.toBe(failure)
   })
 })

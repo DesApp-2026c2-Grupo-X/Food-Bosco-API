@@ -22,7 +22,8 @@ export class CategoryController {
     @Query() query: CategoryQueryDto,
   ): Promise<CategoryListResponse> {
     const isAdmin = auth.roles.includes(ROLES.superAdmin)
-    const activeOnly = query.activeOnly ?? (isAdmin ? undefined : true)
+    const activeOnly =
+      query.activeOnly === undefined ? (isAdmin ? undefined : true) : query.activeOnly === true
     return this.categoryService.list({
       activeOnly,
       search: query.search,

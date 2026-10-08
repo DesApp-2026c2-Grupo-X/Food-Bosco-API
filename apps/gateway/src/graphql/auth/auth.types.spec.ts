@@ -33,7 +33,11 @@ describe('mapUser', () => {
     { role: 'branch_admin', expected: Role.BRANCH_ADMIN },
     { role: 'super_admin', expected: Role.SUPER_ADMIN },
     { role: 'rider', expected: Role.RIDER },
-  ])('mapea el rol $role', ({ role, expected }) => {
+    { role: 'CUSTOMER', expected: Role.CUSTOMER },
+    { role: 'BRANCH_ADMIN', expected: Role.BRANCH_ADMIN },
+    { role: 'SUPER_ADMIN', expected: Role.SUPER_ADMIN },
+    { role: 'RIDER', expected: Role.RIDER },
+  ])('mapea el rol $role (case-insensitive)', ({ role, expected }) => {
     expect(mapUser({ role }).role).toBe(expected)
   })
 
@@ -129,12 +133,13 @@ describe('mapAddress', () => {
     expect(result.longitude).toBe(-58.4)
   })
 
-  it('lat/lng ausentes producen NaN', () => {
-    const result = mapAddress({ id: 'a1' })
+  it.each([
+    { name: 'ausentes', raw: { id: 'a1' } },
+    { name: 'nulas', raw: { id: 'a1', latitude: null, longitude: null } },
+  ])('lat/lng $name se mapean a 0 (default seguro para GraphQL Float)', ({ raw }) => {
+    const result = mapAddress(raw)
 
-    // KNOWN BUG (latente): mapAddress usa Number(raw.latitude) en vez de asNumber,
-    // por lo que un dato ausente se mapea a NaN y GraphQL Float no puede serializarlo.
-    expect(Number.isNaN(result.latitude)).toBe(true)
-    expect(Number.isNaN(result.longitude)).toBe(true)
+    expect(result.latitude).toBe(0)
+    expect(result.longitude).toBe(0)
   })
 })

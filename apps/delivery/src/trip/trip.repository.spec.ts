@@ -55,6 +55,8 @@ const createData: CreateTripData = {
 }
 
 describe('TripRepository.create / findById', () => {
+  const validId = '64b000000000000000000001'
+
   it('crea el viaje con los datos recibidos', async () => {
     const { repository, model } = makeRepository()
     const doc = { id: 't1' }
@@ -68,12 +70,12 @@ describe('TripRepository.create / findById', () => {
 
   it('findById busca por _id y devuelve el documento', async () => {
     const { repository, model } = makeRepository()
-    const doc = { id: 't1' }
+    const doc = { id: validId }
     model.findById.mockReturnValue(execQuery(doc))
 
-    const result = await repository.findById('t1')
+    const result = await repository.findById(validId)
 
-    expect(model.findById).toHaveBeenCalledWith('t1')
+    expect(model.findById).toHaveBeenCalledWith(validId)
     expect(result).toBe(doc)
   })
 
@@ -81,19 +83,31 @@ describe('TripRepository.create / findById', () => {
     const { repository, model } = makeRepository()
     model.findById.mockReturnValue(execQuery(null))
 
-    await expect(repository.findById('t1')).resolves.toBeNull()
+    await expect(repository.findById(validId)).resolves.toBeNull()
   })
+
+  it.each(['abc', '', '123', 'no-es-un-object-id'])(
+    'findById con id inválido (%s) devuelve null sin consultar el modelo',
+    async (id) => {
+      const { repository, model } = makeRepository()
+
+      await expect(repository.findById(id)).resolves.toBeNull()
+      expect(model.findById).not.toHaveBeenCalled()
+    },
+  )
 })
 
 describe('TripRepository.findByIdForRider (RQ-SEC-06)', () => {
+  const validId = '64b000000000000000000002'
+
   it('filtra por _id y riderId (propiedad)', async () => {
     const { repository, model } = makeRepository()
-    const doc = { id: 't1' }
+    const doc = { id: validId }
     model.findOne.mockReturnValue(execQuery(doc))
 
-    const result = await repository.findByIdForRider('t1', 'u1')
+    const result = await repository.findByIdForRider(validId, 'u1')
 
-    expect(model.findOne).toHaveBeenCalledWith({ _id: 't1', riderId: 'u1' })
+    expect(model.findOne).toHaveBeenCalledWith({ _id: validId, riderId: 'u1' })
     expect(result).toBe(doc)
   })
 
@@ -101,7 +115,14 @@ describe('TripRepository.findByIdForRider (RQ-SEC-06)', () => {
     const { repository, model } = makeRepository()
     model.findOne.mockReturnValue(execQuery(null))
 
-    await expect(repository.findByIdForRider('t1', 'otro')).resolves.toBeNull()
+    await expect(repository.findByIdForRider(validId, 'otro')).resolves.toBeNull()
+  })
+
+  it('devuelve null con un id inválido sin consultar el modelo', async () => {
+    const { repository, model } = makeRepository()
+
+    await expect(repository.findByIdForRider('abc', 'u1')).resolves.toBeNull()
+    expect(model.findOne).not.toHaveBeenCalled()
   })
 })
 

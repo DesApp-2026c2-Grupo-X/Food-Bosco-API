@@ -29,6 +29,11 @@ export class IngredientService {
     return doc ? serializeIngredient(doc) : null
   }
 
+  async findByIds(ids: string[]): Promise<PublicIngredient[]> {
+    const docs = await this.repository.findByIds(ids)
+    return docs.map(serializeIngredient)
+  }
+
   async create(data: CreateIngredientData): Promise<PublicIngredient> {
     const doc = await this.repository.create(data)
     return serializeIngredient(doc)

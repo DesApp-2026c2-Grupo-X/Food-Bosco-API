@@ -26,6 +26,7 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
 
     app = moduleFixture.createNestApplication()
     await app.init()
+    await app.listen(0)
   })
 
   afterAll(async () => {
@@ -61,9 +62,9 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].message).toBe(message)
       expect(body.errors?.[0].extensions?.code).toBe(code)
-      expect(body.errors?.[0].extensions).toEqual({ code })
-      // KNOWN BUG (RQ-GW-07): el `path` esperado es el del servicio REST ('/v1/orders/o1'),
-      // pero formatGraphQLError descarta `extensions.path` y usa el path GraphQL.
+      // RQ-GW-07: el envelope conserva code y el path REST del servicio downstream,
+      // además del path GraphQL del campo que falló.
+      expect(body.errors?.[0].extensions).toEqual({ code, path: '/v1/orders/o1' })
       expect(body.errors?.[0].path).toEqual(['order'])
     })
   })
@@ -120,5 +121,9 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
     const body = res.body as GraphQLBody
     expect(body.errors?.[0].extensions?.code).toBe('BRANCH_CLOSED')
     expect(body.errors?.[0].message).toBe('La sucursal está cerrada')
+    expect(body.errors?.[0].extensions).toEqual({
+      code: 'BRANCH_CLOSED',
+      path: '/v1/orders/o1',
+    })
   })
 })

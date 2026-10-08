@@ -4,8 +4,8 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
-  Min,
   ValidateNested,
 } from 'class-validator'
 
@@ -15,7 +15,7 @@ export class RecipeOptionAdjustmentDto {
   optionId!: string
 
   @IsNumber()
-  @Min(0)
+  @IsPositive()
   quantity!: number
 }
 
@@ -25,7 +25,7 @@ export class RecipeItemDto {
   ingredientId!: string
 
   @IsNumber()
-  @Min(0)
+  @IsPositive()
   quantity!: number
 
   @IsOptional()

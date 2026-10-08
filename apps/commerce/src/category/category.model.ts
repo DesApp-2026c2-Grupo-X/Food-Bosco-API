@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
 
+export const CATEGORY_ALREADY_EXISTS = 'CATEGORY_ALREADY_EXISTS'
+
 @Schema({ collection: 'categories', timestamps: { createdAt: true, updatedAt: true } })
 export class Category {
   @Prop({ required: true, unique: true, index: true, trim: true })

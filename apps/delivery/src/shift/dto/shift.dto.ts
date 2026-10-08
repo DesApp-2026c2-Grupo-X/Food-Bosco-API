@@ -1,4 +1,7 @@
 import { IsBoolean, IsNotEmpty, IsString } from 'class-validator'
+import { Transform } from 'class-transformer'
+
+type BooleanInput = boolean | string | number
 
 export class CreateShiftDto {
   @IsString()
@@ -15,6 +18,7 @@ export class CreateShiftDto {
 }
 
 export class SetActiveDto {
+  @Transform(({ obj, key }): BooleanInput => obj[key] as BooleanInput)
   @IsBoolean()
   active!: boolean
 }

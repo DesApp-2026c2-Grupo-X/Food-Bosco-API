@@ -144,5 +144,9 @@ export const isBranchOpenNow = (hours: PublicBranchHour[], now: Date = new Date(
     return false
   }
 
+  if (closing < opening) {
+    return minutes >= opening || minutes < closing
+  }
+
   return minutes >= opening && minutes < closing
 }

@@ -2,7 +2,15 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { ConfigGroupType } from '../config/constants'
-import { ConfigGroup, ConfigOption, Product, ProductDocument } from './product.model'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
+import { DomainException } from '../config/exceptions/domain.exception'
+import {
+  ConfigGroup,
+  ConfigOption,
+  Product,
+  ProductDocument,
+  PRODUCT_ALREADY_EXISTS,
+} from './product.model'
 
 export interface CreateProductData {
   categoryId: string
@@ -82,14 +90,31 @@ export class ProductRepository {
     return this.model.find().sort({ name: 1 }).exec()
   }
 
-  create(data: CreateProductData): Promise<ProductDocument> {
-    return this.model.create({
-      ...data,
-      image: data.image ?? null,
-      available: data.available ?? true,
-      configGroups: [],
-      recipe: [],
-    })
+  countActiveUsingIngredient(ingredientId: string): Promise<number> {
+    return this.model
+      .countDocuments({ available: true, 'recipe.ingredientId': ingredientId })
+      .exec()
+  }
+
+  async create(data: CreateProductData): Promise<ProductDocument> {
+    try {
+      return await this.model.create({
+        ...data,
+        image: data.image ?? null,
+        available: data.available ?? true,
+        configGroups: [],
+        recipe: [],
+      })
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          PRODUCT_ALREADY_EXISTS,
+          'Ya existe un producto con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   async list(query: ProductListQuery): Promise<{ data: ProductDocument[]; total: number }> {
@@ -106,8 +131,19 @@ export class ProductRepository {
     return { data, total }
   }
 
-  update(id: string, patch: UpdateProductData): Promise<ProductDocument | null> {
-    return this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+  async update(id: string, patch: UpdateProductData): Promise<ProductDocument | null> {
+    try {
+      return await this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec()
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        throw new DomainException(
+          PRODUCT_ALREADY_EXISTS,
+          'Ya existe un producto con ese nombre',
+          409,
+        )
+      }
+      throw error
+    }
   }
 
   setAvailable(id: string, available: boolean): Promise<ProductDocument | null> {
@@ -123,6 +159,12 @@ export class ProductRepository {
     doc.configGroups.push({ ...data, min: data.min ?? null, max: data.max ?? null, options: [] })
     await doc.save()
     return doc.configGroups[doc.configGroups.length - 1]
+  }
+
+  async findConfigGroup(productId: string, groupId: string): Promise<ConfigGroup | null> {
+    const doc = await this.model.findById(productId).exec()
+    if (!doc) return null
+    return doc.configGroups.find((entry) => entry._id?.toString() === groupId) ?? null
   }
 
   async updateConfigGroup(
@@ -238,7 +280,9 @@ export class ProductRepository {
   async removeRecipeItem(productId: string, itemId: string): Promise<ProductDocument | null> {
     const doc = await this.model.findById(productId).exec()
     if (!doc) return null
+    const before = doc.recipe.length
     doc.recipe = doc.recipe.filter((entry) => entry._id?.toString() !== itemId)
+    if (doc.recipe.length === before) return null
     return doc.save()
   }
 }

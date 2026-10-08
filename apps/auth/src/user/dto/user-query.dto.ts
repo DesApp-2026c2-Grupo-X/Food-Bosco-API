@@ -9,9 +9,13 @@ export class UserQueryDto {
   role?: Role
 
   @IsOptional()
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true
+    if (value === 'false' || value === false) return false
+    return value
+  })
   @IsBoolean()
-  active?: boolean
+  active?: boolean | string
 
   @IsOptional()
   @IsString()

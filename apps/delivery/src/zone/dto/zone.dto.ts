@@ -1,5 +1,7 @@
 import { IsBoolean, IsNotEmpty, IsNumber, IsString, ValidateNested } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
+
+type BooleanInput = boolean | string | number
 
 class GeoPointDto {
   @IsNumber()
@@ -23,6 +25,7 @@ export class CreateZoneDto {
 }
 
 export class SetActiveDto {
+  @Transform(({ obj, key }): BooleanInput => obj[key] as BooleanInput)
   @IsBoolean()
   active!: boolean
 }

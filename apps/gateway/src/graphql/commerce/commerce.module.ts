@@ -6,6 +6,7 @@ import {
   OrderFieldResolver,
   ProductFieldResolver,
   RecipeItemFieldResolver,
+  TripOrderFieldResolver,
 } from './commerce.fields.resolver'
 import { CommerceResolver } from './commerce.resolver'
 
@@ -18,6 +19,7 @@ import { CommerceResolver } from './commerce.resolver'
     CartItemFieldResolver,
     OrderFieldResolver,
     BranchStockFieldResolver,
+    TripOrderFieldResolver,
   ],
 })
 export class CommerceGraphqlModule {}

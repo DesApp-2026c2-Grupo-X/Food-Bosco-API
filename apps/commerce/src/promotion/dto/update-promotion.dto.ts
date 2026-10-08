@@ -1,4 +1,5 @@
 import { IsDateString, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsValidDateRange } from './is-valid-date-range.decorator'
 
 export class UpdatePromotionDto {
   @IsOptional()
@@ -14,6 +15,7 @@ export class UpdatePromotionDto {
 
   @IsOptional()
   @IsDateString()
+  @IsValidDateRange({ message: 'La fecha de inicio no puede ser posterior a la fecha de fin' })
   startDate?: string
 
   @IsOptional()

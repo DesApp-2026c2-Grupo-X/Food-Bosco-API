@@ -143,6 +143,24 @@ describe('RiderService.updateProfile / updateVehicle (RQ-DLV-11)', () => {
     expect(result?.phone).toBe('999')
   })
 
+  it('updateProfile propaga firstName/lastName y serializa', async () => {
+    const repository = {
+      updateProfile: jest
+        .fn()
+        .mockResolvedValue(buildDoc({ firstName: 'Nuevo', lastName: 'Cambiado' })),
+    }
+    const service = new RiderService(repository as unknown as RiderRepository)
+
+    const result = await service.updateProfile('u1', { firstName: 'Nuevo', lastName: 'Cambiado' })
+
+    expect(repository.updateProfile).toHaveBeenCalledWith('u1', {
+      firstName: 'Nuevo',
+      lastName: 'Cambiado',
+    })
+    expect(result?.firstName).toBe('Nuevo')
+    expect(result?.lastName).toBe('Cambiado')
+  })
+
   it('updateProfile devuelve null si el rider no existe', async () => {
     const repository = { updateProfile: jest.fn().mockResolvedValue(null) }
     const service = new RiderService(repository as unknown as RiderRepository)
