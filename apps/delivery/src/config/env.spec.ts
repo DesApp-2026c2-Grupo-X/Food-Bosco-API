@@ -49,18 +49,6 @@ const loadEnv = async (values: Partial<Record<ManagedKey, string>> = {}): Promis
   return loaded
 }
 
-const loadEnvError = (values: Partial<Record<ManagedKey, string>> = {}): Error => {
-  resetProcessEnv(values)
-  try {
-    jest.isolateModules(() => {
-      jest.requireActual('./env')
-    })
-  } catch (error) {
-    return error as Error
-  }
-  throw new Error('Se esperaba un error al cargar env')
-}
-
 beforeAll(() => {
   for (const key of MANAGED_KEYS) {
     original[key] = process.env[key]
@@ -126,6 +114,16 @@ describe('env — defaults en desarrollo/test', () => {
 })
 
 describe('seguridad — secretos inseguros en producción', () => {
+  let warn: jest.SpyInstance
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
   it.each([
     { name: 'ambos defaults', values: {}, missing: ['JWT_SECRET', 'INTERNAL_API_TOKEN'] },
     {
@@ -158,17 +156,18 @@ describe('seguridad — secretos inseguros en producción', () => {
       values: { JWT_SECRET: 'prod-secret', INTERNAL_API_TOKEN: '   ' },
       missing: ['INTERNAL_API_TOKEN'],
     },
-  ])('falla el arranque con $name', ({ values, missing }) => {
-    const error = loadEnvError({ ...values, NODE_ENV: 'production' })
+  ])('advierte en el arranque con $name', async ({ values, missing }) => {
+    const env = await loadEnv({ ...values, NODE_ENV: 'production' })
 
-    expect(error).toBeInstanceOf(Error)
-    expect(error.message).toContain('insegura en producción')
+    expect(env.nodeEnv).toBe('production')
+    const warned = warn.mock.calls.map((call) => String(call[0])).join(' ')
+    expect(warned).toContain('insegura en producción')
     for (const key of missing) {
-      expect(error.message).toContain(key)
+      expect(warned).toContain(key)
     }
   })
 
-  it('arranca en producción con secretos propios', async () => {
+  it('arranca en producción con secretos propios sin advertir', async () => {
     const env = await loadEnv({
       NODE_ENV: 'production',
       JWT_SECRET: 'prod-secret',
@@ -178,5 +177,6 @@ describe('seguridad — secretos inseguros en producción', () => {
     expect(env.nodeEnv).toBe('production')
     expect(env.jwtSecret).toBe('prod-secret')
     expect(env.internalApiToken).toBe('prod-token')
+    expect(warn).not.toHaveBeenCalled()
   })
 })

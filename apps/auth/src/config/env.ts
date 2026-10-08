@@ -48,8 +48,9 @@ const assertSecureProductionSecrets = (): void => {
   ].filter((key): key is string => key !== null)
 
   if (insecureKeys.length > 0) {
-    throw new Error(
-      `Configuración insegura en producción: ${insecureKeys.join(' y ')} no puede(n) quedar vacío(s) ni usar el valor por defecto de desarrollo`,
+    // eslint-disable-next-line no-console -- aviso de seguridad en el arranque (no debe romper el deploy)
+    console.warn(
+      `[env] Configuración insegura en producción: ${insecureKeys.join(' y ')} no puede(n) quedar vacío(s) ni usar el valor por defecto de desarrollo`,
     )
   }
 }

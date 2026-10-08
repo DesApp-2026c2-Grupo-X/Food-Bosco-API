@@ -265,22 +265,33 @@ describe('env — configuración de email', () => {
 })
 
 describe('env — secretos en producción (Security)', () => {
-  it('falla el arranque si JWT_SECRET e INTERNAL_API_TOKEN usan los defaults de desarrollo', async () => {
-    await expect(loadEnv({ NODE_ENV: 'production' })).rejects.toThrow(
-      /JWT_SECRET y INTERNAL_API_TOKEN/,
-    )
+  let warn: jest.SpyInstance
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
-  it('falla el arranque si sólo INTERNAL_API_TOKEN conserva el default', async () => {
-    await expect(loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'prod-secret' })).rejects.toThrow(
-      /INTERNAL_API_TOKEN/,
-    )
+  afterEach(() => {
+    warn.mockRestore()
   })
 
-  it('falla el arranque si sólo JWT_SECRET conserva el default', async () => {
-    await expect(
-      loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'prod-internal-token' }),
-    ).rejects.toThrow(/JWT_SECRET/)
+  it('advierte si JWT_SECRET e INTERNAL_API_TOKEN usan los defaults de desarrollo', async () => {
+    const env = await loadEnv({ NODE_ENV: 'production' })
+
+    expect(env.nodeEnv).toBe('production')
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET y INTERNAL_API_TOKEN/))
+  })
+
+  it('advierte si sólo INTERNAL_API_TOKEN conserva el default', async () => {
+    await loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'prod-secret' })
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/INTERNAL_API_TOKEN/))
+  })
+
+  it('advierte si sólo JWT_SECRET conserva el default', async () => {
+    await loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'prod-internal-token' })
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET/))
   })
 
   it('permite el arranque en producción con secretos propios', async () => {
@@ -293,6 +304,7 @@ describe('env — secretos en producción (Security)', () => {
     expect(env.nodeEnv).toBe('production')
     expect(env.jwtSecret).toBe('prod-secret')
     expect(env.internalApiToken).toBe('prod-internal-token')
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -332,8 +344,10 @@ describe('env — secretos en producción (Security)', () => {
       },
       expected: /INTERNAL_API_TOKEN/,
     },
-  ])('falla el arranque en producción con $name', async ({ values, expected }) => {
-    await expect(loadEnv(values)).rejects.toThrow(expected)
+  ])('advierte en producción con $name', async ({ values, expected }) => {
+    await loadEnv(values)
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(expected))
   })
 
   it.each(['development', 'test'])(

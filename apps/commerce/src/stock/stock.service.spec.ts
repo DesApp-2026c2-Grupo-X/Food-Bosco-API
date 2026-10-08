@@ -331,6 +331,24 @@ describe('StockService.adjust (RQ-STK-04)', () => {
     )
   })
 
+  it.each([
+    { name: 'vacío', reason: '' },
+    { name: 'solo espacios', reason: '   ' },
+  ])('usa el motivo por defecto cuando el motivo es $name (RQ-STK-04)', async ({ reason }) => {
+    const { repository, service } = makeService({
+      findOne: jest.fn().mockResolvedValue({ quantity: 10 }),
+      setQuantity: jest
+        .fn()
+        .mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
+    })
+
+    await service.adjust('b1', 'i1', 5, reason)
+
+    expect(repository.createMovement).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: STOCK_MOVEMENT_REASON.adjust }),
+    )
+  })
+
   it('registra el orderId cuando se informa', async () => {
     const { repository, service } = makeService({
       findOne: jest.fn().mockResolvedValue({ quantity: 10 }),

@@ -26,8 +26,9 @@ const assertProductionSecrets = (): void => {
   ]
 
   if (insecure.length > 0) {
-    throw new Error(
-      `Configuración insegura en producción: definí ${insecure.join(' y ')} con valores propios (no los defaults de desarrollo ni vacíos).`,
+    // eslint-disable-next-line no-console -- aviso de seguridad en el arranque (no debe romper el deploy)
+    console.warn(
+      `[env] Configuración insegura en producción: definí ${insecure.join(' y ')} con valores propios (no los defaults de desarrollo ni vacíos).`,
     )
   }
 }

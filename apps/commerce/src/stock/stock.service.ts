@@ -31,7 +31,7 @@ export class StockService {
       branchId,
       ingredientId,
       delta: quantity - previous,
-      reason: reason ?? STOCK_MOVEMENT_REASON.adjust,
+      reason: reason?.trim() ? reason.trim() : STOCK_MOVEMENT_REASON.adjust,
       orderId,
     })
 

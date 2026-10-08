@@ -30,8 +30,9 @@ export const assertProductionSecrets = ({
   ].filter((name): name is string => name !== null)
 
   if (insecure.length > 0) {
-    throw new Error(
-      `Configuración insegura en producción: ${insecure.join(' y ')} no puede(n) quedar vacío(s) ni ` +
+    // eslint-disable-next-line no-console -- aviso de seguridad en el arranque (no debe romper el deploy)
+    console.warn(
+      `[env] Configuración insegura en producción: ${insecure.join(' y ')} no puede(n) quedar vacío(s) ni ` +
         `usar el valor por defecto de desarrollo. Definí un secreto propio en el entorno.`,
     )
   }

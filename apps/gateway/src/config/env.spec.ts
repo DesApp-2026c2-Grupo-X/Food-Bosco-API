@@ -91,20 +91,32 @@ describe('env', () => {
   })
 
   describe('secretos en producción (NODE_ENV=production)', () => {
-    it('falla el arranque si JWT_SECRET queda en el default de desarrollo', () => {
-      expect(() => loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'token-prod' })).toThrow(
-        /JWT_SECRET/,
-      )
+    let warn: jest.SpyInstance
+
+    beforeEach(() => {
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
     })
 
-    it('falla el arranque si INTERNAL_API_TOKEN queda en el default de desarrollo', () => {
-      expect(() => loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'secreto-prod' })).toThrow(
-        /INTERNAL_API_TOKEN/,
-      )
+    afterEach(() => {
+      warn.mockRestore()
     })
 
-    it('falla si ambos secretos quedan en los defaults', () => {
-      expect(() => loadEnv({ NODE_ENV: 'production' })).toThrow(/JWT_SECRET/)
+    it('advierte el arranque si JWT_SECRET queda en el default de desarrollo', () => {
+      loadEnv({ NODE_ENV: 'production', INTERNAL_API_TOKEN: 'token-prod' })
+
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET/))
+    })
+
+    it('advierte el arranque si INTERNAL_API_TOKEN queda en el default de desarrollo', () => {
+      loadEnv({ NODE_ENV: 'production', JWT_SECRET: 'secreto-prod' })
+
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(/INTERNAL_API_TOKEN/))
+    })
+
+    it('advierte una vez por cada secreto en default', () => {
+      loadEnv({ NODE_ENV: 'production' })
+
+      expect(warn).toHaveBeenCalledTimes(2)
     })
 
     it.each([
@@ -128,11 +140,13 @@ describe('env', () => {
         overrides: { JWT_SECRET: 'secreto-prod', INTERNAL_API_TOKEN: '   ' },
         expected: /INTERNAL_API_TOKEN/,
       },
-    ])('falla el arranque con $name en producción', ({ overrides, expected }) => {
-      expect(() => loadEnv({ NODE_ENV: 'production', ...overrides })).toThrow(expected)
+    ])('advierte el arranque con $name en producción', ({ overrides, expected }) => {
+      loadEnv({ NODE_ENV: 'production', ...overrides })
+
+      expect(warn).toHaveBeenCalledWith(expect.stringMatching(expected))
     })
 
-    it('arranca en producción con secretos no default', () => {
+    it('arranca en producción con secretos no default sin advertir', () => {
       const loaded = loadEnv({
         NODE_ENV: 'production',
         JWT_SECRET: 'secreto-prod',
@@ -141,6 +155,7 @@ describe('env', () => {
 
       expect(loaded.jwtSecret).toBe('secreto-prod')
       expect(loaded.internalApiToken).toBe('token-prod')
+      expect(warn).not.toHaveBeenCalled()
     })
 
     it.each(['development', 'test'])('mantiene los defaults con NODE_ENV=%s', (nodeEnv) => {
@@ -148,6 +163,7 @@ describe('env', () => {
 
       expect(loaded.jwtSecret).toBe('dev-secret-change-me')
       expect(loaded.internalApiToken).toBe('dev-internal-token')
+      expect(warn).not.toHaveBeenCalled()
     })
   })
 

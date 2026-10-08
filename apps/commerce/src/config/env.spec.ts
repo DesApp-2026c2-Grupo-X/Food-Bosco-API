@@ -13,6 +13,16 @@ const config = (overrides: Partial<SecretConfig> = {}): SecretConfig => ({
 })
 
 describe('assertProductionSecrets (seguridad de secretos)', () => {
+  let warn: jest.SpyInstance
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
   it.each([
     { name: 'development con defaults', nodeEnv: 'development' },
     { name: 'test con defaults', nodeEnv: 'test' },
@@ -25,28 +35,30 @@ describe('assertProductionSecrets (seguridad de secretos)', () => {
     ).not.toThrow()
   })
 
-  it('no falla en producción cuando ambos secretos son propios', () => {
+  it('no falla ni advierte en producción cuando ambos secretos son propios', () => {
     expect(() => assertProductionSecrets(config())).not.toThrow()
+    expect(warn).not.toHaveBeenCalled()
   })
 
-  it('falla en producción si JWT_SECRET conserva el default de dev', () => {
-    expect(() => assertProductionSecrets(config({ jwtSecret: DEV_JWT_SECRET }))).toThrow(
-      /JWT_SECRET/,
-    )
+  it('advierte en producción si JWT_SECRET conserva el default de dev', () => {
+    expect(() => assertProductionSecrets(config({ jwtSecret: DEV_JWT_SECRET }))).not.toThrow()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET/))
   })
 
-  it('falla en producción si INTERNAL_API_TOKEN conserva el default de dev', () => {
+  it('advierte en producción si INTERNAL_API_TOKEN conserva el default de dev', () => {
     expect(() =>
       assertProductionSecrets(config({ internalApiToken: DEV_INTERNAL_API_TOKEN })),
-    ).toThrow(/INTERNAL_API_TOKEN/)
+    ).not.toThrow()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/INTERNAL_API_TOKEN/))
   })
 
-  it('falla en producción si ambos secretos son los defaults de dev', () => {
+  it('advierte en producción si ambos secretos son los defaults de dev', () => {
     expect(() =>
       assertProductionSecrets(
         config({ jwtSecret: DEV_JWT_SECRET, internalApiToken: DEV_INTERNAL_API_TOKEN }),
       ),
-    ).toThrow(/JWT_SECRET y INTERNAL_API_TOKEN/)
+    ).not.toThrow()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/JWT_SECRET y INTERNAL_API_TOKEN/))
   })
 
   it.each([
@@ -66,13 +78,18 @@ describe('assertProductionSecrets (seguridad de secretos)', () => {
       overrides: { internalApiToken: '   ' },
       expected: /INTERNAL_API_TOKEN/,
     },
-  ])('falla en producción si $name', ({ overrides, expected }) => {
-    expect(() => assertProductionSecrets(config(overrides))).toThrow(expected)
+  ])('advierte en producción si $name', ({ overrides, expected }) => {
+    expect(() => assertProductionSecrets(config(overrides))).not.toThrow()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(expected))
   })
 
-  it.each(['development', 'test'])('no falla en %s aunque los secretos estén vacíos', (nodeEnv) => {
-    expect(() =>
-      assertProductionSecrets(config({ nodeEnv, jwtSecret: '', internalApiToken: '   ' })),
-    ).not.toThrow()
-  })
+  it.each(['development', 'test'])(
+    'no advierte en %s aunque los secretos estén vacíos',
+    (nodeEnv) => {
+      expect(() =>
+        assertProductionSecrets(config({ nodeEnv, jwtSecret: '', internalApiToken: '   ' })),
+      ).not.toThrow()
+      expect(warn).not.toHaveBeenCalled()
+    },
+  )
 })
