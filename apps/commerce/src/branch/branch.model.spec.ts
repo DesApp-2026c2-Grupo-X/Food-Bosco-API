@@ -1,6 +1,20 @@
 import { isBranchOpenNow } from './branch.model'
 import type { PublicBranchHour } from './branch.model'
 
+const ARGENTINA_UTC_OFFSET_HOURS = 3
+
+// Construye el instante UTC que corresponde a una hora de pared de Argentina (GMT-3),
+// independientemente de la zona horaria de la máquina que corre los tests.
+const argentinaInstant = (
+  year: number,
+  month: number,
+  day: number,
+  hours: number,
+  minutes: number,
+  seconds = 0,
+): Date =>
+  new Date(Date.UTC(year, month - 1, day, hours + ARGENTINA_UTC_OFFSET_HOURS, minutes, seconds))
+
 const hour = (overrides: Partial<PublicBranchHour> = {}): PublicBranchHour => ({
   dayOfWeek: 1,
   opening: '08:00',
@@ -11,7 +25,7 @@ const hour = (overrides: Partial<PublicBranchHour> = {}): PublicBranchHour => ({
 
 const mondayAt = (time: string): Date => {
   const [hours, minutes] = time.split(':').map((part) => Number(part))
-  return new Date(2026, 7, 24, hours, minutes)
+  return argentinaInstant(2026, 8, 24, hours, minutes)
 }
 
 describe('isBranchOpenNow (RQ-BRN-06)', () => {
@@ -51,11 +65,31 @@ describe('isBranchOpenNow — día cerrado (RQ-BRN-06)', () => {
 
 describe('isBranchOpenNow — límites de hora exactos (RQ-BRN-03)', () => {
   it.each([
-    { name: 'un segundo antes de abrir', at: new Date(2026, 7, 24, 7, 59, 59), expected: false },
-    { name: 'exactamente al abrir', at: new Date(2026, 7, 24, 8, 0, 0), expected: true },
-    { name: 'un segundo antes de cerrar', at: new Date(2026, 7, 24, 19, 59, 59), expected: true },
-    { name: 'exactamente al cerrar', at: new Date(2026, 7, 24, 20, 0, 0), expected: false },
-    { name: 'un segundo después de cerrar', at: new Date(2026, 7, 24, 20, 0, 1), expected: false },
+    {
+      name: 'un segundo antes de abrir',
+      at: argentinaInstant(2026, 8, 24, 7, 59, 59),
+      expected: false,
+    },
+    {
+      name: 'exactamente al abrir',
+      at: argentinaInstant(2026, 8, 24, 8, 0, 0),
+      expected: true,
+    },
+    {
+      name: 'un segundo antes de cerrar',
+      at: argentinaInstant(2026, 8, 24, 19, 59, 59),
+      expected: true,
+    },
+    {
+      name: 'exactamente al cerrar',
+      at: argentinaInstant(2026, 8, 24, 20, 0, 0),
+      expected: false,
+    },
+    {
+      name: 'un segundo después de cerrar',
+      at: argentinaInstant(2026, 8, 24, 20, 0, 1),
+      expected: false,
+    },
   ])('$name → $expected', ({ at, expected }) => {
     expect(isBranchOpenNow([hour()], at)).toBe(expected)
   })
@@ -88,9 +122,38 @@ describe('isBranchOpenNow — selección de día', () => {
   })
 })
 
+describe('isBranchOpenNow — zona horaria de Argentina (GMT-3)', () => {
+  // El instante es el mismo en UTC para los tres casos; lo que cambia es el día/hora
+  // de pared con el que debe evaluarse la sucursal.
+  const tuesdayEarlyUtc = new Date(Date.UTC(2026, 7, 25, 2, 0, 0)) // martes 02:00 UTC = lunes 23:00 AR
+
+  it.each([
+    {
+      name: 'evalúa con el día argentino aunque en UTC ya sea el día siguiente',
+      at: tuesdayEarlyUtc,
+      hours: [hour({ dayOfWeek: 1, opening: '23:00', closing: '23:59' })],
+      expected: true,
+    },
+    {
+      name: 'no usa el día UTC cuando en Argentina todavía es el día anterior',
+      at: tuesdayEarlyUtc,
+      hours: [hour({ dayOfWeek: 2, opening: '01:00', closing: '03:00' })],
+      expected: false,
+    },
+    {
+      name: 'desplaza tres horas hacia atrás respecto de UTC',
+      at: new Date(Date.UTC(2026, 7, 24, 12, 0, 0)), // 12:00 UTC = 09:00 AR
+      hours: [hour({ dayOfWeek: 1, opening: '09:00', closing: '09:30' })],
+      expected: true,
+    },
+  ])('$name → $expected', ({ at, hours, expected }) => {
+    expect(isBranchOpenNow(hours, at)).toBe(expected)
+  })
+})
+
 describe('isBranchOpenNow — rango nocturno', () => {
   // KNOWN BUG: no soporta horarios que cruzan medianoche (22:00 → 02:00).
-  // `current >= opening && current < closing` da false para 23:00 porque el
+  // `minutes >= opening && minutes < closing` da false para 23:00 porque el
   // cierre (02:00 → 120) es menor que la apertura (22:00 → 1320).
   // Impacto: una sucursal con turno noche aparece siempre cerrada.
   const overnightHours = [
@@ -99,8 +162,16 @@ describe('isBranchOpenNow — rango nocturno', () => {
   ]
 
   it.each([
-    { name: 'antes de medianoche', at: new Date(2026, 7, 24, 23, 0), expected: false },
-    { name: 'después de medianoche', at: new Date(2026, 7, 25, 1, 0), expected: false },
+    {
+      name: 'antes de medianoche',
+      at: argentinaInstant(2026, 8, 24, 23, 0),
+      expected: false,
+    },
+    {
+      name: 'después de medianoche',
+      at: argentinaInstant(2026, 8, 25, 1, 0),
+      expected: false,
+    },
   ])('$name → $expected (comportamiento actual)', ({ at, expected }) => {
     expect(isBranchOpenNow(overnightHours, at)).toBe(expected)
   })

@@ -114,6 +114,8 @@ export const ERROR_CODES = {
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 
+export const BUSINESS_TIME_ZONE = 'America/Argentina/Buenos_Aires'
+
 export const HEADERS = {
   authorization: 'authorization',
   userId: 'x-user-id',
