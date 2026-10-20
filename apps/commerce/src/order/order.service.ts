@@ -74,12 +74,33 @@ export class OrderService {
       )
     }
 
-    const previousStatus = doc.status
-    doc.status = newStatus
-    doc.statusHistory.push({ previousStatus, newStatus, changedAt: new Date() })
-    await this.repository.save(doc)
+    const updated = await this.repository.transition(id, doc.status, newStatus, {
+      previousStatus: doc.status,
+      newStatus,
+      changedAt: new Date(),
+    })
 
-    return { order: serializeOrder(doc), changed: true }
+    if (updated) {
+      return { order: serializeOrder(updated), changed: true }
+    }
+
+    const current = await this.repository.findById(id)
+    if (!current) {
+      return null
+    }
+    if (current.status === newStatus) {
+      return { order: serializeOrder(current), changed: false }
+    }
+
+    throw new DomainException(
+      ERROR_CODES.conflict,
+      'El pedido cambió de estado mientras se procesaba la solicitud. Revisá el estado actual e intentá de nuevo.',
+      409,
+    )
+  }
+
+  async revertTransition(id: string, newStatus: OrderStatus, previousStatus: OrderStatus): Promise<void> {
+    await this.repository.revertTransition(id, newStatus, previousStatus)
   }
 
   async markAssigned(orderIds: string[], tripId: string, riderId: string): Promise<void> {

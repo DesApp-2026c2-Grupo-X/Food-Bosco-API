@@ -163,7 +163,7 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
       service.verifyCredentials('nadie@example.com', 'secreto123'),
     ).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
-      message: 'Credenciales inválidas',
+      message: 'El correo electrónico o la contraseña son incorrectos.',
       status: 401,
     })
   })
@@ -176,7 +176,7 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
       service.verifyCredentials('cliente@example.com', 'otra-clave'),
     ).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
-      message: 'Credenciales inválidas',
+      message: 'El correo electrónico o la contraseña son incorrectos.',
       status: 401,
     })
   })
@@ -189,7 +189,7 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
       service.verifyCredentials('cliente@example.com', 'secreto123'),
     ).rejects.toMatchObject({
       code: ERROR_CODES.userInactive,
-      message: 'Usuario inactivo',
+      message: 'Tu cuenta está deshabilitada. Contactá al administrador para más información.',
       status: 403,
     })
   })

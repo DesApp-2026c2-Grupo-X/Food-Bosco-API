@@ -212,10 +212,19 @@ describe('RegisterDto (RQ-AUTH-01)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  it('rechaza un teléfono no numérico sólo si el contrato lo exige (hoy acepta cualquier string)', async () => {
+  it('rechaza un teléfono con formato inválido', async () => {
     const { invalid } = await check(RegisterDto, { ...validRegister, phone: 'no-es-telefono' })
 
-    expect(invalid).toEqual([])
+    expect(invalid).toContain('phone')
+  })
+
+  it('normaliza el correo a minúsculas y sin espacios', async () => {
+    const { instance } = await check(RegisterDto, {
+      ...validRegister,
+      email: '  CLIENTE@Example.COM ',
+    })
+
+    expect(instance.email).toBe('cliente@example.com')
   })
 
   it('con whitelist descarta campos extra', async () => {

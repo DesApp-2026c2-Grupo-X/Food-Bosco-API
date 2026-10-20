@@ -194,12 +194,12 @@ describe('UpdateProfileDto (RQ-AUTH-11)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
     {
       name: 'payload válido',
-      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '999' },
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '11223344' },
       valid: true,
     },
     {
       name: 'nombre de 100 caracteres (límite)',
-      payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '1' },
+      payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '11223344' },
       valid: true,
     },
     { name: 'sin teléfono', payload: { firstName: 'Ana', lastName: 'Gomez' }, valid: false },
@@ -210,7 +210,12 @@ describe('UpdateProfileDto (RQ-AUTH-11)', () => {
     },
     {
       name: 'apellido de 101 caracteres',
-      payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '1' },
+      payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '11223344' },
+      valid: false,
+    },
+    {
+      name: 'teléfono con formato inválido',
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: 'no-es-telefono' },
       valid: false,
     },
   ])('$name → válido=$valid', async ({ payload, valid }) => {

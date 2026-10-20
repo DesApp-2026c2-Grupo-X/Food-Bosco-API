@@ -387,12 +387,12 @@ describe('Users admin (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch(`/v1/users/${targetId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ firstName: 'Renombrada', lastName: 'Nueva', phone: '999' })
+        .send({ firstName: 'Renombrada', lastName: 'Nueva', phone: '11223344' })
         .expect(200)
 
       expect(res.body.firstName).toBe('Renombrada')
       expect(res.body.lastName).toBe('Nueva')
-      expect(res.body.phone).toBe('999')
+      expect(res.body.phone).toBe('11223344')
     })
 
     it('devuelve 404 si el usuario no existe', async () => {

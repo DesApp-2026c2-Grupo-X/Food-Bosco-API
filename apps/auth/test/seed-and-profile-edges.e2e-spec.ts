@@ -27,7 +27,7 @@ interface UserRow {
   vehicle?: string | null
 }
 
-const ghostProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '999' }
+const ghostProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '11223344' }
 
 describe('Seed & profile edges (e2e)', () => {
   let mongod: MongoMemoryServer
@@ -67,7 +67,7 @@ describe('Seed & profile edges (e2e)', () => {
       role: 'branch_admin',
       firstName: 'Target',
       lastName: 'Edge',
-      phone: '111',
+      phone: '11223344',
       active: true,
       branchId: 'branch-1',
       vehicle: null,

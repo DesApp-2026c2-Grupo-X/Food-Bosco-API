@@ -15,6 +15,7 @@ export const ERROR_CODES = {
   invalidImageType: 'INVALID_IMAGE_TYPE',
   payloadTooLarge: 'PAYLOAD_TOO_LARGE',
   tooManyRequests: 'TOO_MANY_REQUESTS',
+  serviceUnavailable: 'SERVICE_UNAVAILABLE',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

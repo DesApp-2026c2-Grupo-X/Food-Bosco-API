@@ -19,10 +19,6 @@ describe('AdjustStockDto (RQ-STK-04/10)', () => {
       payload: { branchId: 'b1', ingredientId: 'i1', delta: -5 },
     },
     {
-      name: 'delta cero (límite)',
-      payload: { branchId: 'b1', ingredientId: 'i1', delta: 0 },
-    },
-    {
       name: 'reason opcional informado',
       payload: { branchId: 'b1', ingredientId: 'i1', delta: 1, reason: 'compra' },
     },
@@ -65,6 +61,16 @@ describe('AdjustStockDto (RQ-STK-04/10)', () => {
     {
       name: 'sin delta',
       payload: { branchId: 'b1', ingredientId: 'i1' },
+      property: 'delta',
+    },
+    {
+      name: 'delta cero',
+      payload: { branchId: 'b1', ingredientId: 'i1', delta: 0 },
+      property: 'delta',
+    },
+    {
+      name: 'delta decimal',
+      payload: { branchId: 'b1', ingredientId: 'i1', delta: 1.5 },
       property: 'delta',
     },
   ]

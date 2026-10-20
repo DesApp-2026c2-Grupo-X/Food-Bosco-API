@@ -166,7 +166,7 @@ describe('Gateway delivery extendido (e2e) — gaps de errores, tripOffers y aut
         gqlField: 'trip',
         status: 500,
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'delivery devolvió HTTP 500',
+        message: 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
         fallback: true,
       },
       {
@@ -187,7 +187,7 @@ describe('Gateway delivery extendido (e2e) — gaps de errores, tripOffers y aut
         gqlField: 'myTrips',
         status: 500,
         code: 'INTERNAL_SERVER_ERROR',
-        message: 'delivery devolvió HTTP 500',
+        message: 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
         fallback: true,
       },
       {
@@ -277,7 +277,7 @@ describe('Gateway delivery extendido (e2e) — gaps de errores, tripOffers y aut
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].extensions?.code).toBe('UNAUTHENTICATED')
-      expect(body.errors?.[0].message).toBe('Unauthorized')
+      expect(body.errors?.[0].message).toBe('Tu sesión expiró o no es válida. Iniciá sesión nuevamente.')
       expect(downstream.calls).toHaveLength(0)
     })
 
@@ -288,7 +288,7 @@ describe('Gateway delivery extendido (e2e) — gaps de errores, tripOffers y aut
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].extensions?.code).toBe('FORBIDDEN')
-      expect(body.errors?.[0].message).toBe('Forbidden')
+      expect(body.errors?.[0].message).toBe('No tenés permisos para realizar esta acción.')
       expect(downstream.calls).toHaveLength(0)
     })
   })
