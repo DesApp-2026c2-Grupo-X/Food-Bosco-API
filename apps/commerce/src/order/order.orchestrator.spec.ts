@@ -112,8 +112,18 @@ const internalActor = (): AuthContext => ({
 })
 
 const makeOrchestrator = () => {
-  const orderService = { findById: jest.fn(), create: jest.fn(), applyTransition: jest.fn() }
-  const cartService = { findActiveByClient: jest.fn(), confirm: jest.fn() }
+  const orderService = {
+    findById: jest.fn(),
+    create: jest.fn(),
+    applyTransition: jest.fn(),
+    revertTransition: jest.fn(),
+  }
+  const cartService = {
+    findActiveByClient: jest.fn(),
+    confirm: jest.fn(),
+    claim: jest.fn().mockResolvedValue(cart({ status: 'confirmed' })),
+    release: jest.fn(),
+  }
   const cartOrchestrator = { replaceItems: jest.fn() }
   const productService = { findByIds: jest.fn(), findById: jest.fn() }
   const branchService = {
@@ -150,7 +160,7 @@ const makeOrchestrator = () => {
 }
 
 describe('OrderOrchestrator.create (RQ-ORD-01..10)', () => {
-  it('asigna sucursal, valida stock, crea snapshot y confirma el carrito', async () => {
+  it('asigna sucursal, valida stock, crea snapshot y reclama el carrito', async () => {
     const mocks = makeOrchestrator()
     mocks.cartService.findActiveByClient.mockResolvedValue({
       id: 'cart1',
@@ -178,7 +188,7 @@ describe('OrderOrchestrator.create (RQ-ORD-01..10)', () => {
     expect(mocks.orderService.create).toHaveBeenCalledWith(
       expect.objectContaining({ branchId: 'b1', clientId: 'c1' }),
     )
-    expect(mocks.cartService.confirm).toHaveBeenCalledWith('cart1')
+    expect(mocks.cartService.claim).toHaveBeenCalledWith('cart1')
     expect(result.id).toBe('o1')
   })
 
@@ -252,6 +262,29 @@ describe('OrderOrchestrator.changeStatus (RQ-ORD-14/18, RQ-STK-08)', () => {
     expect(mocks.eventBus.publish).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'order.status_changed', status: 'preparing' }),
     )
+  })
+
+  it('si el descuento de stock falla, revierte el estado y no publica el evento', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(order({ status: ORDER_STATUS.confirmed }))
+    mocks.orderService.applyTransition.mockResolvedValue({
+      order: order({ status: ORDER_STATUS.preparing }),
+      changed: true,
+    })
+    mocks.productService.findByIds.mockResolvedValue([product()])
+    mocks.stockService.discount.mockRejectedValue(
+      Object.assign(new Error('sin stock'), { code: ERROR_CODES.insufficientStock }),
+    )
+
+    await expect(
+      mocks.orchestrator.changeStatus(admin('b1'), 'o1', ORDER_STATUS.preparing),
+    ).rejects.toMatchObject({ code: ERROR_CODES.insufficientStock })
+    expect(mocks.orderService.revertTransition).toHaveBeenCalledWith(
+      'o1',
+      ORDER_STATUS.preparing,
+      ORDER_STATUS.confirmed,
+    )
+    expect(mocks.eventBus.publish).not.toHaveBeenCalled()
   })
 
   it('no descuenta stock en una transición distinta a PREPARING', async () => {
@@ -359,7 +392,7 @@ const primeCreate = (mocks: ReturnType<typeof makeOrchestrator>): void => {
   mocks.productService.findByIds.mockResolvedValue([product()])
   mocks.parameterService.getValue.mockResolvedValue(0)
   mocks.orderService.create.mockResolvedValue(order())
-  mocks.cartService.confirm.mockResolvedValue(cart())
+  mocks.cartService.claim.mockResolvedValue(cart({ status: 'confirmed' }))
 }
 
 describe('OrderOrchestrator.create — cálculo, snapshot y sucursal (RQ-ORD-03/06/07)', () => {
@@ -486,7 +519,7 @@ describe('OrderOrchestrator.create — ETA (RQ-ORD-09)', () => {
 })
 
 describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, RQ-STK-06)', () => {
-  it('valida el stock antes de crear y confirma el carrito solo después de crear', async () => {
+  it('valida el stock, reclama el carrito y recién después crea el pedido', async () => {
     const mocks = makeOrchestrator()
     mocks.cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem()] }))
     primeCreate(mocks)
@@ -494,11 +527,11 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     await mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress })
 
     const stockOrder = mocks.stockService.validateAvailability.mock.invocationCallOrder[0]
+    const claimOrder = mocks.cartService.claim.mock.invocationCallOrder[0]
     const createOrder = mocks.orderService.create.mock.invocationCallOrder[0]
-    const confirmOrder = mocks.cartService.confirm.mock.invocationCallOrder[0]
-    expect(stockOrder).toBeLessThan(createOrder)
-    expect(createOrder).toBeLessThan(confirmOrder)
-    expect(mocks.cartService.confirm).toHaveBeenCalledWith('cart1')
+    expect(stockOrder).toBeLessThan(claimOrder)
+    expect(claimOrder).toBeLessThan(createOrder)
+    expect(mocks.cartService.confirm).not.toHaveBeenCalled()
   })
 
   it('calcula los requerimientos con la receta y los ajustes por opción', async () => {
@@ -541,11 +574,11 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     await expect(
       mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
     ).rejects.toMatchObject({ code: ERROR_CODES.insufficientStock })
+    expect(mocks.cartService.claim).not.toHaveBeenCalled()
     expect(mocks.orderService.create).not.toHaveBeenCalled()
-    expect(mocks.cartService.confirm).not.toHaveBeenCalled()
   })
 
-  it('si falla la creación del pedido no confirma el carrito', async () => {
+  it('si falla la creación del pedido libera el carrito reclamado', async () => {
     const mocks = makeOrchestrator()
     mocks.cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem()] }))
     primeCreate(mocks)
@@ -554,7 +587,19 @@ describe('OrderOrchestrator.create — stock y orden de operaciones (RQ-ORD-01, 
     await expect(
       mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
     ).rejects.toThrow('fallo de persistencia')
-    expect(mocks.cartService.confirm).not.toHaveBeenCalled()
+    expect(mocks.cartService.release).toHaveBeenCalledWith('cart1')
+  })
+
+  it('si otro pedido ya reclamó el carrito responde CART_CONFIRMED 409', async () => {
+    const mocks = makeOrchestrator()
+    mocks.cartService.findActiveByClient.mockResolvedValue(cart({ items: [cartItem()] }))
+    primeCreate(mocks)
+    mocks.cartService.claim.mockResolvedValue(null)
+
+    await expect(
+      mocks.orchestrator.create('c1', { addressId: 'a1', deliveryAddress }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.cartConfirmed, status: 409 })
+    expect(mocks.orderService.create).not.toHaveBeenCalled()
   })
 
   it.each([

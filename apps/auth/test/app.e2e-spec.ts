@@ -194,7 +194,7 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch('/v1/me')
         .set('Authorization', `Bearer ${customerToken}`)
-        .send({ firstName: 'Pedro', lastName: 'Gomez', phone: '999' })
+        .send({ firstName: 'Pedro', lastName: 'Gomez', phone: '11223344' })
         .expect(200)
 
       expect(res.body.firstName).toBe('Pedro')
@@ -406,7 +406,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'S',
           lastName: 'S',
           email: 'staff@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           branchId: 'branch-1',
         })
@@ -426,7 +426,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'S',
           lastName: 'S',
           email: 'staff-missing@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           branchId: 'no-existe',
         })
@@ -466,7 +466,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'A',
           lastName: 'A',
           email: 'admin2@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
         })
         .expect(201)
@@ -482,7 +482,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'R',
           lastName: 'R',
           email: 'rider@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           vehicle: 'Moto',
         })
@@ -544,7 +544,7 @@ describe('Auth Service (e2e)', () => {
       firstName: 'R',
       lastName: 'R',
       email: 'rider-self@test.com',
-      phone: '1',
+      phone: '11223344',
       password: 'password123',
       vehicle: 'Bici',
     }

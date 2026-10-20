@@ -89,10 +89,13 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
     quantity: number,
   ): Promise<void> => {
     const current = await getStock(branchId, ingredientId)
+    const delta = quantity - current
+    if (delta === 0) return
+
     await http()
       .post('/v1/stock/adjustments')
       .set(...auth(superToken))
-      .send({ branchId, ingredientId, delta: quantity - current })
+      .send({ branchId, ingredientId, delta })
       .expect(201)
   }
 
@@ -389,14 +392,17 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       expect(res.body.quantity).toBe(6)
     })
 
-    it('B3: delta negativo que cruza el cero se recorta a 0', async () => {
+    it('B3: delta negativo mayor al stock se rechaza y no deja cantidades negativas', async () => {
       await setStock(branchA, ingredientIds.ingC, 2)
       const res = await http()
         .post('/v1/stock/adjustments')
         .set(...auth(superToken))
         .send({ branchId: branchA, ingredientId: ingredientIds.ingC, delta: -10 })
-        .expect(201)
-      expect(res.body.quantity).toBe(0)
+        .expect(409)
+
+      expect(res.body.code).toBe('INSUFFICIENT_STOCK')
+      expect(res.body.details).toMatchObject({ requestedQuantity: 10, availableQuantity: 2 })
+      expect(await getStock(branchA, ingredientIds.ingC)).toBe(2)
     })
 
     it('B4: ajustar un ingrediente inexistente crea la fila', async () => {
@@ -554,13 +560,13 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       expect(res.body.code).toBe('INSUFFICIENT_STOCK')
     })
 
-    it('C5: varios ingredientes con uno insuficiente → 409 nombrando el ingrediente', async () => {
+    it('C5: varios ingredientes con uno insuficiente → 409 con el ingrediente en details', async () => {
       await setStock(branchA, ingredientIds.ingD1, 3)
       await setStock(branchA, ingredientIds.ingD2, 10)
       const res = await placeOrder('cust-c5', productIds.pMulti, 1)
       expect(res.status).toBe(409)
       expect(res.body.code).toBe('INSUFFICIENT_STOCK')
-      expect(res.body.message).toContain(ingredientIds.ingD2)
+      expect(res.body.details).toMatchObject({ ingredientId: ingredientIds.ingD2 })
     })
 
     it('C6: la variante elegida cambia el requerimiento (base ok, opción insuficiente)', async () => {
@@ -638,7 +644,7 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       expect(await getStock(branchA, ingredientIds.ingA)).toBe(30)
     })
 
-    it('D7: el movimiento registra el cambio real cuando el stock se recorta a 0', async () => {
+    it('D7: si el stock cayó entre confirmar y preparar, rechaza y revierte el estado', async () => {
       await setStock(branchA, ingredientIds.ingA, 10)
       const order = await placeOrder('cust-d7', productIds.pMain, 2)
       await transition(order.body.id, 'confirmed').expect(200)
@@ -647,16 +653,15 @@ describe('Commerce — stock E2E (RQ-STK, RQ-REP-03/06)', () => {
       await setStock(branchA, ingredientIds.ingA, 1)
       await movementModel.deleteMany({ branchId: branchA, ingredientId: ingredientIds.ingA })
 
-      await transition(order.body.id, 'preparing').expect(200)
+      const res = await transition(order.body.id, 'preparing').expect(409)
 
-      expect(await getStock(branchA, ingredientIds.ingA)).toBe(0)
-      const movements = await movementModel
-        .find({ branchId: branchA, ingredientId: ingredientIds.ingA, reason: 'preparing' })
-        .lean()
-        .exec()
-      // El stock real bajó 1 (de 1 a 0) y el movimiento registra ese cambio real.
-      expect(movements).toHaveLength(1)
-      expect(movements[0].delta).toBe(-1)
+      expect(res.body.code).toBe('INSUFFICIENT_STOCK')
+      expect(await getStock(branchA, ingredientIds.ingA)).toBe(1)
+      const prepared = await http()
+        .get(`/v1/orders/${order.body.id}`)
+        .set(...auth(superToken))
+        .expect(200)
+      expect(prepared.body.status).toBe('confirmed')
     })
 
     it('D8: dos pedidos distintos acumulan el descuento', async () => {

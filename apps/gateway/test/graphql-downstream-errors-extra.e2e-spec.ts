@@ -115,7 +115,7 @@ describe('Gateway errores downstream por operación (e2e) — casos restantes', 
       .send(gql(query))
 
   describe('downstream 500 sin code → INTERNAL_SERVER_ERROR', () => {
-    it.each(cases)('$name', async ({ query, role, service }) => {
+    it.each(cases)('$name', async ({ query, role }) => {
       downstream.setResponder(() => ({ status: 500, body: { message: 'sin code' } }))
 
       const res = await run(query, role).expect(200)
@@ -124,7 +124,9 @@ describe('Gateway errores downstream por operación (e2e) — casos restantes', 
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
-      expect(body.errors?.[0].message).toBe(`${service} devolvió HTTP 500`)
+      expect(body.errors?.[0].message).toBe(
+        'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
+      )
     })
   })
 

@@ -70,7 +70,11 @@ const makeOrchestrator = () => {
 const credentials = { email: 'cliente@example.com', password: 'secreto123' }
 
 const invalidCredentialsError = () =>
-  new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401)
+  new DomainException(
+    ERROR_CODES.invalidCredentials,
+    'El correo electrónico o la contraseña son incorrectos.',
+    401,
+  )
 const invalidRefreshTokenError = () =>
   new DomainException(ERROR_CODES.invalidRefreshToken, 'Refresh token inválido', 401)
 const invalidOrExpiredTokenError = () =>
@@ -216,7 +220,7 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
 
     await expect(orchestrator.login(credentials)).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
-      message: 'Credenciales inválidas',
+      message: 'El correo electrónico o la contraseña son incorrectos.',
       status: 401,
     })
     expect(refreshTokenService.issue).not.toHaveBeenCalled()
@@ -225,12 +229,16 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
   it('rechaza un usuario inactivo con USER_INACTIVE 403', async () => {
     const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
     userService.verifyCredentials.mockRejectedValue(
-      new DomainException(ERROR_CODES.userInactive, 'Usuario inactivo', 403),
+      new DomainException(
+        ERROR_CODES.userInactive,
+        'Tu cuenta está deshabilitada. Contactá al administrador para más información.',
+        403,
+      ),
     )
 
     await expect(orchestrator.login(credentials)).rejects.toMatchObject({
       code: ERROR_CODES.userInactive,
-      message: 'Usuario inactivo',
+      message: 'Tu cuenta está deshabilitada. Contactá al administrador para más información.',
       status: 403,
     })
     expect(refreshTokenService.issue).not.toHaveBeenCalled()

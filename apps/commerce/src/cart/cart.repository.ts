@@ -42,4 +42,29 @@ export class CartRepository {
       .findByIdAndUpdate(id, { $set: { status: CART_STATUS.confirmed } }, { new: true })
       .exec()
   }
+
+  /**
+   * Confirma el carrito sólo si sigue activo. Dos pedidos simultáneos no pueden
+   * consumir el mismo carrito.
+   */
+  claim(id: string): Promise<CartDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { _id: id, status: CART_STATUS.active },
+        { $set: { status: CART_STATUS.confirmed } },
+        { new: true },
+      )
+      .exec()
+  }
+
+  /** Devuelve un carrito confirmado a activo si la creación del pedido falló. */
+  release(id: string): Promise<CartDocument | null> {
+    return this.model
+      .findOneAndUpdate(
+        { _id: id, status: CART_STATUS.confirmed },
+        { $set: { status: CART_STATUS.active } },
+        { new: true },
+      )
+      .exec()
+  }
 }

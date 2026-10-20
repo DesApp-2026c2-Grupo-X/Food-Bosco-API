@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { isValidObjectId, Model } from 'mongoose'
 import { OrderStatus } from '../config/constants'
 import { Order, OrderDocument, OrderItem, OrderStatusHistory } from './order.model'
 
@@ -63,6 +63,45 @@ export class OrderRepository {
 
   save(doc: OrderDocument): Promise<OrderDocument> {
     return doc.save()
+  }
+
+  /**
+   * Cambia el estado sólo si el pedido sigue en `fromStatus`. Evita que dos
+   * solicitudes concurrentes apliquen la misma transición (y descuenten stock
+   * dos veces).
+   */
+  transition(
+    id: string,
+    fromStatus: OrderStatus,
+    toStatus: OrderStatus,
+    entry: OrderStatusHistory,
+  ): Promise<OrderDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
+
+    return this.model
+      .findOneAndUpdate(
+        { _id: id, status: fromStatus },
+        { $set: { status: toStatus }, $push: { statusHistory: entry } },
+        { new: true },
+      )
+      .exec()
+  }
+
+  /** Revierte una transición recién aplicada (compensación de stock). */
+  revertTransition(
+    id: string,
+    fromStatus: OrderStatus,
+    toStatus: OrderStatus,
+  ): Promise<OrderDocument | null> {
+    if (!isValidObjectId(id)) return Promise.resolve(null)
+
+    return this.model
+      .findOneAndUpdate(
+        { _id: id, status: fromStatus },
+        { $set: { status: toStatus }, $pop: { statusHistory: -1 } },
+        { new: true },
+      )
+      .exec()
   }
 
   markAssigned(orderIds: string[], tripId: string, riderId: string): Promise<unknown> {

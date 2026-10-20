@@ -131,7 +131,7 @@ describe('Auth flows (e2e)', () => {
         firstName: 'Branch',
         lastName: 'Admin',
         email: 'branch@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         branchId: 'branch-1',
       })
@@ -325,7 +325,7 @@ describe('Auth flows (e2e)', () => {
       firstName: 'Raul',
       lastName: 'Rider',
       email: 'rider-dup@test.com',
-      phone: '1',
+      phone: '11223344',
       password: 'password123',
       vehicle: 'Moto',
     }
@@ -354,7 +354,7 @@ describe('Auth flows (e2e)', () => {
           firstName: 'Sin',
           lastName: 'Vehiculo',
           email: 'no-vehicle-rider@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
         })
         .expect(400)

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator'
+import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, NotEquals } from 'class-validator'
 
 export class AdjustStockDto {
   @IsString()
@@ -9,10 +9,12 @@ export class AdjustStockDto {
   @IsNotEmpty()
   ingredientId!: string
 
-  @IsNumber()
+  @IsInt({ message: 'La cantidad a ajustar debe ser un número entero' })
+  @NotEquals(0, { message: 'El ajuste de stock no puede ser cero' })
   delta!: number
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   reason?: string
 }

@@ -39,7 +39,7 @@ interface RecoveryRow {
   used: boolean
 }
 
-const validProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '999' }
+const validProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '11223344' }
 
 const validAddress = {
   label: 'Casa',
@@ -138,7 +138,7 @@ describe('Authorization (e2e)', () => {
         firstName: 'Branch',
         lastName: 'Admin',
         email: 'branch-authz@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         branchId: 'branch-1',
       })
@@ -157,7 +157,7 @@ describe('Authorization (e2e)', () => {
         firstName: 'Raul',
         lastName: 'Rider',
         email: 'rider-authz@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         vehicle: 'Moto',
       })

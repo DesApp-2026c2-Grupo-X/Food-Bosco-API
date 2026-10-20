@@ -15,7 +15,8 @@ describe('AddCartItemDto (RQ-CART-02/03)', () => {
   const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean }> = [
     { name: 'ítem mínimo válido', payload: { productId: 'p1', quantity: 1 }, valid: true },
     { name: 'cantidad 1 (mínimo)', payload: { productId: 'p1', quantity: 1 }, valid: true },
-    { name: 'cantidad grande', payload: { productId: 'p1', quantity: 999 }, valid: true },
+    { name: 'cantidad máxima (99)', payload: { productId: 'p1', quantity: 99 }, valid: true },
+    { name: 'cantidad sobre el máximo', payload: { productId: 'p1', quantity: 100 }, valid: false },
     { name: 'sin opciones', payload: { productId: 'p1', quantity: 2, optionIds: [] }, valid: true },
     {
       name: 'varias opciones',
@@ -55,6 +56,11 @@ describe('AddCartItemDto (RQ-CART-02/03)', () => {
       payload: { productId: 'p1', quantity: 1, optionIds: [{}] },
       valid: false,
     },
+    {
+      name: 'optionIds duplicados',
+      payload: { productId: 'p1', quantity: 1, optionIds: ['opt1', 'opt1'] },
+      valid: false,
+    },
   ]
 
   it.each(cases)('$name → $valid', async ({ payload, valid }) => {
@@ -68,7 +74,8 @@ describe('UpdateCartItemDto (RQ-CART-04)', () => {
   const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean }> = [
     { name: 'payload vacío (todo opcional)', payload: {}, valid: true },
     { name: 'solo cantidad', payload: { quantity: 1 }, valid: true },
-    { name: 'cantidad grande', payload: { quantity: 999 }, valid: true },
+    { name: 'cantidad máxima (99)', payload: { quantity: 99 }, valid: true },
+    { name: 'cantidad sobre el máximo', payload: { quantity: 100 }, valid: false },
     { name: 'solo observaciones', payload: { observations: 'sin sal' }, valid: true },
     {
       name: 'observaciones de 500 caracteres (límite)',

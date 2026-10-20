@@ -30,4 +30,13 @@ export class CartService {
     const doc = await this.repository.confirm(id)
     return doc ? serializeCart(doc) : null
   }
+
+  async claim(id: string): Promise<PublicCart | null> {
+    const doc = await this.repository.claim(id)
+    return doc ? serializeCart(doc) : null
+  }
+
+  async release(id: string): Promise<void> {
+    await this.repository.release(id)
+  }
 }

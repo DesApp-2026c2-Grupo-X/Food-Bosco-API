@@ -29,6 +29,8 @@ export interface RestErrorBody {
   code?: string
   message?: string
   path?: string
+  details?: Record<string, unknown>
+  requestId?: string
 }
 
 type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -67,54 +69,138 @@ export class RestClient {
     return url.toString()
   }
 
-  private toGraphQLError(path: string, status: number, body: unknown): GraphQLError {
+  private errorExtensions(
+    code: string,
+    status: number,
+    path: string,
+    requestId?: string | null,
+    details?: Record<string, unknown>,
+  ): Record<string, unknown> {
+    return {
+      code,
+      httpStatus: status,
+      path,
+      ...(details ? { details } : {}),
+      ...(requestId ? { requestId } : {}),
+    }
+  }
+
+  private toGraphQLError(
+    path: string,
+    status: number,
+    body: unknown,
+    requestId?: string | null,
+  ): GraphQLError {
     if (isErrorBody(body) && body.code) {
       return new GraphQLError(body.message ?? `${this.serviceName} devolvió HTTP ${status}`, {
-        extensions: { code: body.code, httpStatus: status, path: body.path ?? path },
+        extensions: this.errorExtensions(
+          body.code,
+          status,
+          body.path ?? path,
+          body.requestId ?? requestId,
+          body.details,
+        ),
       })
     }
 
     return new GraphQLError(`${this.serviceName} devolvió HTTP ${status}`, {
-      extensions: { code: 'INTERNAL_SERVER_ERROR', httpStatus: status, path },
+      extensions: this.errorExtensions(ERROR_CODES.internal, status, path, requestId),
     })
   }
 
-  private toHttpError(path: string, status: number, body: unknown): HttpException {
+  private toHttpError(
+    path: string,
+    status: number,
+    body: unknown,
+    requestId?: string | null,
+  ): HttpException {
     if (isErrorBody(body) && body.code) {
       return new HttpException(
         {
           code: body.code,
           message: body.message ?? `${this.serviceName} devolvió HTTP ${status}`,
           path: body.path ?? path,
+          ...(body.details ? { details: body.details } : {}),
+          ...(body.requestId ?? requestId ? { requestId: body.requestId ?? requestId } : {}),
         },
         status,
       )
     }
 
     return new HttpException(
-      { code: ERROR_CODES.internal, message: `${this.serviceName} devolvió HTTP ${status}`, path },
+      {
+        code: ERROR_CODES.internal,
+        message: `${this.serviceName} devolvió HTTP ${status}`,
+        path,
+        ...(requestId ? { requestId } : {}),
+      },
       status,
     )
+  }
+
+  private unavailableError(path: string, requestId?: string | null, asHttp = false): Error {
+    const message = `No pudimos comunicarnos con ${this.serviceName}. Intentá de nuevo en unos instantes.`
+
+    if (asHttp) {
+      return new HttpException(
+        {
+          code: ERROR_CODES.serviceUnavailable,
+          message,
+          path,
+          ...(requestId ? { requestId } : {}),
+        },
+        503,
+      )
+    }
+
+    return new GraphQLError(message, {
+      extensions: this.errorExtensions(
+        ERROR_CODES.serviceUnavailable,
+        503,
+        path,
+        requestId,
+      ),
+    })
+  }
+
+  private async send(
+    url: string,
+    init: RequestInit,
+    path: string,
+    requestId: string | null | undefined,
+    errorsAsHttp?: boolean,
+  ): Promise<Response> {
+    try {
+      return await fetch(url, init)
+    } catch {
+      throw this.unavailableError(path, requestId, errorsAsHttp)
+    }
   }
 
   async request<T>(method: HttpMethod, path: string, options: RestRequestOptions = {}): Promise<T> {
     const { context = {}, query, body, errorsAsHttp } = options
     const hasBody = body !== undefined
 
-    const response = await fetch(this.buildUrl(path, query), {
-      method,
-      headers: {
-        ...this.buildHeaders(context),
-        ...(hasBody ? { 'content-type': 'application/json' } : {}),
+    const response = await this.send(
+      this.buildUrl(path, query),
+      {
+        method,
+        headers: {
+          ...this.buildHeaders(context),
+          ...(hasBody ? { 'content-type': 'application/json' } : {}),
+        },
+        body: hasBody ? JSON.stringify(body) : undefined,
       },
-      body: hasBody ? JSON.stringify(body) : undefined,
-    })
+      path,
+      context.requestId,
+      errorsAsHttp,
+    )
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
       throw errorsAsHttp
-        ? this.toHttpError(path, response.status, errorBody)
-        : this.toGraphQLError(path, response.status, errorBody)
+        ? this.toHttpError(path, response.status, errorBody, context.requestId)
+        : this.toGraphQLError(path, response.status, errorBody, context.requestId)
     }
 
     if (response.status === 204) {
@@ -143,15 +229,21 @@ export class RestClient {
   ): Promise<T> {
     const { context = {}, query } = options
 
-    const response = await fetch(this.buildUrl(path, query), {
-      method: 'POST',
-      headers: this.buildHeaders(context),
-      body: form,
-    })
+    const response = await this.send(
+      this.buildUrl(path, query),
+      {
+        method: 'POST',
+        headers: this.buildHeaders(context),
+        body: form,
+      },
+      path,
+      context.requestId,
+      true,
+    )
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null)
-      throw this.toHttpError(path, response.status, errorBody)
+      throw this.toHttpError(path, response.status, errorBody, context.requestId)
     }
 
     return (await response.json()) as T

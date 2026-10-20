@@ -30,6 +30,22 @@ const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): OrderDocume
 const makeService = (doc: OrderDocument | null) => {
   const repository = {
     findById: jest.fn().mockResolvedValue(doc),
+    transition: jest
+      .fn()
+      .mockImplementation(
+        (
+          _id: string,
+          from: OrderStatus,
+          to: OrderStatus,
+          entry: OrderDocument['statusHistory'][number],
+        ) => {
+          if (!doc || doc.status !== from) return Promise.resolve(null)
+          doc.status = to
+          doc.statusHistory.push(entry)
+          return Promise.resolve(doc)
+        },
+      ),
+    revertTransition: jest.fn().mockResolvedValue(doc),
     save: jest.fn().mockImplementation((d: OrderDocument) => Promise.resolve(d)),
   }
   return new OrderService(repository as unknown as OrderRepository)
@@ -381,6 +397,41 @@ describe('OrderService.applyTransition — pedido inexistente', () => {
   it('devuelve null si no encuentra el pedido', async () => {
     const service = makeService(null)
     await expect(service.applyTransition('missing', ORDER_STATUS.confirmed)).resolves.toBeNull()
+  })
+})
+
+describe('OrderService.applyTransition — concurrencia (NFR-04)', () => {
+  it('si otra solicitud ya aplicó el cambio, responde idempotente sin duplicar historial', async () => {
+    const confirmed = buildDoc({ status: ORDER_STATUS.confirmed })
+    const alreadyPreparing = buildDoc({ status: ORDER_STATUS.preparing })
+    const repository = {
+      findById: jest
+        .fn()
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce(alreadyPreparing),
+      transition: jest.fn().mockResolvedValue(null),
+    }
+    const service = new OrderService(repository as unknown as OrderRepository)
+
+    const result = await service.applyTransition('o1', ORDER_STATUS.preparing)
+
+    expect(result).toMatchObject({ changed: false, order: { status: ORDER_STATUS.preparing } })
+    expect(alreadyPreparing.statusHistory).toHaveLength(0)
+  })
+
+  it('si el pedido cambió a otro estado, lanza CONFLICT en lugar de pisarlo', async () => {
+    const confirmed = buildDoc({ status: ORDER_STATUS.confirmed })
+    const cancelled = buildDoc({ status: ORDER_STATUS.cancelled })
+    const repository = {
+      findById: jest.fn().mockResolvedValueOnce(confirmed).mockResolvedValueOnce(cancelled),
+      transition: jest.fn().mockResolvedValue(null),
+    }
+    const service = new OrderService(repository as unknown as OrderRepository)
+
+    await expect(service.applyTransition('o1', ORDER_STATUS.preparing)).rejects.toMatchObject({
+      code: ERROR_CODES.conflict,
+      status: 409,
+    })
   })
 })
 

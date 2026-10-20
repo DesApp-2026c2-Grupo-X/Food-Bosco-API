@@ -19,6 +19,8 @@ const makeService = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
     list: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
     setQuantity: jest.fn().mockResolvedValue(null),
+    decrementIfAvailable: jest.fn(),
+    increment: jest.fn(),
     createMovement: jest.fn().mockResolvedValue({}),
     ...overrides,
   }
@@ -54,12 +56,6 @@ describe('StockService.list (RQ-STK-01/02/03)', () => {
 
     expect(repository.list).toHaveBeenCalledWith(undefined)
   })
-
-  it('devuelve lista vacía cuando no hay stock', async () => {
-    const { service } = makeService({ list: jest.fn().mockResolvedValue([]) })
-
-    await expect(service.list('b1')).resolves.toEqual([])
-  })
 })
 
 describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
@@ -69,6 +65,7 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
     stock: Array<{ ingredientId: string; quantity: number }>
     expected: 'ok' | 'insufficient'
     missingIngredientId?: string
+    availableQuantity?: number
   }> = [
     {
       name: 'stock suficiente para todos los ingredientes',
@@ -91,6 +88,7 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
       stock: [{ ingredientId: 'i1', quantity: 5 }],
       expected: 'insufficient',
       missingIngredientId: 'i1',
+      availableQuantity: 5,
     },
     {
       name: 'el ingrediente no existe en la sucursal',
@@ -98,6 +96,7 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
       stock: [],
       expected: 'insufficient',
       missingIngredientId: 'i1',
+      availableQuantity: 0,
     },
     {
       name: 'múltiples ingredientes donde uno es insuficiente',
@@ -108,6 +107,7 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
       ],
       expected: 'insufficient',
       missingIngredientId: 'i2',
+      availableQuantity: 5,
     },
     {
       name: 'sin requerimientos no exige nada',
@@ -119,12 +119,12 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
 
   it.each(cases)(
     '$name → $expected',
-    async ({ requirements, stock, expected, missingIngredientId }) => {
+    async ({ requirements, stock, expected, missingIngredientId, availableQuantity }) => {
       const { repository, service } = makeService({ list: jest.fn().mockResolvedValue(stock) })
 
       if (expected === 'ok') {
         await expect(service.validateAvailability('b1', requirements)).resolves.toBeUndefined()
-        expect(repository.setQuantity).not.toHaveBeenCalled()
+        expect(repository.decrementIfAvailable).not.toHaveBeenCalled()
         expect(repository.createMovement).not.toHaveBeenCalled()
         return
       }
@@ -132,45 +132,30 @@ describe('StockService.validateAvailability (RQ-STK-05/06)', () => {
       const error = await catchDomainError(service.validateAvailability('b1', requirements))
 
       expect(error.code).toBe(ERROR_CODES.insufficientStock)
-      expect(error.message).toBe(`Stock insuficiente para el ingrediente ${missingIngredientId}`)
       expect(error.getStatus()).toBe(409)
-      expect(repository.setQuantity).not.toHaveBeenCalled()
+      expect(error.details).toEqual({
+        ingredientId: missingIngredientId,
+        requestedQuantity: requirements[missingIngredientId!],
+        availableQuantity,
+      })
+      expect(repository.decrementIfAvailable).not.toHaveBeenCalled()
       expect(repository.createMovement).not.toHaveBeenCalled()
     },
   )
 })
 
 describe('StockService.discount (RQ-STK-07/08)', () => {
-  it('descuenta stock y registra movimientos con motivo "preparing"', async () => {
-    const { repository, service } = makeService({
-      list: jest.fn().mockResolvedValue([{ ingredientId: 'i1', quantity: 10 }]),
-      setQuantity: jest.fn().mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 7 }),
-    })
-
-    await service.discount('b1', { i1: 3 }, 'o1')
-
-    expect(repository.setQuantity).toHaveBeenCalledWith('b1', 'i1', 7)
-    expect(repository.createMovement).toHaveBeenCalledWith({
-      branchId: 'b1',
-      ingredientId: 'i1',
-      delta: -3,
-      reason: STOCK_MOVEMENT_REASON.preparing,
-      orderId: 'o1',
-    })
-  })
-
-  it('agrega los requerimientos de varios ingredientes y registra un movimiento por cada uno', async () => {
-    const { repository, service } = makeService({
-      list: jest.fn().mockResolvedValue([
-        { ingredientId: 'i1', quantity: 10 },
-        { ingredientId: 'i2', quantity: 5 },
-      ]),
-    })
+  it('descuenta de forma atómica y registra movimientos "preparing"', async () => {
+    const decrementIfAvailable = jest
+      .fn()
+      .mockResolvedValueOnce(stockDoc({ ingredientId: 'i1', quantity: 7 }))
+      .mockResolvedValueOnce(stockDoc({ ingredientId: 'i2', quantity: 3 }))
+    const { repository, service } = makeService({ decrementIfAvailable })
 
     await service.discount('b1', { i1: 3, i2: 2 }, 'o1')
 
-    expect(repository.setQuantity).toHaveBeenNthCalledWith(1, 'b1', 'i1', 7)
-    expect(repository.setQuantity).toHaveBeenNthCalledWith(2, 'b1', 'i2', 3)
+    expect(decrementIfAvailable).toHaveBeenNthCalledWith(1, 'b1', 'i1', 3)
+    expect(decrementIfAvailable).toHaveBeenNthCalledWith(2, 'b1', 'i2', 2)
     expect(repository.createMovement).toHaveBeenNthCalledWith(1, {
       branchId: 'b1',
       ingredientId: 'i1',
@@ -189,157 +174,153 @@ describe('StockService.discount (RQ-STK-07/08)', () => {
 
   it('descuenta exactamente el stock disponible y deja 0', async () => {
     const { repository, service } = makeService({
-      list: jest.fn().mockResolvedValue([{ ingredientId: 'i1', quantity: 5 }]),
+      decrementIfAvailable: jest.fn().mockResolvedValue(stockDoc({ quantity: 0 })),
     })
 
     await service.discount('b1', { i1: 5 }, 'o1')
 
-    expect(repository.setQuantity).toHaveBeenCalledWith('b1', 'i1', 0)
-  })
-
-  it('no descuenta por debajo de cero', async () => {
-    const { repository, service } = makeService({
-      list: jest.fn().mockResolvedValue([{ ingredientId: 'i1', quantity: 2 }]),
-      setQuantity: jest.fn(),
-    })
-
-    await service.discount('b1', { i1: 5 }, 'o1')
-
-    expect(repository.setQuantity).toHaveBeenCalledWith('b1', 'i1', 0)
-  })
-
-  const deltaCases: Array<{
-    name: string
-    stock: Array<{ ingredientId: string; quantity: number }>
-    requirement: Record<string, number>
-    ingredientId: string
-    expectedDelta: number
-  }> = [
-    {
-      name: 'el recorte a 0 registra el cambio real',
-      stock: [{ ingredientId: 'i1', quantity: 2 }],
-      requirement: { i1: 5 },
-      ingredientId: 'i1',
-      expectedDelta: -2,
-    },
-    {
-      name: 'un ingrediente ausente (stock 0) no registra cambio',
-      stock: [],
-      requirement: { i9: 2 },
-      ingredientId: 'i9',
-      expectedDelta: 0,
-    },
-  ]
-
-  it.each(deltaCases)('$name', async ({ stock, requirement, ingredientId, expectedDelta }) => {
-    const { repository, service } = makeService({
-      list: jest.fn().mockResolvedValue(stock),
-    })
-
-    await service.discount('b1', requirement, 'o1')
-
-    expect(repository.setQuantity).toHaveBeenCalledWith('b1', ingredientId, 0)
+    expect(repository.decrementIfAvailable).toHaveBeenCalledWith('b1', 'i1', 5)
     expect(repository.createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ingredientId,
-        delta: expectedDelta,
-        reason: STOCK_MOVEMENT_REASON.preparing,
-        orderId: 'o1',
-      }),
+      expect.objectContaining({ delta: -5, orderId: 'o1' }),
     )
   })
 
-  it('no toca el repositorio de escritura si no hay requerimientos', async () => {
+  it('si falta stock, compensa lo descontado y no registra movimientos', async () => {
+    const decrementIfAvailable = jest
+      .fn()
+      .mockResolvedValueOnce(stockDoc({ ingredientId: 'i1', quantity: 7 }))
+      .mockResolvedValueOnce(null)
+    const { repository, service } = makeService({
+      decrementIfAvailable,
+      findOne: jest.fn().mockResolvedValue(stockDoc({ ingredientId: 'i2', quantity: 1 })),
+      increment: jest.fn().mockResolvedValue(stockDoc({ quantity: 10 })),
+    })
+
+    const error = await catchDomainError(service.discount('b1', { i1: 3, i2: 5 }, 'o1'))
+
+    expect(error.code).toBe(ERROR_CODES.insufficientStock)
+    expect(error.details).toEqual({
+      ingredientId: 'i2',
+      requestedQuantity: 5,
+      availableQuantity: 1,
+    })
+    expect(repository.increment).toHaveBeenCalledWith('b1', 'i1', 3)
+    expect(repository.createMovement).toHaveBeenCalledTimes(1)
+    expect(repository.createMovement).toHaveBeenCalledWith(
+      expect.objectContaining({ ingredientId: 'i1', delta: 3, reason: STOCK_MOVEMENT_REASON.adjust }),
+    )
+  })
+
+  it('no escribe nada si no hay requerimientos', async () => {
     const { repository, service } = makeService()
 
     await service.discount('b1', {}, 'o1')
 
-    expect(repository.list).toHaveBeenCalledWith('b1')
-    expect(repository.setQuantity).not.toHaveBeenCalled()
+    expect(repository.decrementIfAvailable).not.toHaveBeenCalled()
     expect(repository.createMovement).not.toHaveBeenCalled()
   })
 })
 
-describe('StockService.adjust (RQ-STK-04)', () => {
-  const cases: Array<{
-    name: string
-    initial: number | null
-    delta: number
-    expected: number
-    expectedDelta: number
-  }> = [
-    { name: 'delta positivo', initial: 10, delta: 5, expected: 15, expectedDelta: 5 },
-    { name: 'delta negativo', initial: 10, delta: -4, expected: 6, expectedDelta: -4 },
-    {
-      name: 'delta negativo que cruza el cero',
-      initial: 2,
-      delta: -10,
-      expected: 0,
-      expectedDelta: -2,
-    },
-    {
-      name: 'delta negativo desde cero',
-      initial: 0,
-      delta: -3,
-      expected: 0,
-      expectedDelta: 0,
-    },
-    {
-      name: 'delta sobre stock inexistente',
-      initial: null,
-      delta: 4,
-      expected: 4,
-      expectedDelta: 4,
-    },
-  ]
-
-  it.each(cases)(
-    '$name: $initial + ($delta) → $expected',
-    async ({ initial, delta, expected, expectedDelta }) => {
-      const setQuantity = jest
-        .fn()
-        .mockImplementation((_branchId: string, _ingredientId: string, quantity: number) =>
-          Promise.resolve({ ingredientId: 'i1', branchId: 'b1', quantity }),
-        )
-      const { repository, service } = makeService({
-        findOne: jest.fn().mockResolvedValue(initial === null ? null : { quantity: initial }),
-        setQuantity,
-      })
-
-      const result = await service.adjust('b1', 'i1', delta)
-
-      expect(repository.setQuantity).toHaveBeenCalledWith('b1', 'i1', expected)
-      expect(result.quantity).toBe(expected)
-      expect(repository.createMovement).toHaveBeenCalledWith(
-        expect.objectContaining({ delta: expectedDelta, reason: STOCK_MOVEMENT_REASON.adjust }),
-      )
-    },
-  )
-
-  it('registra el motivo recibido en el movimiento (RQ-STK-04)', async () => {
+describe('StockService.restore', () => {
+  it('devuelve el stock y registra un movimiento de ajuste por ingrediente', async () => {
     const { repository, service } = makeService({
-      findOne: jest.fn().mockResolvedValue({ quantity: 10 }),
-      setQuantity: jest
-        .fn()
-        .mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
+      increment: jest.fn().mockResolvedValue(stockDoc()),
     })
 
-    await service.adjust('b1', 'i1', 5, 'reposicion')
+    await service.restore('b1', { i1: 3, i2: 2 }, 'o1')
+
+    expect(repository.increment).toHaveBeenNthCalledWith(1, 'b1', 'i1', 3)
+    expect(repository.increment).toHaveBeenNthCalledWith(2, 'b1', 'i2', 2)
+    expect(repository.createMovement).toHaveBeenCalledTimes(2)
+    expect(repository.createMovement).toHaveBeenNthCalledWith(1, {
+      branchId: 'b1',
+      ingredientId: 'i1',
+      delta: 3,
+      reason: STOCK_MOVEMENT_REASON.adjust,
+      orderId: 'o1',
+    })
+  })
+})
+
+describe('StockService.adjust (RQ-STK-04)', () => {
+  it.each([
+    { name: 'delta positivo', delta: 4, expected: 4 },
+    { name: 'delta negativo', delta: -4, expected: 4 },
+  ])('$name registra el delta real', async ({ delta, expected }) => {
+    const { repository, service } = makeService({
+      increment: jest.fn().mockResolvedValue(stockDoc({ quantity: 14 })),
+      decrementIfAvailable: jest.fn().mockResolvedValue(stockDoc({ quantity: 6 })),
+    })
+
+    const result = await service.adjust('b1', 'i1', delta)
+
+    if (delta > 0) {
+      expect(repository.increment).toHaveBeenCalledWith('b1', 'i1', expected)
+      expect(repository.decrementIfAvailable).not.toHaveBeenCalled()
+      expect(result.quantity).toBe(14)
+    } else {
+      expect(repository.decrementIfAvailable).toHaveBeenCalledWith('b1', 'i1', expected)
+      expect(repository.increment).not.toHaveBeenCalled()
+      expect(result.quantity).toBe(6)
+    }
+    expect(repository.createMovement).toHaveBeenCalledWith({
+      branchId: 'b1',
+      ingredientId: 'i1',
+      delta,
+      reason: STOCK_MOVEMENT_REASON.adjust,
+      orderId: undefined,
+    })
+  })
+
+  it('rechaza un ajuste negativo mayor al stock disponible', async () => {
+    const { repository, service } = makeService({
+      decrementIfAvailable: jest.fn().mockResolvedValue(null),
+      findOne: jest.fn().mockResolvedValue(stockDoc({ quantity: 2 })),
+    })
+
+    const error = await catchDomainError(service.adjust('b1', 'i1', -10))
+
+    expect(error.code).toBe(ERROR_CODES.insufficientStock)
+    expect(error.details).toEqual({
+      ingredientId: 'i1',
+      requestedQuantity: 10,
+      availableQuantity: 2,
+    })
+    expect(repository.createMovement).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: 'cero', delta: 0 },
+    { name: 'decimal', delta: 1.5 },
+  ])('rechaza un ajuste $name con VALIDATION_ERROR', async ({ delta }) => {
+    const { repository, service } = makeService()
+
+    const error = await catchDomainError(service.adjust('b1', 'i1', delta))
+
+    expect(error.code).toBe(ERROR_CODES.validationError)
+    expect(error.getStatus()).toBe(400)
+    expect(repository.increment).not.toHaveBeenCalled()
+    expect(repository.decrementIfAvailable).not.toHaveBeenCalled()
+  })
+
+  it('registra el motivo recibido y el orderId', async () => {
+    const { repository, service } = makeService({
+      increment: jest.fn().mockResolvedValue(stockDoc({ quantity: 15 })),
+    })
+
+    await service.adjust('b1', 'i1', 5, ' reposicion ', 'o1')
 
     expect(repository.createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ delta: 5, reason: 'reposicion' }),
+      expect.objectContaining({ delta: 5, reason: 'reposicion', orderId: 'o1' }),
     )
   })
 
   it.each([
     { name: 'vacío', reason: '' },
     { name: 'solo espacios', reason: '   ' },
-  ])('usa el motivo por defecto cuando el motivo es $name (RQ-STK-04)', async ({ reason }) => {
+  ])('usa el motivo por defecto cuando el motivo es $name', async ({ reason }) => {
     const { repository, service } = makeService({
-      findOne: jest.fn().mockResolvedValue({ quantity: 10 }),
-      setQuantity: jest
-        .fn()
-        .mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
+      increment: jest.fn().mockResolvedValue(stockDoc()),
     })
 
     await service.adjust('b1', 'i1', 5, reason)
@@ -347,31 +328,5 @@ describe('StockService.adjust (RQ-STK-04)', () => {
     expect(repository.createMovement).toHaveBeenCalledWith(
       expect.objectContaining({ reason: STOCK_MOVEMENT_REASON.adjust }),
     )
-  })
-
-  it('registra el orderId cuando se informa', async () => {
-    const { repository, service } = makeService({
-      findOne: jest.fn().mockResolvedValue({ quantity: 10 }),
-      setQuantity: jest
-        .fn()
-        .mockResolvedValue({ ingredientId: 'i1', branchId: 'b1', quantity: 15 }),
-    })
-
-    await service.adjust('b1', 'i1', 5, undefined, 'o1')
-
-    expect(repository.createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: 'o1', reason: STOCK_MOVEMENT_REASON.adjust }),
-    )
-  })
-
-  it('devuelve el stock calculado si el repositorio no persiste documento', async () => {
-    const { service } = makeService({
-      findOne: jest.fn().mockResolvedValue(null),
-      setQuantity: jest.fn().mockResolvedValue(null),
-    })
-
-    const result = await service.adjust('b1', 'i1', 4)
-
-    expect(result).toEqual({ ingredientId: 'i1', branchId: 'b1', quantity: 4 })
   })
 })
