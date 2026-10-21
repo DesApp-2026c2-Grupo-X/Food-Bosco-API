@@ -35,6 +35,7 @@ Documentos de referencia actuales (no canónicos o derivados).
 | Recuperación de contraseña        | Implementación del flujo de recuperación y reset (Auth Service + Gateway). | 2026-09-23        | [`password-recovery.md`](implementacion/password-recovery.md)               |
 | Reporte de bugs                   | Hallazgos e inconsistencias documentados por la suite de tests.            | 2026-09-19        | [`bug-report.md`](testing/bug-report.md)                                    |
 | Matriz de cobertura               | Matriz capability → reglas → casos → tests.                                | 2026-09-19        | [`matriz-cobertura.md`](testing/matriz-cobertura.md)                        |
+| Guía de defensa/demo (Backend)    | Guía técnica de defensa/demo, reconstruida leyendo el código.              | 2026-10-20        | [`API_DEMO_GUIDE.md`](API_DEMO_GUIDE.md)                                    |
 
 ## HISTÓRICO / OBSOLETO
 
