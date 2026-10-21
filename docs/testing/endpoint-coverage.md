@@ -29,7 +29,7 @@ Setup: `test/app.e2e-spec.ts` (importa User, Auth, RefreshToken, PasswordRecover
 | Método   | Ruta                         | Roles                  | E2E | Flujos faltantes                                                                                               |
 | -------- | ---------------------------- | ---------------------- | --- | -------------------------------------------------------------------------------------------------------------- |
 | POST     | `/v1/auth/register`          | público                | ✅  | validaciones de límites (password 7/129, email malformado, longitudes), rol forzado `customer`, forma del body |
-| POST     | `/v1/auth/register-rider`    | super_admin            | ✅  | email duplicado 409, payload inválido 400, `branch_admin`→403                                                  |
+| POST     | `/v1/auth/register-rider`    | público                | ✅  | email duplicado 409, payload inválido 400, auto-registro sin token                                             |
 | POST     | `/v1/auth/login`             | público                | ✅  | `code USER_INACTIVE`, email inválido/body vacío 400                                                            |
 | POST     | `/v1/auth/refresh`           | público                | ✅  | token expirado, usuario inactivo, token ausente 400                                                            |
 | POST     | `/v1/auth/logout`            | auth                   | ✅  | 401 sin token, body `{ok:true}`, idempotencia                                                                  |

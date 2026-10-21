@@ -330,17 +330,25 @@ describe('Auth flows (e2e)', () => {
       vehicle: 'Moto',
     }
 
+    it('permite el auto-registro sin token', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/v1/auth/register-rider')
+        .send(riderBody)
+        .expect(201)
+
+      expect(res.body.accessToken).toEqual(expect.any(String))
+      expect(res.body.refreshToken).toEqual(expect.any(String))
+    })
+
     it('rechaza email duplicado con 409', async () => {
       await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send(riderBody)
+        .send({ ...riderBody, email: 'rider-repeat@test.com' })
         .expect(201)
 
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .set('Authorization', `Bearer ${adminToken}`)
-        .send(riderBody)
+        .send({ ...riderBody, email: 'rider-repeat@test.com' })
         .expect(409)
 
       expect(res.body.code).toBe('EMAIL_TAKEN')
@@ -349,7 +357,6 @@ describe('Auth flows (e2e)', () => {
     it('rechaza payload inválido con 400', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           firstName: 'Sin',
           lastName: 'Vehiculo',
@@ -362,14 +369,14 @@ describe('Auth flows (e2e)', () => {
       expect(res.body.code).toBe('VALIDATION_ERROR')
     })
 
-    it('rechaza a un branch_admin con 403', async () => {
+    it('ignora el token de otro rol: el auto-registro sigue siendo público', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
         .set('Authorization', `Bearer ${branchAdminToken}`)
         .send({ ...riderBody, email: 'rider-by-branch@test.com' })
-        .expect(403)
+        .expect(201)
 
-      expect(res.body.code).toBe('FORBIDDEN')
+      expect(res.body.accessToken).toEqual(expect.any(String))
     })
   })
 })
