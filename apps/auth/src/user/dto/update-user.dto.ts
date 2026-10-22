@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsNotEmpty, IsOptional, IsString, Matches, MaxLength } from 'class-validator'
+import { PHONE_PATTERN } from '../../config/validation/normalize'
 
 export class UpdateUserDto {
   @IsOptional()
@@ -14,6 +15,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @Matches(PHONE_PATTERN, { message: 'Ingresá un teléfono válido' })
   phone?: string
 
   @IsOptional()

@@ -251,17 +251,52 @@ describe('RestClient.request', () => {
     })
   })
 
+  it('propaga details y requestId del servicio en extensiones', async () => {
+    const details = { requestedQuantity: 5, availableQuantity: 3 }
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, {
+        code: 'INSUFFICIENT_STOCK',
+        message: 'No hay stock suficiente para preparar el pedido.',
+        details,
+      }),
+    )
+
+    const error = await callAndCatch(
+      client.get('/v1/orders', { context: { requestId: 'rid-1' } }),
+    )
+
+    expect((error as GraphQLError).extensions).toEqual({
+      code: 'INSUFFICIENT_STOCK',
+      httpStatus: 409,
+      path: '/v1/orders',
+      details,
+      requestId: 'rid-1',
+    })
+  })
+
   it('no marca como error una respuesta 2xx aunque venga con status 204-like', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { ok: true }))
 
     await expect(client.get<{ ok: boolean }>('/v1/me')).resolves.toEqual({ ok: true })
   })
 
-  it('propaga el error real si fetch rechaza (servicio caído)', async () => {
-    const networkError = new Error('ECONNREFUSED')
-    fetchMock.mockRejectedValue(networkError)
+  it('traduce un fallo de red a GraphQLError SERVICE_UNAVAILABLE sin filtrar detalles', async () => {
+    fetchMock.mockRejectedValue(new Error('ECONNREFUSED 10.0.0.5'))
 
-    await expect(client.get('/v1/me')).rejects.toBe(networkError)
+    const error = await callAndCatch(
+      client.get('/v1/me', { context: { requestId: 'rid-1' } }),
+    )
+
+    expect(error).toBeInstanceOf(GraphQLError)
+    expect((error as GraphQLError).message).toBe(
+      'No pudimos comunicarnos con commerce. Intentá de nuevo en unos instantes.',
+    )
+    expect((error as GraphQLError).extensions).toEqual({
+      code: 'SERVICE_UNAVAILABLE',
+      httpStatus: 503,
+      path: '/v1/me',
+      requestId: 'rid-1',
+    })
   })
 
   it('errorsAsHttp: true traduce el error a HttpException con status, code y path (INT-15)', async () => {

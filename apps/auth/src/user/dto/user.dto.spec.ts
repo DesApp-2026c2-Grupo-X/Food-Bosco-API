@@ -37,6 +37,7 @@ const base = {
   email: 'cliente@example.com',
   phone: '11223344',
   password: 'secreto123',
+  app: 'store',
 }
 
 describe('RegisterDto (RQ-AUTH-01)', () => {
@@ -82,6 +83,8 @@ describe('RegisterDto (RQ-AUTH-01)', () => {
       valid: false,
     },
     { name: 'nombre numérico', payload: { ...base, firstName: 123 }, valid: false },
+    { name: 'app inválida', payload: { ...base, app: 'otra' }, valid: false },
+    { name: 'sin app', payload: { ...base, app: undefined }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(RegisterDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -102,12 +105,30 @@ describe('RegisterDto (RQ-AUTH-01)', () => {
 
 describe('LoginDto (RQ-AUTH-04)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
-    { name: 'credenciales válidas', payload: { email: 'a@b.com', password: 'x' }, valid: true },
-    { name: 'correo inválido', payload: { email: 'a@', password: 'x' }, valid: false },
-    { name: 'sin correo', payload: { password: 'x' }, valid: false },
-    { name: 'sin contraseña', payload: { email: 'a@b.com' }, valid: false },
-    { name: 'contraseña vacía', payload: { email: 'a@b.com', password: '' }, valid: false },
-    { name: 'contraseña numérica', payload: { email: 'a@b.com', password: 123 }, valid: false },
+    {
+      name: 'credenciales válidas',
+      payload: { email: 'a@b.com', password: 'x', app: 'store' },
+      valid: true,
+    },
+    {
+      name: 'correo inválido',
+      payload: { email: 'a@', password: 'x', app: 'store' },
+      valid: false,
+    },
+    { name: 'sin correo', payload: { password: 'x', app: 'store' }, valid: false },
+    { name: 'sin contraseña', payload: { email: 'a@b.com', app: 'store' }, valid: false },
+    {
+      name: 'contraseña vacía',
+      payload: { email: 'a@b.com', password: '', app: 'store' },
+      valid: false,
+    },
+    {
+      name: 'contraseña numérica',
+      payload: { email: 'a@b.com', password: 123, app: 'store' },
+      valid: false,
+    },
+    { name: 'sin app', payload: { email: 'a@b.com', password: 'x' }, valid: false },
+    { name: 'app inválida', payload: { email: 'a@b.com', password: 'x', app: 'x' }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(LoginDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -194,12 +215,12 @@ describe('UpdateProfileDto (RQ-AUTH-11)', () => {
   it.each<{ name: string; payload: Record<string, unknown>; valid: boolean }>([
     {
       name: 'payload válido',
-      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '999' },
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: '11223344' },
       valid: true,
     },
     {
       name: 'nombre de 100 caracteres (límite)',
-      payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '1' },
+      payload: { firstName: 'a'.repeat(100), lastName: 'G', phone: '11223344' },
       valid: true,
     },
     { name: 'sin teléfono', payload: { firstName: 'Ana', lastName: 'Gomez' }, valid: false },
@@ -210,7 +231,12 @@ describe('UpdateProfileDto (RQ-AUTH-11)', () => {
     },
     {
       name: 'apellido de 101 caracteres',
-      payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '1' },
+      payload: { firstName: 'Ana', lastName: 'a'.repeat(101), phone: '11223344' },
+      valid: false,
+    },
+    {
+      name: 'teléfono con formato inválido',
+      payload: { firstName: 'Ana', lastName: 'Gomez', phone: 'no-es-telefono' },
       valid: false,
     },
   ])('$name → válido=$valid', async ({ payload, valid }) => {

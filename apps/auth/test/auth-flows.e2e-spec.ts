@@ -67,12 +67,13 @@ describe('Auth flows (e2e)', () => {
       .post('/v1/auth/register')
       .send({
         ...validRegister,
+        app: 'store',
         email: `user-${Date.now()}-${Math.random()}@test.com`,
         ...overrides,
       })
 
-  const login = (email: string, password: string) =>
-    request(app.getHttpServer()).post('/v1/auth/login').send({ email, password })
+  const login = (email: string, password: string, appName = 'store') =>
+    request(app.getHttpServer()).post('/v1/auth/login').send({ email, password, app: appName })
 
   beforeAll(async () => {
     mongod = await createMongoServer()
@@ -121,7 +122,7 @@ describe('Auth flows (e2e)', () => {
       vehicle: null,
     })
 
-    const adminLogin = await login('admin@test.com', 'admin-pass').expect(200)
+    const adminLogin = await login('admin@test.com', 'admin-pass', 'admin').expect(200)
     adminToken = adminLogin.body.accessToken as string
 
     await request(app.getHttpServer())
@@ -131,13 +132,13 @@ describe('Auth flows (e2e)', () => {
         firstName: 'Branch',
         lastName: 'Admin',
         email: 'branch@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         branchId: 'branch-1',
       })
       .expect(201)
 
-    const branchLogin = await login('branch@test.com', 'password123').expect(200)
+    const branchLogin = await login('branch@test.com', 'password123', 'branch').expect(200)
     branchAdminToken = branchLogin.body.accessToken as string
   })
 
@@ -183,9 +184,18 @@ describe('Auth flows (e2e)', () => {
     it.each([
       { name: 'email inválido', body: { email: 'no-es-email', password: 'password123' } },
       { name: 'body vacío', body: {} },
+      {
+        name: 'app inválida',
+        body: { email: 'cliente@test.com', password: 'password123', app: 'otra' },
+      },
     ])('rechaza $name con 400', async ({ body }) => {
       const res = await request(app.getHttpServer()).post('/v1/auth/login').send(body).expect(400)
       expect(res.body.code).toBe('VALIDATION_ERROR')
+    })
+
+    it('rechaza un rol que no pertenece a la aplicación con 403 APP_ROLE_MISMATCH', async () => {
+      const res = await login('admin@test.com', 'admin-pass', 'store').expect(403)
+      expect(res.body.code).toBe('APP_ROLE_MISMATCH')
     })
   })
 
@@ -325,7 +335,7 @@ describe('Auth flows (e2e)', () => {
       firstName: 'Raul',
       lastName: 'Rider',
       email: 'rider-dup@test.com',
-      phone: '1',
+      phone: '11223344',
       password: 'password123',
       vehicle: 'Moto',
     }
@@ -354,7 +364,7 @@ describe('Auth flows (e2e)', () => {
           firstName: 'Sin',
           lastName: 'Vehiculo',
           email: 'no-vehicle-rider@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
         })
         .expect(400)

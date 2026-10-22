@@ -29,6 +29,7 @@ const validRegister = {
   email: 'cliente@example.com',
   phone: '11223344',
   password: 'secreto123',
+  app: 'store',
 }
 
 describe('RefreshDto (RQ-AUTH-07)', () => {
@@ -129,17 +130,39 @@ describe('ResetPasswordDto (RQ-AUTH-10)', () => {
 describe('LoginDto (RQ-AUTH-04)', () => {
   it.each([
     { name: 'email y password válidos', payload: validRegister, valid: true },
-    { name: 'password de una letra', payload: { email: 'a@b.com', password: 'x' }, valid: true },
+    {
+      name: 'password de una letra',
+      payload: { email: 'a@b.com', password: 'x', app: 'store' },
+      valid: true,
+    },
     {
       name: 'email inválido',
-      payload: { email: 'no-email', password: 'secreto123' },
+      payload: { email: 'no-email', password: 'secreto123', app: 'store' },
       valid: false,
     },
-    { name: 'email vacío', payload: { email: '', password: 'secreto123' }, valid: false },
-    { name: 'password vacío', payload: { email: 'a@b.com', password: '' }, valid: false },
-    { name: 'sin password', payload: { email: 'a@b.com' }, valid: false },
-    { name: 'sin email', payload: { password: 'secreto123' }, valid: false },
-    { name: 'password no string', payload: { email: 'a@b.com', password: 123 }, valid: false },
+    {
+      name: 'email vacío',
+      payload: { email: '', password: 'secreto123', app: 'store' },
+      valid: false,
+    },
+    {
+      name: 'password vacío',
+      payload: { email: 'a@b.com', password: '', app: 'store' },
+      valid: false,
+    },
+    { name: 'sin password', payload: { email: 'a@b.com', app: 'store' }, valid: false },
+    { name: 'sin email', payload: { password: 'secreto123', app: 'store' }, valid: false },
+    {
+      name: 'password no string',
+      payload: { email: 'a@b.com', password: 123, app: 'store' },
+      valid: false,
+    },
+    { name: 'sin app', payload: { email: 'a@b.com', password: 'secreto123' }, valid: false },
+    {
+      name: 'app inválida',
+      payload: { email: 'a@b.com', password: 'secreto123', app: 'otra' },
+      valid: false,
+    },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(LoginDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -148,7 +171,7 @@ describe('LoginDto (RQ-AUTH-04)', () => {
   it('con whitelist descarta campos extra', async () => {
     const { instance, invalid } = await check(
       LoginDto,
-      { email: 'a@b.com', password: 'secreto123', injected: true },
+      { email: 'a@b.com', password: 'secreto123', app: 'store', injected: true },
       { whitelist: true },
     )
 
@@ -212,10 +235,19 @@ describe('RegisterDto (RQ-AUTH-01)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  it('rechaza un teléfono no numérico sólo si el contrato lo exige (hoy acepta cualquier string)', async () => {
+  it('rechaza un teléfono con formato inválido', async () => {
     const { invalid } = await check(RegisterDto, { ...validRegister, phone: 'no-es-telefono' })
 
-    expect(invalid).toEqual([])
+    expect(invalid).toContain('phone')
+  })
+
+  it('normaliza el correo a minúsculas y sin espacios', async () => {
+    const { instance } = await check(RegisterDto, {
+      ...validRegister,
+      email: '  CLIENTE@Example.COM ',
+    })
+
+    expect(instance.email).toBe('cliente@example.com')
   })
 
   it('con whitelist descarta campos extra', async () => {

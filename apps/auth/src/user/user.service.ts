@@ -9,6 +9,14 @@ export type { PublicUser } from './user.model'
 
 const BCRYPT_ROUNDS = 10
 
+const INVALID_CREDENTIALS_MESSAGE = 'El correo electrónico o la contraseña son incorrectos.'
+const INACTIVE_USER_MESSAGE =
+  'Tu cuenta está deshabilitada. Contactá al administrador para más información.'
+
+// Hash válido usado sólo para igualar el tiempo de respuesta cuando el correo
+// no existe y evitar enumeración de cuentas por temporización.
+const DUMMY_PASSWORD_HASH = '$2b$10$9PPsfzEWfIYkgE2mDmyxCepSsigMe4.m5m76MrJzuGC0gSp4WRbBq'
+
 export interface CreateUserInput {
   email: string
   password: string
@@ -30,30 +38,32 @@ export class UserService {
   constructor(private readonly repository: UserRepository) {}
 
   async createUser(input: CreateUserInput): Promise<PublicUser> {
-    const existing = await this.repository.findByEmail(input.email)
+    const email = input.email.trim().toLowerCase()
+    const existing = await this.repository.findByEmail(email)
     if (existing) {
       throw new DomainException(ERROR_CODES.emailTaken, 'El correo ya está registrado', 409)
     }
 
     const passwordHash = await hash(input.password, BCRYPT_ROUNDS)
     const { password: _password, ...data } = input
-    const doc = await this.repository.create({ ...data, passwordHash })
+    const doc = await this.repository.create({ ...data, email, passwordHash })
     return serializeUser(doc)
   }
 
   async verifyCredentials(email: string, password: string): Promise<PublicUser> {
-    const doc = await this.repository.findByEmailWithPassword(email)
+    const doc = await this.repository.findByEmailWithPassword(email.trim().toLowerCase())
     if (!doc) {
-      throw new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401)
+      await compare(password, DUMMY_PASSWORD_HASH)
+      throw new DomainException(ERROR_CODES.invalidCredentials, INVALID_CREDENTIALS_MESSAGE, 401)
     }
 
     const matches = await compare(password, doc.passwordHash)
     if (!matches) {
-      throw new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401)
+      throw new DomainException(ERROR_CODES.invalidCredentials, INVALID_CREDENTIALS_MESSAGE, 401)
     }
 
     if (!doc.active) {
-      throw new DomainException(ERROR_CODES.userInactive, 'Usuario inactivo', 403)
+      throw new DomainException(ERROR_CODES.userInactive, INACTIVE_USER_MESSAGE, 403)
     }
 
     return serializeUser(doc)

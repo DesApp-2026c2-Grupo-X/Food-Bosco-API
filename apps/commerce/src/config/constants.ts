@@ -114,6 +114,8 @@ export const ERROR_CODES = {
   conflict: 'CONFLICT',
   unprocessableEntity: 'UNPROCESSABLE_ENTITY',
   tooManyRequests: 'TOO_MANY_REQUESTS',
+  badGateway: 'BAD_GATEWAY',
+  serviceUnavailable: 'SERVICE_UNAVAILABLE',
   internal: 'INTERNAL_SERVER_ERROR',
 } as const
 

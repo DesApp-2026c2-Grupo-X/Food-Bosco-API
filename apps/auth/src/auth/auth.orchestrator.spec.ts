@@ -67,10 +67,14 @@ const makeOrchestrator = () => {
   }
 }
 
-const credentials = { email: 'cliente@example.com', password: 'secreto123' }
+const credentials = { email: 'cliente@example.com', password: 'secreto123', app: 'store' as const }
 
 const invalidCredentialsError = () =>
-  new DomainException(ERROR_CODES.invalidCredentials, 'Credenciales inválidas', 401)
+  new DomainException(
+    ERROR_CODES.invalidCredentials,
+    'El correo electrónico o la contraseña son incorrectos.',
+    401,
+  )
 const invalidRefreshTokenError = () =>
   new DomainException(ERROR_CODES.invalidRefreshToken, 'Refresh token inválido', 401)
 const invalidOrExpiredTokenError = () =>
@@ -88,6 +92,7 @@ describe('AuthOrchestrator.register (RQ-AUTH-01/05)', () => {
       email: 'cliente@example.com',
       phone: '11223344',
       password: 'secreto123',
+      app: 'store',
     })
 
     expect(userService.createUser).toHaveBeenCalledWith(
@@ -115,12 +120,33 @@ describe('AuthOrchestrator.register (RQ-AUTH-01/05)', () => {
         email: 'cliente@example.com',
         phone: '11223344',
         password: 'secreto123',
+        app: 'store',
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.emailTaken,
       message: 'El correo ya está registrado',
       status: 409,
     })
+    expect(refreshTokenService.issue).not.toHaveBeenCalled()
+  })
+
+  it('rechaza registrar un cliente desde una app que no es la tienda', async () => {
+    const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
+
+    await expect(
+      orchestrator.register({
+        firstName: 'Juan',
+        lastName: 'Perez',
+        email: 'cliente@example.com',
+        phone: '11223344',
+        password: 'secreto123',
+        app: 'rider',
+      }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.appRoleMismatch,
+      status: 403,
+    })
+    expect(userService.createUser).not.toHaveBeenCalled()
     expect(refreshTokenService.issue).not.toHaveBeenCalled()
   })
 })
@@ -198,13 +224,24 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
     )
     refreshTokenService.issue.mockResolvedValue('refresh-token')
 
-    await orchestrator.login(credentials)
+    await orchestrator.login({ ...credentials, app: 'branch' })
 
     expect(jwtService.signAccessToken).toHaveBeenCalledWith({
       id: 'u1',
       role: ROLES.branchAdmin,
       branchId: 'branch-1',
     })
+  })
+
+  it('rechaza el login cuando el rol no pertenece a la app', async () => {
+    const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
+    userService.verifyCredentials.mockResolvedValue(makeUser({ role: ROLES.superAdmin }))
+
+    await expect(orchestrator.login(credentials)).rejects.toMatchObject({
+      code: ERROR_CODES.appRoleMismatch,
+      status: 403,
+    })
+    expect(refreshTokenService.issue).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -216,7 +253,7 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
 
     await expect(orchestrator.login(credentials)).rejects.toMatchObject({
       code: ERROR_CODES.invalidCredentials,
-      message: 'Credenciales inválidas',
+      message: 'El correo electrónico o la contraseña son incorrectos.',
       status: 401,
     })
     expect(refreshTokenService.issue).not.toHaveBeenCalled()
@@ -225,12 +262,16 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
   it('rechaza un usuario inactivo con USER_INACTIVE 403', async () => {
     const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
     userService.verifyCredentials.mockRejectedValue(
-      new DomainException(ERROR_CODES.userInactive, 'Usuario inactivo', 403),
+      new DomainException(
+        ERROR_CODES.userInactive,
+        'Tu cuenta está deshabilitada. Contactá al administrador para más información.',
+        403,
+      ),
     )
 
     await expect(orchestrator.login(credentials)).rejects.toMatchObject({
       code: ERROR_CODES.userInactive,
-      message: 'Usuario inactivo',
+      message: 'Tu cuenta está deshabilitada. Contactá al administrador para más información.',
       status: 403,
     })
     expect(refreshTokenService.issue).not.toHaveBeenCalled()

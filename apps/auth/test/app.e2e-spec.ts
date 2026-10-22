@@ -61,6 +61,7 @@ describe('Auth Service (e2e)', () => {
       email,
       phone: '11223344',
       password: 'password123',
+      app: 'store',
     })
 
   beforeAll(async () => {
@@ -116,7 +117,7 @@ describe('Auth Service (e2e)', () => {
 
     const loginRes = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'admin@test.com', password: 'admin-pass' })
+      .send({ email: 'admin@test.com', password: 'admin-pass', app: 'admin' })
       .expect(200)
     adminToken = loginRes.body.accessToken as string
   })
@@ -158,7 +159,7 @@ describe('Auth Service (e2e)', () => {
     it('loguea con credenciales válidas', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'cliente@test.com', password: 'password123' })
+        .send({ email: 'cliente@test.com', password: 'password123', app: 'store' })
         .expect(200)
 
       expect(res.body.accessToken).toBeTruthy()
@@ -171,7 +172,7 @@ describe('Auth Service (e2e)', () => {
     ])('rechaza con error genérico: $name', async ({ email, password }) => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email, password })
+        .send({ email, password, app: 'store' })
         .expect(401)
 
       expect(res.body.code).toBe('INVALID_CREDENTIALS')
@@ -194,7 +195,7 @@ describe('Auth Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch('/v1/me')
         .set('Authorization', `Bearer ${customerToken}`)
-        .send({ firstName: 'Pedro', lastName: 'Gomez', phone: '999' })
+        .send({ firstName: 'Pedro', lastName: 'Gomez', phone: '11223344' })
         .expect(200)
 
       expect(res.body.firstName).toBe('Pedro')
@@ -211,7 +212,7 @@ describe('Auth Service (e2e)', () => {
     it('refresca el access token y rota el refresh', async () => {
       const login = await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'cliente@test.com', password: 'password123' })
+        .send({ email: 'cliente@test.com', password: 'password123', app: 'store' })
         .expect(200)
 
       const refresh = await request(app.getHttpServer())
@@ -241,7 +242,7 @@ describe('Auth Service (e2e)', () => {
     it('cierra sesión y revoca los refresh tokens', async () => {
       const login = await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'cliente@test.com', password: 'password123' })
+        .send({ email: 'cliente@test.com', password: 'password123', app: 'store' })
         .expect(200)
 
       await request(app.getHttpServer())
@@ -332,7 +333,7 @@ describe('Auth Service (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'cliente@test.com', password: 'nueva-clave-123' })
+        .send({ email: 'cliente@test.com', password: 'nueva-clave-123', app: 'store' })
         .expect(200)
     })
 
@@ -406,7 +407,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'S',
           lastName: 'S',
           email: 'staff@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           branchId: 'branch-1',
         })
@@ -426,7 +427,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'S',
           lastName: 'S',
           email: 'staff-missing@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           branchId: 'no-existe',
         })
@@ -466,7 +467,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'A',
           lastName: 'A',
           email: 'admin2@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
         })
         .expect(201)
@@ -482,7 +483,7 @@ describe('Auth Service (e2e)', () => {
           firstName: 'R',
           lastName: 'R',
           email: 'rider@test.com',
-          phone: '1',
+          phone: '11223344',
           password: 'password123',
           vehicle: 'Moto',
         })
@@ -518,7 +519,7 @@ describe('Auth Service (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'staff@test.com', password: 'password123' })
+        .send({ email: 'staff@test.com', password: 'password123', app: 'branch' })
         .expect(403)
     })
 
@@ -544,7 +545,7 @@ describe('Auth Service (e2e)', () => {
       firstName: 'R',
       lastName: 'R',
       email: 'rider-self@test.com',
-      phone: '1',
+      phone: '11223344',
       password: 'password123',
       vehicle: 'Bici',
     }

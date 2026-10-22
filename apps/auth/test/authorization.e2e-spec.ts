@@ -39,7 +39,7 @@ interface RecoveryRow {
   used: boolean
 }
 
-const validProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '999' }
+const validProfile = { firstName: 'Pedro', lastName: 'Gomez', phone: '11223344' }
 
 const validAddress = {
   label: 'Casa',
@@ -114,7 +114,7 @@ describe('Authorization (e2e)', () => {
 
     const adminLogin = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'admin@test.com', password: 'admin-pass' })
+      .send({ email: 'admin@test.com', password: 'admin-pass', app: 'admin' })
       .expect(200)
     adminToken = adminLogin.body.accessToken as string
 
@@ -126,6 +126,7 @@ describe('Authorization (e2e)', () => {
         email: 'cliente-authz@test.com',
         phone: '11223344',
         password: 'password123',
+        app: 'store',
       })
       .expect(201)
     tokens.customer = customer.body.accessToken as string
@@ -138,7 +139,7 @@ describe('Authorization (e2e)', () => {
         firstName: 'Branch',
         lastName: 'Admin',
         email: 'branch-authz@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         branchId: 'branch-1',
       })
@@ -146,7 +147,7 @@ describe('Authorization (e2e)', () => {
     editableTargetId = staff.body.id as string
     const branchLogin = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'branch-authz@test.com', password: 'password123' })
+      .send({ email: 'branch-authz@test.com', password: 'password123', app: 'branch' })
       .expect(200)
     tokens.branch_admin = branchLogin.body.accessToken as string
 
@@ -157,14 +158,14 @@ describe('Authorization (e2e)', () => {
         firstName: 'Raul',
         lastName: 'Rider',
         email: 'rider-authz@test.com',
-        phone: '1',
+        phone: '11223344',
         password: 'password123',
         vehicle: 'Moto',
       })
       .expect(201)
     const riderLogin = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'rider-authz@test.com', password: 'password123' })
+      .send({ email: 'rider-authz@test.com', password: 'password123', app: 'rider' })
       .expect(200)
     tokens.rider = riderLogin.body.accessToken as string
   })

@@ -103,6 +103,47 @@ describe('StockRepository.setQuantity (RQ-STK-04)', () => {
   })
 })
 
+describe('StockRepository.decrementIfAvailable (RQ-STK-06)', () => {
+  it('descuenta sólo si la cantidad alcanza y devuelve el documento actualizado', async () => {
+    const { repository, stockModel } = makeRepository()
+    const doc = { ingredientId: 'i1', branchId: 'b1', quantity: 7 }
+    stockModel.findOneAndUpdate.mockReturnValue(execQuery(doc))
+
+    const result = await repository.decrementIfAvailable('b1', 'i1', 3)
+
+    expect(stockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { branchId: 'b1', ingredientId: 'i1', quantity: { $gte: 3 } },
+      { $inc: { quantity: -3 } },
+      { new: true },
+    )
+    expect(result).toBe(doc)
+  })
+
+  it('devuelve null cuando el stock dejó de alcanzar (concurrencia)', async () => {
+    const { repository, stockModel } = makeRepository()
+    stockModel.findOneAndUpdate.mockReturnValue(execQuery(null))
+
+    await expect(repository.decrementIfAvailable('b1', 'i1', 5)).resolves.toBeNull()
+  })
+})
+
+describe('StockRepository.increment (RQ-STK-04/07)', () => {
+  it('incrementa de forma atómica y hace upsert si no existe', async () => {
+    const { repository, stockModel } = makeRepository()
+    const doc = { ingredientId: 'i1', branchId: 'b1', quantity: 12 }
+    stockModel.findOneAndUpdate.mockReturnValue(execQuery(doc))
+
+    const result = await repository.increment('b1', 'i1', 2)
+
+    expect(stockModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { branchId: 'b1', ingredientId: 'i1' },
+      { $inc: { quantity: 2 } },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    )
+    expect(result).toBe(doc)
+  })
+})
+
 const movementData = {
   branchId: 'b1',
   ingredientId: 'i1',

@@ -1,9 +1,11 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common'
 import type { Request, Response } from 'express'
-import { ERROR_CODES } from '../constants'
+import { ERROR_CODES, HEADERS } from '../constants'
 import { DomainException } from './domain.exception'
 
-type ErrorBody = string | { message?: string | string[] }
+type ErrorBody =
+  | string
+  | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
 
 const STATUS_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,
@@ -30,6 +32,19 @@ const extractMessage = (body: ErrorBody): string => {
   return message ?? 'Error'
 }
 
+const extractCode = (body: ErrorBody, status: number): string =>
+  typeof body === 'object' && typeof body.code === 'string' && body.code
+    ? body.code
+    : codeForStatus(status)
+
+const extractDetails = (body: ErrorBody): Record<string, unknown> | undefined =>
+  typeof body === 'object' && body.details ? body.details : undefined
+
+const requestIdFrom = (request: Request): string | undefined => {
+  const header = request.headers?.[HEADERS.requestId]
+  return Array.isArray(header) ? header[0] : header
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -37,37 +52,52 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>()
     const request = ctx.getRequest<Request>()
     const path = request.url
+    const requestId = requestIdFrom(request)
+    const withCorrelation = <T extends Record<string, unknown>>(body: T): T =>
+      requestId ? { ...body, requestId } : body
 
     if (exception instanceof DomainException) {
-      response
-        .status(exception.getStatus())
-        .json({ code: exception.code, message: exception.message, path })
+      response.status(exception.getStatus()).json(
+        withCorrelation({
+          code: exception.code,
+          message: exception.message,
+          ...(exception.details ? { details: exception.details } : {}),
+          path,
+        }),
+      )
       return
     }
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus()
-      response.status(status).json({
-        code: codeForStatus(status),
-        message: extractMessage(exception.getResponse() as ErrorBody),
-        path,
-      })
+      const body = exception.getResponse() as ErrorBody
+      const details = extractDetails(body)
+      response.status(status).json(
+        withCorrelation({
+          code: extractCode(body, status),
+          message: extractMessage(body),
+          ...(details ? { details } : {}),
+          path,
+        }),
+      )
       return
     }
 
     // INT-02: un id de path que no es ObjectId hace que Mongoose lance `CastError`.
     // Se traduce a 404 (recurso no encontrado) en lugar de filtrar un 500.
     if (isCastError(exception)) {
-      response.status(HttpStatus.NOT_FOUND).json({
-        code: ERROR_CODES.notFound,
-        message: 'Recurso no encontrado',
-        path,
-      })
+      response
+        .status(HttpStatus.NOT_FOUND)
+        .json(withCorrelation({ code: ERROR_CODES.notFound, message: 'Recurso no encontrado', path }))
       return
     }
 
-    response
-      .status(HttpStatus.INTERNAL_SERVER_ERROR)
-      .json({ code: ERROR_CODES.internal, message: 'Error interno del servidor', path })
+    response.status(HttpStatus.INTERNAL_SERVER_ERROR).json(
+      withCorrelation({
+        code: ERROR_CODES.internal,
+        message: 'Error interno del servidor',
+        path,
+      }),
+    )
   }
 }

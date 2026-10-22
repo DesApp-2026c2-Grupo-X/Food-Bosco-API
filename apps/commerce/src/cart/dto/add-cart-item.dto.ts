@@ -1,4 +1,15 @@
-import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator'
+import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator'
 
 export class AddCartItemDto {
   @IsString()
@@ -7,6 +18,7 @@ export class AddCartItemDto {
 
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity!: number
 
   @IsOptional()
@@ -16,6 +28,8 @@ export class AddCartItemDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(50)
   @IsString({ each: true })
   optionIds?: string[]
 }

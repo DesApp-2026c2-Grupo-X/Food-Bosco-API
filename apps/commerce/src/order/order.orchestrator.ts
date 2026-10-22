@@ -72,19 +72,29 @@ export class OrderOrchestrator {
     const total = items.reduce((sum, item) => sum + item.subtotal, 0)
     const estimatedDeliveryAt = await this.computeEta(branch, input.deliveryAddress)
 
-    const order = await this.orderService.create({
-      clientId,
-      branchId: branch.id,
-      addressId: input.addressId,
-      deliveryAddress: input.deliveryAddress,
-      total,
-      estimatedDeliveryAt,
-      items,
-    })
+    const claimed = await this.cartService.claim(cart.id)
+    if (!claimed) {
+      throw new DomainException(
+        ERROR_CODES.cartConfirmed,
+        'Este carrito ya fue confirmado en otro pedido. Actualizá tu carrito para continuar.',
+        409,
+      )
+    }
 
-    await this.cartService.confirm(cart.id)
-
-    return order
+    try {
+      return await this.orderService.create({
+        clientId,
+        branchId: branch.id,
+        addressId: input.addressId,
+        deliveryAddress: input.deliveryAddress,
+        total,
+        estimatedDeliveryAt,
+        items,
+      })
+    } catch (error) {
+      await this.cartService.release(cart.id)
+      throw error
+    }
   }
 
   async changeStatus(
@@ -106,7 +116,12 @@ export class OrderOrchestrator {
     if (result.changed) {
       if (newStatus === ORDER_STATUS.preparing) {
         const requirements = await this.computeRequirementsFromOrder(result.order)
-        await this.stockService.discount(order.branchId, requirements, order.id)
+        try {
+          await this.stockService.discount(order.branchId, requirements, order.id)
+        } catch (error) {
+          await this.orderService.revertTransition(orderId, newStatus, order.status)
+          throw error
+        }
       }
 
       const branch = await this.branchService.findById(order.branchId)

@@ -37,11 +37,14 @@ export class UserRepository {
   constructor(@InjectModel(User.name) private readonly model: Model<UserDocument>) {}
 
   findByEmail(email: string): Promise<UserDocument | null> {
-    return this.model.findOne({ email }).exec()
+    return this.model.findOne({ email: email.trim().toLowerCase() }).exec()
   }
 
   findByEmailWithPassword(email: string): Promise<UserDocument | null> {
-    return this.model.findOne({ email }).select('+passwordHash').exec()
+    return this.model
+      .findOne({ email: email.trim().toLowerCase() })
+      .select('+passwordHash')
+      .exec()
   }
 
   async findById(id: string): Promise<UserDocument | null> {

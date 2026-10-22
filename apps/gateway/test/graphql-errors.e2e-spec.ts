@@ -45,8 +45,16 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
   describe('envelope único code/message/path', () => {
     const cases: Array<{ status: number; code: string; message: string }> = [
       { status: 400, code: 'BAD_REQUEST', message: 'Solicitud inválida' },
-      { status: 401, code: 'UNAUTHENTICATED', message: 'Credenciales inválidas' },
-      { status: 403, code: 'FORBIDDEN', message: 'No autorizado' },
+      {
+        status: 401,
+        code: 'UNAUTHENTICATED',
+        message: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+      },
+      {
+        status: 403,
+        code: 'FORBIDDEN',
+        message: 'No tenés permisos para realizar esta acción.',
+      },
       { status: 404, code: 'ORDER_NOT_FOUND', message: 'Pedido inexistente' },
       { status: 409, code: 'ORDER_STATE_CONFLICT', message: 'Transición inválida' },
     ]
@@ -64,7 +72,7 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
       expect(body.errors?.[0].extensions?.code).toBe(code)
       // RQ-GW-07: el envelope conserva code y el path REST del servicio downstream,
       // además del path GraphQL del campo que falló.
-      expect(body.errors?.[0].extensions).toEqual({ code, path: '/v1/orders/o1' })
+      expect(body.errors?.[0].extensions).toMatchObject({ code, path: '/v1/orders/o1' })
       expect(body.errors?.[0].path).toEqual(['order'])
     })
   })
@@ -88,7 +96,7 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
 
     it.each(cases)(
       '$name sin body de error → INTERNAL_SERVER_ERROR',
-      async ({ query, role, service }) => {
+      async ({ query, role }) => {
         failure = { status: 500, body: { message: 'sin code' } }
         const token = signToken({ userId: 'u1', roles: [role] })
 
@@ -100,7 +108,9 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
 
         const body = res.body as GraphQLBody
         expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
-        expect(body.errors?.[0].message).toBe(`${service} devolvió HTTP 500`)
+        expect(body.errors?.[0].message).toBe(
+          'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
+        )
       },
     )
   })

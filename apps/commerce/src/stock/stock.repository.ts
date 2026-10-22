@@ -29,6 +29,40 @@ export class StockRepository {
     return this.stockModel.findOne({ branchId, ingredientId }).exec()
   }
 
+  /**
+   * Descuenta de forma atómica sólo si hay cantidad suficiente. Si el stock
+   * cambió entre la validación y el descuento, devuelve null en lugar de dejar
+   * la cantidad en negativo.
+   */
+  decrementIfAvailable(
+    branchId: string,
+    ingredientId: string,
+    quantity: number,
+  ): Promise<BranchStockDocument | null> {
+    return this.stockModel
+      .findOneAndUpdate(
+        { branchId, ingredientId, quantity: { $gte: quantity } },
+        { $inc: { quantity: -quantity } },
+        { new: true },
+      )
+      .exec()
+  }
+
+  /** Incrementa (o crea) el stock de un ingrediente de forma atómica. */
+  increment(
+    branchId: string,
+    ingredientId: string,
+    quantity: number,
+  ): Promise<BranchStockDocument | null> {
+    return this.stockModel
+      .findOneAndUpdate(
+        { branchId, ingredientId },
+        { $inc: { quantity } },
+        { new: true, upsert: true, setDefaultsOnInsert: true },
+      )
+      .exec()
+  }
+
   setQuantity(
     branchId: string,
     ingredientId: string,
