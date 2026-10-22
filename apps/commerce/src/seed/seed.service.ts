@@ -378,12 +378,8 @@ export class SeedService {
 
     for (const seed of data.branches) {
       const existing = existingBranches.find((branch) => branch.name === seed.name)
-      if (existing) {
-        result.push({ id: existing.id, name: existing.name })
-        continue
-      }
 
-      const created = await this.branchService.upsertByName({
+      const branch = await this.branchService.upsertByName({
         name: seed.name,
         addressText: seed.addressText,
         latitude: seed.latitude,
@@ -391,12 +387,15 @@ export class SeedService {
         phone: seed.phone,
       })
 
-      if (created.hours.length === 0) {
-        await this.branchService.updateHours(created.id, seed.hours ?? buildBranchHours(data.hours))
+      if (branch.hours.length === 0) {
+        await this.branchService.updateHours(branch.id, seed.hours ?? buildBranchHours(data.hours))
       }
 
-      result.push({ id: created.id, name: created.name })
-      Logger.log(`sucursal creada: ${created.name}`, 'Seed')
+      result.push({ id: branch.id, name: branch.name })
+
+      if (!existing) {
+        Logger.log(`sucursal creada: ${branch.name}`, 'Seed')
+      }
     }
 
     return result

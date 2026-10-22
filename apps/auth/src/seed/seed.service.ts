@@ -168,7 +168,16 @@ export class SeedService {
       )
 
       if (existing) {
-        result.push(this.toAddressSummary(user.id, existing))
+        // El seed converge: si cambió la dirección o sus coordenadas, actualiza
+        // el registro existente para no quedar con datos viejos.
+        const updated = await this.addressService.update(existing.id, user.id, {
+          text: seed.text,
+          city: seed.city,
+          postalCode: seed.postalCode,
+          latitude: seed.latitude,
+          longitude: seed.longitude,
+        })
+        result.push(this.toAddressSummary(user.id, updated ?? existing))
         continue
       }
 

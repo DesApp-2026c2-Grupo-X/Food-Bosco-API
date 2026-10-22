@@ -30,22 +30,22 @@
     {
       "name": "Centro",
       "addressText": "Av. Vergara 1200, Hurlingham",
-      "latitude": -34.589,
-      "longitude": -58.636,
+      "latitude": -34.5958088,
+      "longitude": -58.6360255,
       "phone": "11 5555 1111"
     },
     {
       "name": "Norte",
-      "addressText": "Calle 25 de Mayo 450, Villa Tesei",
-      "latitude": -34.586,
-      "longitude": -58.63,
+      "addressText": "Av. Pedro Díaz 1000, Villa Tesei",
+      "latitude": -34.6117136,
+      "longitude": -58.6394095,
       "phone": "11 5555 2222"
     },
     {
       "name": "Oeste",
-      "addressText": "Av. Roca 600, Morón",
-      "latitude": -34.651,
-      "longitude": -58.621,
+      "addressText": "Av. Rivadavia 18500, Morón",
+      "latitude": -34.6492342,
+      "longitude": -58.6240339,
       "phone": "11 5555 3333"
     }
   ],

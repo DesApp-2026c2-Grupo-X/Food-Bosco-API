@@ -105,7 +105,11 @@ describe('SeedService (commerce)', () => {
     const mocks = buildMocks({
       branchService: {
         list: jest.fn().mockResolvedValue({ data: existingBranches }),
-        upsertByName: jest.fn(),
+        upsertByName: jest
+          .fn()
+          .mockImplementation(async (seed: { name: string }) =>
+            existingBranches.find((branch) => branch.name === seed.name),
+          ),
         updateHours: jest.fn(),
       },
     })
@@ -113,7 +117,7 @@ describe('SeedService (commerce)', () => {
 
     const result = await service.seed()
 
-    expect(mocks.branchService.upsertByName).not.toHaveBeenCalled()
+    expect(mocks.branchService.upsertByName).toHaveBeenCalledTimes(3)
     expect(mocks.branchService.updateHours).not.toHaveBeenCalled()
     expect(result.branches).toHaveLength(3)
   })
