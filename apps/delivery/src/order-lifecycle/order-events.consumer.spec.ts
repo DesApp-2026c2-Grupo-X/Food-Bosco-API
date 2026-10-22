@@ -1,11 +1,10 @@
 import { EventBus } from '../config/messaging/event-bus'
 import { ORDER_STATUS_CHANGED_EVENT } from '../config/messaging/events'
-import type { EventHandler } from '../config/messaging/transport'
-import { InProcessTransport } from '../config/messaging/in-process.transport'
-import { DeliveryOrderRepository } from './delivery-order.repository'
-import { DeliveryOrderService } from './delivery-order.service'
-import { OrderEventsConsumer } from './order-events.consumer'
 import type { OrderStatusChangedEvent } from '../config/messaging/events'
+import { InProcessTransport } from '../config/messaging/in-process.transport'
+import type { EventHandler } from '../config/messaging/transport'
+import { OrderEventsConsumer } from './order-events.consumer'
+import { OrderLifecycleOrchestrator } from './order-lifecycle.orchestrator'
 
 const orderEvent = (overrides: Partial<OrderStatusChangedEvent> = {}): OrderStatusChangedEvent => ({
   type: ORDER_STATUS_CHANGED_EVENT,
@@ -24,10 +23,8 @@ const makeConsumer = () => {
   const subscribe = jest.fn().mockResolvedValue(undefined)
   const eventBus = { subscribe } as unknown as EventBus
   const handleOrderStatusChanged = jest.fn().mockResolvedValue(undefined)
-  const deliveryOrderService = {
-    handleOrderStatusChanged,
-  } as unknown as DeliveryOrderService
-  const consumer = new OrderEventsConsumer(eventBus, deliveryOrderService)
+  const orchestrator = { handleOrderStatusChanged } as unknown as OrderLifecycleOrchestrator
+  const consumer = new OrderEventsConsumer(eventBus, orchestrator)
   return { consumer, subscribe, handleOrderStatusChanged }
 }
 
@@ -44,7 +41,7 @@ describe('OrderEventsConsumer (RQ-DLV-03)', () => {
     { name: 'READY_FOR_DELIVERY', status: 'ready_for_delivery' },
     { name: 'cancelled', status: 'cancelled' },
     { name: 'delivered', status: 'delivered' },
-  ])('reenvía el evento $name al servicio', async ({ status }) => {
+  ])('reenvía el evento $name al orchestrator', async ({ status }) => {
     const { consumer, subscribe, handleOrderStatusChanged } = makeConsumer()
     await consumer.onModuleInit()
     const handler = subscribe.mock.calls[0][1] as EventHandler
@@ -54,46 +51,27 @@ describe('OrderEventsConsumer (RQ-DLV-03)', () => {
     expect(handleOrderStatusChanged).toHaveBeenCalledWith(orderEvent({ status }))
   })
 
-  it('propaga el rechazo del servicio al handler suscripto', async () => {
+  it('propaga el rechazo del orchestrator al handler suscripto', async () => {
     const { consumer, subscribe, handleOrderStatusChanged } = makeConsumer()
-    handleOrderStatusChanged.mockRejectedValueOnce(new Error('processor boom'))
+    handleOrderStatusChanged.mockRejectedValueOnce(new Error('orchestrator boom'))
     await consumer.onModuleInit()
     const handler = subscribe.mock.calls[0][1] as EventHandler
 
-    await expect(handler(orderEvent())).rejects.toThrow('processor boom')
+    await expect(handler(orderEvent())).rejects.toThrow('orchestrator boom')
   })
 })
 
 describe('OrderEventsConsumer + EventBus (wiring real, RQ-DLV-03)', () => {
-  it('publica order.status_changed y llega al servicio a través del consumer', async () => {
+  it('publica order.status_changed y llega al orchestrator a través del consumer', async () => {
     const bus = new EventBus(new InProcessTransport())
     const handleOrderStatusChanged = jest.fn().mockResolvedValue(undefined)
-    const service = { handleOrderStatusChanged } as unknown as DeliveryOrderService
-    const consumer = new OrderEventsConsumer(bus, service)
+    const orchestrator = { handleOrderStatusChanged } as unknown as OrderLifecycleOrchestrator
+    const consumer = new OrderEventsConsumer(bus, orchestrator)
     await consumer.onModuleInit()
 
     await bus.publish(orderEvent())
 
     expect(handleOrderStatusChanged).toHaveBeenCalledWith(orderEvent())
-    await bus.close()
-  })
-
-  it('un estado no relacionado no dispara escrituras en el pool', async () => {
-    const repository = {
-      isEventProcessed: jest.fn().mockResolvedValue(false),
-      markProcessed: jest.fn().mockResolvedValue(true),
-      upsertReady: jest.fn().mockResolvedValue(null),
-      remove: jest.fn().mockResolvedValue(null),
-    }
-    const service = new DeliveryOrderService(repository as unknown as DeliveryOrderRepository)
-    const bus = new EventBus(new InProcessTransport())
-    const consumer = new OrderEventsConsumer(bus, service)
-    await consumer.onModuleInit()
-
-    await bus.publish(orderEvent({ status: 'preparing' }))
-
-    expect(repository.upsertReady).not.toHaveBeenCalled()
-    expect(repository.remove).not.toHaveBeenCalled()
     await bus.close()
   })
 })

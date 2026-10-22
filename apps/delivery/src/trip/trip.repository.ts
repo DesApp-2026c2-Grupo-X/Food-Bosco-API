@@ -39,6 +39,24 @@ export class TripRepository {
       .exec()
   }
 
+  findOpenByOrderId(orderId: string): Promise<TripDocument | null> {
+    return this.model
+      .findOne({
+        status: { $in: [TRIP_STATUS.offered, TRIP_STATUS.active] },
+        'orders.orderId': orderId,
+      })
+      .sort({ createdAt: -1 })
+      .exec()
+  }
+
+  findByOrderId(orderId: string): Promise<TripDocument | null> {
+    return this.model.findOne({ 'orders.orderId': orderId }).sort({ createdAt: -1 }).exec()
+  }
+
+  findActiveByRider(riderId: string): Promise<TripDocument | null> {
+    return this.model.findOne({ riderId, status: TRIP_STATUS.active }).exec()
+  }
+
   async listByRider(
     riderId: string,
     limit: number,
