@@ -15,6 +15,7 @@ import { InProcessTransport } from '../src/config/messaging/in-process.transport
 import { SecurityModule } from '../src/config/security/security.module'
 import { DeliveryOrderModule } from '../src/delivery-order/delivery-order.module'
 import { OfferModule } from '../src/offer/offer.module'
+import { OrderLifecycleModule } from '../src/order-lifecycle/order-lifecycle.module'
 import { RiderModule } from '../src/rider/rider.module'
 import { TripModule } from '../src/trip/trip.module'
 import { createMongoServer } from './mongo'
@@ -71,6 +72,7 @@ describe('Delivery trips (e2e)', () => {
   let tripModel: Model<TripRow>
   let riderModel: Model<RiderRow>
   let processedModel: Model<ProcessedEventRow>
+  let eventBus: EventBus
   let commercePatch: jest.Mock
 
   const rider1 = tokenFor('rider-1')
@@ -98,6 +100,7 @@ describe('Delivery trips (e2e)', () => {
         RiderModule,
         DeliveryOrderModule,
         OfferModule,
+        OrderLifecycleModule,
         TripModule,
       ],
     })
@@ -125,6 +128,7 @@ describe('Delivery trips (e2e)', () => {
     tripModel = app.get<Model<TripRow>>(getModelToken('Trip'))
     riderModel = app.get<Model<RiderRow>>(getModelToken('Rider'))
     processedModel = app.get<Model<ProcessedEventRow>>(getModelToken('ProcessedEvent'))
+    eventBus = app.get(EventBus)
   })
 
   afterAll(async () => {
@@ -336,6 +340,42 @@ describe('Delivery trips (e2e)', () => {
         .expect(409)
 
       expect(res.body.code).toBe('OFFER_EXPIRED')
+    })
+  })
+
+  describe('cancelación de una orden durante un viaje activo', () => {
+    it('cierra el viaje, libera al rider y lo deja recibir nuevas ofertas', async () => {
+      await onboard('rider-1')
+      const offerId = await createOffer('rider-1', 'ord-cancel')
+      const tripId = await acceptOffer('rider-1', offerId)
+
+      await eventBus.publish({
+        type: 'order.status_changed',
+        version: 1,
+        eventId: 'cancel-active-1',
+        orderId: 'ord-cancel',
+        status: 'cancelled',
+        branchId: 'b1',
+        branchLocation: { latitude: 0.001, longitude: 0 },
+        deliveryAddress: { text: 'Av 123', latitude: 0.002, longitude: 0 },
+        occurredAt: new Date().toISOString(),
+      })
+      await sleep(100)
+
+      const trip = await tripModel.findById(tripId).exec()
+      expect(trip?.status).toBe('cancelled')
+
+      const rider = await riderModel.findOne({ userId: 'rider-1' }).exec()
+      expect(rider?.status).toBe('free')
+
+      await seedReadyOrder('ord-after-cancel')
+      const res = await request(app.getHttpServer())
+        .get('/v1/trips/offers')
+        .set(bearer(rider1))
+        .expect(200)
+
+      expect(res.body.data).toHaveLength(1)
+      expect(res.body.data[0].orderCount).toBe(1)
     })
   })
 

@@ -120,40 +120,13 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
   const registerRiderMutation =
     'mutation { registerRider(input: { firstName: "R", lastName: "R", email: "r@b.com", phone: "1", password: "password", vehicle: "Moto" }) { accessToken refreshToken } }'
 
-  it('rechaza registerRider sin token con UNAUTHENTICATED', async () => {
+  it('permite registerRider sin token (auto-registro público)', async () => {
     const res = await request(app.getHttpServer())
       .post('/graphql')
       .send(gql(registerRiderMutation))
       .expect(200)
 
-    expect(res.body.data).toBeNull()
-    expect(res.body.errors).toHaveLength(1)
-    expect(res.body.errors[0].extensions.code).toBe('UNAUTHENTICATED')
-  })
-
-  it('rechaza registerRider con rol insuficiente con FORBIDDEN (403)', async () => {
-    const token = sign({ userId: 'u1', roles: ['customer'] })
-
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${token}`)
-      .send(gql(registerRiderMutation))
-      .expect(200)
-
-    expect(res.body.data).toBeNull()
-    expect(res.body.errors).toHaveLength(1)
-    expect(res.body.errors[0].extensions.code).toBe('FORBIDDEN')
-  })
-
-  it('permite registerRider con super_admin y devuelve los tokens', async () => {
-    const token = sign({ userId: 'admin-1', roles: ['super_admin'] })
-
-    const res = await request(app.getHttpServer())
-      .post('/graphql')
-      .set('Authorization', `Bearer ${token}`)
-      .send(gql(registerRiderMutation))
-      .expect(200)
-
+    expect(res.body.errors).toBeUndefined()
     expect(res.body.data.registerRider).toEqual({
       accessToken: 'at-rider',
       refreshToken: 'rt-rider',

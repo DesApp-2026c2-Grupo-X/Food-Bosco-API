@@ -35,6 +35,10 @@ const buildService = (deps: {
 
 const zoneStub = () => ({
   findByName: jest.fn().mockResolvedValue(null),
+  upsertByName: jest.fn().mockImplementation(async (name: string) => ({
+    id: `z-${name}`,
+    name,
+  })),
   create: jest.fn().mockImplementation(async (seed: { name: string }) => ({
     id: `z-${seed.name}`,
     name: seed.name,
@@ -155,9 +159,10 @@ describe('SeedService (delivery)', () => {
     expect(riderService.create).toHaveBeenCalledWith(expect.objectContaining({ vehicle: expected }))
   })
 
-  it('seedZones/seedShifts omiten los que ya existen', async () => {
+  it('seedZones/seedShifts actualizan las zonas y omiten turnos existentes', async () => {
     const zoneService = {
       findByName: jest.fn().mockResolvedValue({ id: 'z1', name: 'Centro' }),
+      upsertByName: jest.fn().mockResolvedValue({ id: 'z1', name: 'Centro' }),
       create: jest.fn(),
     }
     const shiftService = {
@@ -176,6 +181,7 @@ describe('SeedService (delivery)', () => {
 
     expect(zones).toBe(0)
     expect(shifts).toBe(0)
+    expect(zoneService.upsertByName).toHaveBeenCalledTimes(3)
     expect(zoneService.create).not.toHaveBeenCalled()
     expect(shiftService.create).not.toHaveBeenCalled()
   })

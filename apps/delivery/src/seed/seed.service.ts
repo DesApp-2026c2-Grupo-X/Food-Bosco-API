@@ -106,8 +106,9 @@ export class SeedService {
     for (const zone of zones) {
       const existing = await this.zoneService.findByName(zone.name)
 
+      await this.zoneService.upsertByName(zone.name, zone)
+
       if (!existing) {
-        await this.zoneService.create(zone)
         created += 1
         Logger.log(`zona creada: ${zone.name}`, 'Seed')
       }

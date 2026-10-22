@@ -16,7 +16,7 @@ import { isRiderStale } from '../rider/rider.model'
 import type { PublicRider } from '../rider/rider.model'
 import { RiderOrchestrator } from '../rider/rider.orchestrator'
 import { RiderService } from '../rider/rider.service'
-import type { PublicTrip, TripOrder } from '../trip/trip.model'
+import type { PublicTrip, PublicTripOrder, TripOrder } from '../trip/trip.model'
 import { TripService } from '../trip/trip.service'
 import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
 
@@ -135,7 +135,8 @@ export class OfferOrchestrator {
 
   async markPickup(riderId: string, tripId: string, orderId: string): Promise<PublicTrip> {
     const trip = await this.requireOwnedTrip(riderId, tripId)
-    this.requireOrderInTrip(trip, orderId)
+    const order = this.requireOrderInTrip(trip, orderId)
+    this.assertOrderNotCancelled(order)
 
     await this.commerceClient.patchOrderStatus(orderId, ORDER_STATUS.onTheWay)
     return this.tripService.markOrderPickedUp(tripId, orderId)
@@ -143,7 +144,8 @@ export class OfferOrchestrator {
 
   async markDeliver(riderId: string, tripId: string, orderId: string): Promise<PublicTrip> {
     const trip = await this.requireOwnedTrip(riderId, tripId)
-    this.requireOrderInTrip(trip, orderId)
+    const order = this.requireOrderInTrip(trip, orderId)
+    this.assertOrderNotCancelled(order)
 
     await this.commerceClient.patchOrderStatus(orderId, ORDER_STATUS.delivered)
     const updated = await this.tripService.markOrderDelivered(tripId, orderId)
@@ -246,10 +248,17 @@ export class OfferOrchestrator {
     return trip
   }
 
-  private requireOrderInTrip(trip: PublicTrip, orderId: string): void {
-    const exists = trip.orders.some((order) => order.orderId === orderId)
-    if (!exists) {
+  private requireOrderInTrip(trip: PublicTrip, orderId: string): PublicTripOrder {
+    const order = trip.orders.find((entry) => entry.orderId === orderId)
+    if (!order) {
       throw new DomainException(ERROR_CODES.orderNotInTrip, 'La orden no pertenece al viaje', 404)
+    }
+    return order
+  }
+
+  private assertOrderNotCancelled(order: PublicTripOrder): void {
+    if (order.status === ORDER_STATUS.cancelled) {
+      throw new DomainException(ERROR_CODES.invalidTripStatus, 'La orden fue cancelada', 409)
     }
   }
 

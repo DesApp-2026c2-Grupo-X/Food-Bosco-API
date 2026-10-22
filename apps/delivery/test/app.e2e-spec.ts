@@ -16,6 +16,7 @@ import { InProcessTransport } from '../src/config/messaging/in-process.transport
 import { SecurityModule } from '../src/config/security/security.module'
 import { DeliveryOrderModule } from '../src/delivery-order/delivery-order.module'
 import { OfferModule } from '../src/offer/offer.module'
+import { OrderLifecycleModule } from '../src/order-lifecycle/order-lifecycle.module'
 import { RiderModule } from '../src/rider/rider.module'
 import { TripModule } from '../src/trip/trip.module'
 
@@ -59,6 +60,7 @@ describe('Delivery Service (e2e)', () => {
         RiderModule,
         DeliveryOrderModule,
         OfferModule,
+        OrderLifecycleModule,
         TripModule,
       ],
     })
