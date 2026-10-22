@@ -155,6 +155,71 @@ describe('TripRepository.findActiveOfferByRider (RQ-DLV-05)', () => {
   })
 })
 
+describe('TripRepository.findOpenByOrderId (cancelación de orden)', () => {
+  it('busca viajes abiertos que contienen la orden y prioriza el más reciente', async () => {
+    const { repository, model } = makeRepository()
+    const doc = { id: 't1' }
+    const query = sortableQuery(doc)
+    model.findOne.mockReturnValue(query)
+
+    const result = await repository.findOpenByOrderId('ord-1')
+
+    expect(model.findOne).toHaveBeenCalledWith({
+      status: { $in: [TRIP_STATUS.offered, TRIP_STATUS.active] },
+      'orders.orderId': 'ord-1',
+    })
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: -1 })
+    expect(result).toBe(doc)
+  })
+
+  it('devuelve null si la orden no pertenece a ningún viaje abierto', async () => {
+    const { repository, model } = makeRepository()
+    model.findOne.mockReturnValue(sortableQuery(null))
+
+    await expect(repository.findOpenByOrderId('ord-1')).resolves.toBeNull()
+  })
+})
+
+describe('TripRepository.findByOrderId / findActiveByRider', () => {
+  it('findByOrderId busca en cualquier estado y prioriza el más reciente', async () => {
+    const { repository, model } = makeRepository()
+    const doc = { id: 't1' }
+    const query = sortableQuery(doc)
+    model.findOne.mockReturnValue(query)
+
+    const result = await repository.findByOrderId('ord-1')
+
+    expect(model.findOne).toHaveBeenCalledWith({ 'orders.orderId': 'ord-1' })
+    expect(query.sort).toHaveBeenCalledWith({ createdAt: -1 })
+    expect(result).toBe(doc)
+  })
+
+  it('findByOrderId devuelve null si ningún viaje contiene la orden', async () => {
+    const { repository, model } = makeRepository()
+    model.findOne.mockReturnValue(sortableQuery(null))
+
+    await expect(repository.findByOrderId('ord-1')).resolves.toBeNull()
+  })
+
+  it('findActiveByRider filtra por rider y estado active', async () => {
+    const { repository, model } = makeRepository()
+    const doc = { id: 't1' }
+    model.findOne.mockReturnValue(execQuery(doc))
+
+    const result = await repository.findActiveByRider('u1')
+
+    expect(model.findOne).toHaveBeenCalledWith({ riderId: 'u1', status: TRIP_STATUS.active })
+    expect(result).toBe(doc)
+  })
+
+  it('findActiveByRider devuelve null si el rider no tiene viaje activo', async () => {
+    const { repository, model } = makeRepository()
+    model.findOne.mockReturnValue(execQuery(null))
+
+    await expect(repository.findActiveByRider('u1')).resolves.toBeNull()
+  })
+})
+
 describe('TripRepository.listByRider (RQ-DLV-10)', () => {
   const cases: Array<{ name: string; limit: number; offset: number }> = [
     { name: 'primera página', limit: 20, offset: 0 },

@@ -38,6 +38,9 @@ const makeService = () => {
     findById: jest.fn(),
     findByIdForRider: jest.fn(),
     findActiveOfferByRider: jest.fn(),
+    findOpenByOrderId: jest.fn(),
+    findByOrderId: jest.fn(),
+    findActiveByRider: jest.fn(),
     listByRider: jest.fn(),
     save: jest.fn((doc: TripDocument) => Promise.resolve(doc)),
   }
@@ -435,6 +438,187 @@ describe('TripService.markOrderDelivered — ganancias (RQ-DLV-08)', () => {
 
     expect(partial.status).toBe('active')
     expect(partial.earnings).toBeNull()
+  })
+})
+
+describe('TripService.cancelOrderByOrderId (cancelación de una orden del viaje)', () => {
+  it('cancela la única orden, cierra el viaje y deja ganancias en 0', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({ status: 'active', startedAt: new Date('2026-01-01T00:00:00.000Z') }),
+    )
+
+    const result = await service.cancelOrderByOrderId('ord-1')
+
+    expect(repository.findOpenByOrderId).toHaveBeenCalledWith('ord-1')
+    expect(result?.closed).toBe(true)
+    expect(result?.wasActive).toBe(true)
+    expect(result?.riderId).toBe('u1')
+    expect(result?.trip.status).toBe('cancelled')
+    expect(result?.trip.orders[0].status).toBe('cancelled')
+    expect(result?.trip.earnings).toBe(0)
+    expect(result?.trip.completedAt).not.toBeNull()
+    expect(repository.save).toHaveBeenCalled()
+  })
+
+  it('mantiene el viaje activo si quedan órdenes pendientes', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({
+        status: 'active',
+        orders: [
+          buildOrder({ orderId: 'ord-1', status: 'on_the_way' }),
+          buildOrder({ orderId: 'ord-2', status: 'ready_for_delivery' }),
+        ],
+      }),
+    )
+
+    const result = await service.cancelOrderByOrderId('ord-1')
+
+    expect(result?.closed).toBe(false)
+    expect(result?.trip.status).toBe('active')
+    expect(result?.trip.orders[0].status).toBe('cancelled')
+    expect(result?.trip.orders[1].status).toBe('ready_for_delivery')
+    expect(result?.trip.earnings).toBeNull()
+  })
+
+  it('completa el viaje y prorratea ganancias si otra orden ya fue entregada', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({
+        status: 'active',
+        estimatedEarnings: 1500,
+        orders: [
+          buildOrder({ orderId: 'ord-1', status: 'delivered', deliveredAt: new Date() }),
+          buildOrder({ orderId: 'ord-2', status: 'on_the_way' }),
+        ],
+      }),
+    )
+
+    const result = await service.cancelOrderByOrderId('ord-2')
+
+    expect(result?.closed).toBe(true)
+    expect(result?.trip.status).toBe('completed')
+    expect(result?.trip.earnings).toBe(750)
+    expect(result?.trip.orders.every((order) => order.status !== 'on_the_way')).toBe(true)
+  })
+
+  it('es idempotente si la orden ya estaba cancelada y el viaje quedó abierto', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({
+        status: 'active',
+        orders: [buildOrder({ status: 'cancelled' })],
+      }),
+    )
+
+    const result = await service.cancelOrderByOrderId('ord-1')
+
+    expect(result?.closed).toBe(true)
+    expect(result?.trip.status).toBe('cancelled')
+    expect(repository.save).toHaveBeenCalledTimes(1)
+  })
+
+  it('no cancela una orden ya entregada', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({
+        status: 'active',
+        orders: [buildOrder({ status: 'delivered', deliveredAt: new Date() })],
+      }),
+    )
+
+    await expect(service.cancelOrderByOrderId('ord-1')).rejects.toMatchObject({
+      code: ERROR_CODES.invalidTripStatus,
+      message: 'La orden ya fue entregada',
+      status: 409,
+    })
+    expect(repository.save).not.toHaveBeenCalled()
+  })
+
+  it('rechaza una orden que no pertenece al viaje', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(
+      buildDoc({ status: 'active', orders: [buildOrder({ orderId: 'ord-2' })] }),
+    )
+
+    await expect(service.cancelOrderByOrderId('ord-1')).rejects.toMatchObject({
+      code: ERROR_CODES.orderNotInTrip,
+      status: 404,
+    })
+  })
+
+  it('devuelve null cuando ningún viaje contiene la orden', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(null)
+    repository.findByOrderId.mockResolvedValue(null)
+
+    await expect(service.cancelOrderByOrderId('ord-1')).resolves.toBeNull()
+    expect(repository.save).not.toHaveBeenCalled()
+  })
+
+  it('recupera un viaje ya cerrado para poder liberar al rider en un reintento', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(null)
+    repository.findByOrderId.mockResolvedValue(
+      buildDoc({
+        status: 'cancelled',
+        startedAt: new Date('2026-01-01T00:00:00.000Z'),
+        completedAt: new Date('2026-01-01T00:10:00.000Z'),
+      }),
+    )
+
+    const result = await service.cancelOrderByOrderId('ord-1')
+
+    expect(result?.closed).toBe(true)
+    expect(result?.wasActive).toBe(true)
+    expect(result?.riderId).toBe('u1')
+    expect(repository.save).not.toHaveBeenCalled()
+  })
+
+  it('no considera activo un viaje que solo llegó a ofrecerse', async () => {
+    const { service, repository } = makeService()
+    repository.findOpenByOrderId.mockResolvedValue(buildDoc({ status: 'offered' }))
+
+    const result = await service.cancelOrderByOrderId('ord-1')
+
+    expect(result?.closed).toBe(true)
+    expect(result?.wasActive).toBe(false)
+  })
+})
+
+describe('TripService.hasActiveTrip', () => {
+  it.each([
+    { name: 'tiene un viaje activo', doc: { id: 't1' }, expected: true },
+    { name: 'no tiene viajes activos', doc: null, expected: false },
+  ])('$name → $expected', async ({ doc, expected }) => {
+    const { service, repository } = makeService()
+    repository.findActiveByRider.mockResolvedValue(doc)
+
+    await expect(service.hasActiveTrip('u1')).resolves.toBe(expected)
+    expect(repository.findActiveByRider).toHaveBeenCalledWith('u1')
+  })
+})
+
+describe('TripService.markOrderDelivered con órdenes canceladas', () => {
+  it('completa el viaje al entregar la última orden no cancelada', async () => {
+    const { service, repository } = makeService()
+    repository.findById.mockResolvedValue(
+      buildDoc({
+        status: 'active',
+        estimatedEarnings: 1200,
+        orders: [
+          buildOrder({ orderId: 'ord-1', status: 'on_the_way' }),
+          buildOrder({ orderId: 'ord-2', status: 'cancelled' }),
+        ],
+      }),
+    )
+
+    const result = await service.markOrderDelivered('t1', 'ord-1')
+
+    expect(result.status).toBe('completed')
+    expect(result.earnings).toBe(600)
+    expect(result.completedAt).not.toBeNull()
   })
 })
 

@@ -465,6 +465,22 @@ describe('OfferOrchestrator.markPickup (RQ-DLV-07)', () => {
     })
     expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
   })
+
+  it('rechaza retirar una orden cancelada sin llamar a Commerce', async () => {
+    const { orchestrator, tripService, commerceClient } = makeOrchestrator()
+    tripService.findById.mockResolvedValue({
+      ...trip,
+      status: TRIP_STATUS.active,
+      orders: [{ ...trip.orders[0], status: ORDER_STATUS.cancelled }],
+    })
+
+    await expect(orchestrator.markPickup('u1', 't1', 'ord-1')).rejects.toMatchObject({
+      code: ERROR_CODES.invalidTripStatus,
+      message: 'La orden fue cancelada',
+      status: 409,
+    })
+    expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
+  })
 })
 
 describe('OfferOrchestrator.markDeliver (RQ-DLV-07/08, RQ-DLV-12)', () => {
@@ -507,6 +523,22 @@ describe('OfferOrchestrator.markDeliver (RQ-DLV-07/08, RQ-DLV-12)', () => {
 
     await expect(orchestrator.markDeliver('u1', 't1', 'ord-999')).rejects.toMatchObject({
       code: ERROR_CODES.orderNotInTrip,
+    })
+    expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
+  })
+
+  it('rechaza entregar una orden cancelada sin llamar a Commerce', async () => {
+    const { orchestrator, tripService, commerceClient } = makeOrchestrator()
+    tripService.findById.mockResolvedValue({
+      ...trip,
+      status: TRIP_STATUS.active,
+      orders: [{ ...trip.orders[0], status: ORDER_STATUS.cancelled }],
+    })
+
+    await expect(orchestrator.markDeliver('u1', 't1', 'ord-1')).rejects.toMatchObject({
+      code: ERROR_CODES.invalidTripStatus,
+      message: 'La orden fue cancelada',
+      status: 409,
     })
     expect(commerceClient.patchOrderStatus).not.toHaveBeenCalled()
   })

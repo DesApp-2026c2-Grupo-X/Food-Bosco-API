@@ -21,16 +21,24 @@ export class DeliveryOrderService {
   // Consumo at-least-once: primero se aplica el efecto y recién después se registra el
   // eventId. Si el handler falla, el evento no queda marcado y el transporte lo reintenta;
   // las escrituras (upsertReady condicional / remove) son idempotentes.
+  isEventProcessed(eventId: string): Promise<boolean> {
+    return this.repository.isEventProcessed(eventId)
+  }
+
+  markEventProcessed(eventId: string): Promise<boolean> {
+    return this.repository.markProcessed(eventId)
+  }
+
   async handleOrderStatusChanged(event: OrderStatusChangedEvent): Promise<void> {
-    if (await this.repository.isEventProcessed(event.eventId)) {
+    if (await this.isEventProcessed(event.eventId)) {
       return
     }
 
-    await this.applyEvent(event)
-    await this.repository.markProcessed(event.eventId)
+    await this.applyStatusChange(event)
+    await this.markEventProcessed(event.eventId)
   }
 
-  private async applyEvent(event: OrderStatusChangedEvent): Promise<void> {
+  async applyStatusChange(event: OrderStatusChangedEvent): Promise<void> {
     if (event.status === ORDER_STATUS.readyForDelivery) {
       await this.repository.upsertReady({
         orderId: event.orderId,

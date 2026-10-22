@@ -18,6 +18,15 @@ export interface TripListResponse {
   meta: { total: number; limit: number; offset: number }
 }
 
+export interface CancelOrderResult {
+  trip: PublicTrip
+  closed: boolean
+  riderId: string
+  wasActive: boolean
+}
+
+const TERMINAL_ORDER_STATUSES: string[] = [ORDER_STATUS.delivered, ORDER_STATUS.cancelled]
+
 @Injectable()
 export class TripService {
   constructor(private readonly repository: TripRepository) {}
@@ -107,16 +116,85 @@ export class TripService {
 
     order.status = ORDER_STATUS.delivered
     order.deliveredAt = new Date()
-
-    const allDelivered = doc.orders.every((entry) => entry.status === ORDER_STATUS.delivered)
-    if (allDelivered) {
-      doc.status = TRIP_STATUS.completed
-      doc.completedAt = new Date()
-      doc.earnings = doc.estimatedEarnings
-    }
+    this.closeIfTerminal(doc)
 
     await this.repository.save(doc)
     return serializeTrip(doc)
+  }
+
+  async hasActiveTrip(riderId: string): Promise<boolean> {
+    const doc = await this.repository.findActiveByRider(riderId)
+    return doc != null
+  }
+
+  async cancelOrderByOrderId(orderId: string): Promise<CancelOrderResult | null> {
+    const doc = await this.repository.findOpenByOrderId(orderId)
+
+    if (!doc) {
+      return this.closedTripResult(orderId)
+    }
+
+    const order = this.findOrder(doc, orderId)
+
+    if (order.status === ORDER_STATUS.delivered) {
+      throw new DomainException(ERROR_CODES.invalidTripStatus, 'La orden ya fue entregada', 409)
+    }
+
+    if (order.status !== ORDER_STATUS.cancelled) {
+      order.status = ORDER_STATUS.cancelled
+    }
+
+    const closed = this.closeIfTerminal(doc)
+
+    await this.repository.save(doc)
+
+    return this.toCancelResult(doc, closed)
+  }
+
+  private async closedTripResult(orderId: string): Promise<CancelOrderResult | null> {
+    const doc = await this.repository.findByOrderId(orderId)
+    return doc ? this.toCancelResult(doc, true) : null
+  }
+
+  private toCancelResult(doc: TripDocument, closed: boolean): CancelOrderResult {
+    return {
+      trip: serializeTrip(doc),
+      closed,
+      riderId: doc.riderId,
+      wasActive: doc.startedAt != null,
+    }
+  }
+
+  private closeIfTerminal(doc: TripDocument): boolean {
+    const allTerminal = doc.orders.every((order) => TERMINAL_ORDER_STATUSES.includes(order.status))
+    if (!allTerminal) {
+      return false
+    }
+
+    const deliveredCount = doc.orders.filter(
+      (order) => order.status === ORDER_STATUS.delivered,
+    ).length
+
+    doc.status = deliveredCount > 0 ? TRIP_STATUS.completed : TRIP_STATUS.cancelled
+    doc.completedAt = new Date()
+    doc.earnings = this.calculateEarnings(doc.estimatedEarnings, deliveredCount, doc.orders.length)
+    return true
+  }
+
+  // Si el viaje se cierra con órdenes canceladas, se prorratea la ganancia estimada
+  // según las órdenes efectivamente entregadas.
+  private calculateEarnings(
+    estimatedEarnings: number,
+    deliveredCount: number,
+    totalOrders: number,
+  ): number {
+    if (deliveredCount === 0 || totalOrders === 0) {
+      return 0
+    }
+    if (deliveredCount === totalOrders) {
+      return estimatedEarnings
+    }
+    return Math.round((estimatedEarnings * deliveredCount) / totalOrders)
   }
 
   private async requireDocument(id: string): Promise<TripDocument> {
