@@ -1,6 +1,6 @@
 import 'reflect-metadata'
 import type { AuthContext } from '../config/security/jwt.service'
-import { ERROR_CODES, ROLES } from '../config/constants'
+import { ERROR_CODES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { ROLES_KEY } from '../config/security/roles.decorator'
 import { AuthController } from './auth.controller'
@@ -84,10 +84,10 @@ describe('AuthController.registerRider', () => {
     expect(orchestrator.registerRider).toHaveBeenCalledWith(dto)
   })
 
-  it('restringe el endpoint a super_admin (Security)', () => {
+  it('es público: permite el auto-registro sin rol', () => {
     const roles = Reflect.getMetadata(ROLES_KEY, AuthController.prototype.registerRider)
 
-    expect(roles).toEqual([ROLES.superAdmin])
+    expect(roles).toBeUndefined()
   })
 })
 
