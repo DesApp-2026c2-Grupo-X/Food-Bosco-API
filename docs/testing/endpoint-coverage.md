@@ -26,30 +26,30 @@
 
 Setup: `test/app.e2e-spec.ts` (importa User, Auth, RefreshToken, PasswordRecovery, Address, Security; **no** Health/Seed).
 
-| Método   | Ruta                         | Roles                  | E2E | Flujos faltantes                                                                                               |
-| -------- | ---------------------------- | ---------------------- | --- | -------------------------------------------------------------------------------------------------------------- |
-| POST     | `/v1/auth/register`          | público                | ✅  | validaciones de límites (password 7/129, email malformado, longitudes), rol forzado `customer`, forma del body |
-| POST     | `/v1/auth/register-rider`    | super_admin            | ✅  | email duplicado 409, payload inválido 400, `branch_admin`→403                                                  |
-| POST     | `/v1/auth/login`             | público                | ✅  | `code USER_INACTIVE`, email inválido/body vacío 400                                                            |
-| POST     | `/v1/auth/refresh`           | público                | ✅  | token expirado, usuario inactivo, token ausente 400                                                            |
-| POST     | `/v1/auth/logout`            | auth                   | ✅  | 401 sin token, body `{ok:true}`, idempotencia                                                                  |
-| POST     | `/v1/auth/password-recovery` | público                | ✅  | email inválido 400, fallo del proveedor de email                                                               |
-| POST     | `/v1/auth/reset-password`    | público                | ✅  | token expirado, password fuera de rango, revoca refresh previos                                                |
-| GET      | `/v1/me`                     | auth                   | ✅  | JWT inválido/expirado, usuario inexistente 404                                                                 |
-| PATCH    | `/v1/me`                     | auth                   | ✅  | 401, body parcial 400, máximos, campos no editables                                                            |
-| GET      | `/v1/users`                  | super_admin            | ✅  | filtro `active`, `search`, límites `limit/offset` 400, defaults, 401/403 por rol                               |
-| GET      | `/v1/users/:userId`          | super_admin + internal | ⚠️  | vía Bearer admin, 404, 401/403, id inválido                                                                    |
-| POST     | `/v1/users/staff`            | super_admin            | ✅  | 401/403, email duplicado 409, `branchId` 400, error de Commerce 502                                            |
-| POST     | `/v1/users/admins`           | super_admin            | ⚠️  | 401/403, duplicado 409, payload inválido, rol forzado                                                          |
-| POST     | `/v1/users/riders`           | super_admin            | ⚠️  | 401/403, duplicado 409, payload inválido, rol forzado                                                          |
-| PATCH    | `/v1/users/:userId`          | super_admin            | ⚠️  | 401/403, **403 editar super_admin**, 404, campos, patch vacío                                                  |
-| PATCH    | `/v1/users/:userId/active`   | super_admin            | ⚠️  | reactivación + login, **403 desactivar super_admin**, 404, `active` inválido                                   |
-| GET/POST | `/v1/addresses`              | customer               | ✅  | 401/403, validaciones lat/lng/rangos, aislamiento entre clientes                                               |
-| GET      | `/v1/addresses/:addressId`   | customer               | ❌  | happy, 404 inexistente, 404 de otro usuario, 401/403                                                           |
-| PATCH    | `/v1/addresses/:addressId`   | customer               | ⚠️  | 404 inexistente/ajena, validaciones, campos                                                                    |
-| DELETE   | `/v1/addresses/:addressId`   | customer               | ⚠️  | segundo DELETE 404, 404 ajena, soft-delete en DB                                                               |
-| GET      | `/health`                    | público                | ❌  | contrato `{status,service,uptimeSeconds,timestamp}`                                                            |
-| POST     | `/v1/seed`                   | internal               | ❌  | 401 sin token, `x-internal-token` válido, rama con/sin `branchId`                                              |
+| Método   | Ruta                         | Roles                  | E2E | Flujos faltantes                                                                                                                 |
+| -------- | ---------------------------- | ---------------------- | --- | -------------------------------------------------------------------------------------------------------------------------------- |
+| POST     | `/v1/auth/register`          | público                | ✅  | validaciones de límites (password 7/129, email malformado, longitudes), rol forzado `customer`, `app` obligatoria y solo `store` |
+| POST     | `/v1/auth/register-rider`    | super_admin            | ✅  | email duplicado 409, payload inválido 400, `branch_admin`→403                                                                    |
+| POST     | `/v1/auth/login`             | público                | ✅  | `code USER_INACTIVE`, email inválido/body vacío 400, `app` obligatoria y `APP_ROLE_MISMATCH` 403                                 |
+| POST     | `/v1/auth/refresh`           | público                | ✅  | token expirado, usuario inactivo, token ausente 400                                                                              |
+| POST     | `/v1/auth/logout`            | auth                   | ✅  | 401 sin token, body `{ok:true}`, idempotencia                                                                                    |
+| POST     | `/v1/auth/password-recovery` | público                | ✅  | email inválido 400, fallo del proveedor de email                                                                                 |
+| POST     | `/v1/auth/reset-password`    | público                | ✅  | token expirado, password fuera de rango, revoca refresh previos                                                                  |
+| GET      | `/v1/me`                     | auth                   | ✅  | JWT inválido/expirado, usuario inexistente 404                                                                                   |
+| PATCH    | `/v1/me`                     | auth                   | ✅  | 401, body parcial 400, máximos, campos no editables                                                                              |
+| GET      | `/v1/users`                  | super_admin            | ✅  | filtro `active`, `search`, límites `limit/offset` 400, defaults, 401/403 por rol                                                 |
+| GET      | `/v1/users/:userId`          | super_admin + internal | ⚠️  | vía Bearer admin, 404, 401/403, id inválido                                                                                      |
+| POST     | `/v1/users/staff`            | super_admin            | ✅  | 401/403, email duplicado 409, `branchId` 400, error de Commerce 502                                                              |
+| POST     | `/v1/users/admins`           | super_admin            | ⚠️  | 401/403, duplicado 409, payload inválido, rol forzado                                                                            |
+| POST     | `/v1/users/riders`           | super_admin            | ⚠️  | 401/403, duplicado 409, payload inválido, rol forzado                                                                            |
+| PATCH    | `/v1/users/:userId`          | super_admin            | ⚠️  | 401/403, **403 editar super_admin**, 404, campos, patch vacío                                                                    |
+| PATCH    | `/v1/users/:userId/active`   | super_admin            | ⚠️  | reactivación + login, **403 desactivar super_admin**, 404, `active` inválido                                                     |
+| GET/POST | `/v1/addresses`              | customer               | ✅  | 401/403, validaciones lat/lng/rangos, aislamiento entre clientes                                                                 |
+| GET      | `/v1/addresses/:addressId`   | customer               | ❌  | happy, 404 inexistente, 404 de otro usuario, 401/403                                                                             |
+| PATCH    | `/v1/addresses/:addressId`   | customer               | ⚠️  | 404 inexistente/ajena, validaciones, campos                                                                                      |
+| DELETE   | `/v1/addresses/:addressId`   | customer               | ⚠️  | segundo DELETE 404, 404 ajena, soft-delete en DB                                                                                 |
+| GET      | `/health`                    | público                | ❌  | contrato `{status,service,uptimeSeconds,timestamp}`                                                                              |
+| POST     | `/v1/seed`                   | internal               | ❌  | 401 sin token, `x-internal-token` válido, rama con/sin `branchId`                                                                |
 
 ## Commerce (`apps/commerce`)
 

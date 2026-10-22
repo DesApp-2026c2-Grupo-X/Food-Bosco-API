@@ -1,4 +1,5 @@
 import { Field, ID, InputType } from '@nestjs/graphql'
+import { AppName } from '../common/app-name.enum'
 import { Role } from '../common/role.enum'
 
 @InputType()
@@ -17,6 +18,9 @@ export class RegisterInput {
 
   @Field()
   password!: string
+
+  @Field(() => AppName)
+  app!: AppName
 }
 
 @InputType()
@@ -47,6 +51,9 @@ export class LoginInput {
 
   @Field()
   password!: string
+
+  @Field(() => AppName)
+  app!: AppName
 }
 
 @InputType()

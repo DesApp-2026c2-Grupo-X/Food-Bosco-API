@@ -91,7 +91,7 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
       )
 
       const res = await post(
-        'mutation { register(input: { firstName: "A", lastName: "B", email: "a@b.com", phone: "1", password: "p" }) { accessToken refreshToken } }',
+        'mutation { register(input: { firstName: "A", lastName: "B", email: "a@b.com", phone: "1", password: "p", app: STORE }) { accessToken refreshToken } }',
       ).expect(200)
 
       expect((res.body as GraphQLBody).data).toEqual({
@@ -103,6 +103,7 @@ describe('Gateway auth extendido (e2e) — frontend → GraphQL → REST', () =>
         email: 'a@b.com',
         phone: '1',
         password: 'p',
+        app: 'store',
       })
     })
 

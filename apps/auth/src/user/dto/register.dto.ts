@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer'
-import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator'
+import { IsEmail, IsIn, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator'
+import { APP_NAMES, type AppName } from '../../config/constants'
 import { normalizeEmail, PHONE_PATTERN } from '../../config/validation/normalize'
 
 export class RegisterDto {
@@ -28,4 +29,7 @@ export class RegisterDto {
   @MinLength(8)
   @MaxLength(128)
   password!: string
+
+  @IsIn(APP_NAMES, { message: 'La aplicación indicada no es válida' })
+  app!: AppName
 }

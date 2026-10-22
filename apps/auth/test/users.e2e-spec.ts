@@ -58,6 +58,7 @@ describe('Users admin (e2e)', () => {
       email,
       phone: '11223344',
       password: 'password123',
+      app: 'store',
     })
 
   const createUser = (path: 'staff' | 'admins' | 'riders', body: Record<string, unknown>) =>
@@ -106,7 +107,7 @@ describe('Users admin (e2e)', () => {
 
     const login = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'admin@test.com', password: 'admin-pass' })
+      .send({ email: 'admin@test.com', password: 'admin-pass', app: 'admin' })
       .expect(200)
     adminToken = login.body.accessToken as string
     adminId = (jwt.decode(adminToken) as jwt.JwtPayload).userId as string
@@ -451,7 +452,7 @@ describe('Users admin (e2e)', () => {
 
       const blocked = await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'toggle@test.com', password: 'password123' })
+        .send({ email: 'toggle@test.com', password: 'password123', app: 'branch' })
         .expect(403)
       expect(blocked.body.code).toBe('USER_INACTIVE')
 
@@ -464,7 +465,7 @@ describe('Users admin (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/v1/auth/login')
-        .send({ email: 'toggle@test.com', password: 'password123' })
+        .send({ email: 'toggle@test.com', password: 'password123', app: 'branch' })
         .expect(200)
     })
 
