@@ -67,7 +67,15 @@ export class BranchRepository {
     return this.model
       .findOneAndUpdate(
         { name: data.name },
-        { $setOnInsert: { ...data, phone: data.phone ?? null, active: true, hours: [] } },
+        {
+          $set: {
+            addressText: data.addressText,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            phone: data.phone ?? null,
+          },
+          $setOnInsert: { active: true, hours: [] },
+        },
         { new: true, upsert: true },
       )
       .exec()

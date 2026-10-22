@@ -50,6 +50,11 @@ const buildAddressService = (overrides: Partial<AddressService> = {}) =>
       .mockImplementation(async (_userId: string, data: { label: string; text: string }) =>
         publicAddress({ id: `a-${data.label}`, label: data.label, text: data.text }),
       ),
+    update: jest
+      .fn()
+      .mockImplementation(async (id: string, _userId: string, data: Partial<PublicAddress>) =>
+        publicAddress({ id, ...data }),
+      ),
     ...overrides,
   }) as unknown as AddressService
 
@@ -131,7 +136,7 @@ describe('SeedService (auth) — usuarios', () => {
     },
   )
 
-  it('es idempotente: no crea usuarios ni direcciones que ya existen', async () => {
+  it('es idempotente: no crea usuarios ni direcciones que ya existen, pero actualiza sus datos', async () => {
     const userService = buildUserService({
       findByEmail: jest.fn().mockResolvedValue(publicUser({ id: 'u-existing' })),
     })
@@ -148,6 +153,7 @@ describe('SeedService (auth) — usuarios', () => {
 
     expect(userService.createUser).not.toHaveBeenCalled()
     expect(addressService.create).not.toHaveBeenCalled()
+    expect(addressService.update).toHaveBeenCalledTimes(2)
     expect(result.summary.users).toBe(3)
     expect(result.addresses[0]).toMatchObject({ userId: 'u-existing', id: 'a-casa', label: 'Casa' })
   })
