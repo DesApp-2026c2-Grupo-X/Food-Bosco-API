@@ -67,7 +67,7 @@ const makeOrchestrator = () => {
   }
 }
 
-const credentials = { email: 'cliente@example.com', password: 'secreto123' }
+const credentials = { email: 'cliente@example.com', password: 'secreto123', app: 'store' as const }
 
 const invalidCredentialsError = () =>
   new DomainException(
@@ -92,6 +92,7 @@ describe('AuthOrchestrator.register (RQ-AUTH-01/05)', () => {
       email: 'cliente@example.com',
       phone: '11223344',
       password: 'secreto123',
+      app: 'store',
     })
 
     expect(userService.createUser).toHaveBeenCalledWith(
@@ -119,12 +120,33 @@ describe('AuthOrchestrator.register (RQ-AUTH-01/05)', () => {
         email: 'cliente@example.com',
         phone: '11223344',
         password: 'secreto123',
+        app: 'store',
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.emailTaken,
       message: 'El correo ya está registrado',
       status: 409,
     })
+    expect(refreshTokenService.issue).not.toHaveBeenCalled()
+  })
+
+  it('rechaza registrar un cliente desde una app que no es la tienda', async () => {
+    const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
+
+    await expect(
+      orchestrator.register({
+        firstName: 'Juan',
+        lastName: 'Perez',
+        email: 'cliente@example.com',
+        phone: '11223344',
+        password: 'secreto123',
+        app: 'rider',
+      }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.appRoleMismatch,
+      status: 403,
+    })
+    expect(userService.createUser).not.toHaveBeenCalled()
     expect(refreshTokenService.issue).not.toHaveBeenCalled()
   })
 })
@@ -202,13 +224,24 @@ describe('AuthOrchestrator.login (RQ-AUTH-04/05/06)', () => {
     )
     refreshTokenService.issue.mockResolvedValue('refresh-token')
 
-    await orchestrator.login(credentials)
+    await orchestrator.login({ ...credentials, app: 'branch' })
 
     expect(jwtService.signAccessToken).toHaveBeenCalledWith({
       id: 'u1',
       role: ROLES.branchAdmin,
       branchId: 'branch-1',
     })
+  })
+
+  it('rechaza el login cuando el rol no pertenece a la app', async () => {
+    const { orchestrator, userService, refreshTokenService } = makeOrchestrator()
+    userService.verifyCredentials.mockResolvedValue(makeUser({ role: ROLES.superAdmin }))
+
+    await expect(orchestrator.login(credentials)).rejects.toMatchObject({
+      code: ERROR_CODES.appRoleMismatch,
+      status: 403,
+    })
+    expect(refreshTokenService.issue).not.toHaveBeenCalled()
   })
 
   it.each([

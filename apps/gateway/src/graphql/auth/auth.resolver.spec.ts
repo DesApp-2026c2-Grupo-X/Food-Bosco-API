@@ -1,6 +1,7 @@
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { Role } from '../common/role.enum'
+import { AppName } from '../common/app-name.enum'
 import { AuthResolver } from './auth.resolver'
 
 const ctx = {
@@ -43,7 +44,14 @@ describe('AuthResolver — mutaciones públicas', () => {
 
   it('register → POST /v1/auth/register', async () => {
     rest.post.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt' })
-    const input = { firstName: 'A', lastName: 'B', email: 'a@b.com', phone: '1', password: 'p' }
+    const input = {
+      firstName: 'A',
+      lastName: 'B',
+      email: 'a@b.com',
+      phone: '1',
+      password: 'p',
+      app: AppName.STORE,
+    }
 
     const result = await resolver.register(input)
 
@@ -69,7 +77,7 @@ describe('AuthResolver — mutaciones públicas', () => {
 
   it('login → POST /v1/auth/login', async () => {
     rest.post.mockResolvedValue({ accessToken: 'at', refreshToken: 'rt' })
-    const input = { email: 'a@b.com', password: 'p' }
+    const input = { email: 'a@b.com', password: 'p', app: AppName.STORE }
 
     await resolver.login(input)
 

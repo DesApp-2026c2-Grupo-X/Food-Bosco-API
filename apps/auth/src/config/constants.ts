@@ -14,9 +14,32 @@ export const USER_ROLE_VALUES: Role[] = [
   ROLES.rider,
 ]
 
+export const APPS = {
+  store: 'store',
+  admin: 'admin',
+  branch: 'branch',
+  rider: 'rider',
+} as const
+
+export type AppName = (typeof APPS)[keyof typeof APPS]
+
+export const APP_NAMES: AppName[] = [APPS.store, APPS.admin, APPS.branch, APPS.rider]
+
+/**
+ * Cada aplicación acepta únicamente los roles que le corresponden.
+ * Debe mantenerse alineado con `APP_ROLES` del frontend (`@repo/auth`).
+ */
+export const APP_ROLES: Record<AppName, Role[]> = {
+  store: [ROLES.customer],
+  admin: [ROLES.superAdmin],
+  branch: [ROLES.branchAdmin],
+  rider: [ROLES.rider],
+}
+
 export const ERROR_CODES = {
   emailTaken: 'EMAIL_TAKEN',
   invalidCredentials: 'INVALID_CREDENTIALS',
+  appRoleMismatch: 'APP_ROLE_MISMATCH',
   userInactive: 'USER_INACTIVE',
   userNotFound: 'USER_NOT_FOUND',
   invalidRefreshToken: 'INVALID_REFRESH_TOKEN',

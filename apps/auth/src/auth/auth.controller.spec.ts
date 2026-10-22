@@ -40,6 +40,7 @@ describe('AuthController.register (RQ-AUTH-01)', () => {
       email: 'cliente@example.com',
       phone: '11223344',
       password: 'secreto123',
+      app: 'store' as const,
     }
 
     await expect(controller.register(dto)).resolves.toEqual(tokens)
@@ -59,6 +60,7 @@ describe('AuthController.register (RQ-AUTH-01)', () => {
         email: 'cliente@example.com',
         phone: '11223344',
         password: 'secreto123',
+        app: 'store',
       }),
     ).rejects.toMatchObject({
       code: ERROR_CODES.emailTaken,
@@ -94,7 +96,7 @@ describe('AuthController.registerRider', () => {
 describe('AuthController.login (RQ-AUTH-04/06)', () => {
   it('delega las credenciales y devuelve los tokens', async () => {
     const { controller, orchestrator } = makeController()
-    const dto = { email: 'cliente@example.com', password: 'secreto123' }
+    const dto = { email: 'cliente@example.com', password: 'secreto123', app: 'store' as const }
 
     await expect(controller.login(dto)).resolves.toEqual(tokens)
     expect(orchestrator.login).toHaveBeenCalledWith(dto)
@@ -114,7 +116,7 @@ describe('AuthController.login (RQ-AUTH-04/06)', () => {
     orchestrator.login.mockRejectedValue(error)
 
     await expect(
-      controller.login({ email: 'cliente@example.com', password: 'mala' }),
+      controller.login({ email: 'cliente@example.com', password: 'mala', app: 'store' }),
     ).rejects.toMatchObject({ code: error.code, message: error.message, status: error.getStatus() })
   })
 })

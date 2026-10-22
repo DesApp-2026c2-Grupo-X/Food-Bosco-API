@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { ERROR_CODES, ROLES } from '../config/constants'
+import { APP_ROLES, ERROR_CODES, ROLES, type AppName, type Role } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { JwtService } from '../config/security/jwt.service'
 import { EmailService } from '../email/email.service'
@@ -28,6 +28,11 @@ export class AuthOrchestrator {
   ) {}
 
   async register(input: RegisterDto): Promise<AuthTokensResponse> {
+    this.assertAppRole(
+      input.app,
+      ROLES.customer,
+      'Esta aplicación no permite crear cuentas de cliente.',
+    )
     const user = await this.userService.createUser(this.toCreateInput(input, ROLES.customer))
     return this.issueTokens(user)
   }
@@ -42,6 +47,7 @@ export class AuthOrchestrator {
 
   async login(input: LoginDto): Promise<AuthTokensResponse> {
     const user = await this.userService.verifyCredentials(input.email, input.password)
+    this.assertAppRole(input.app, user.role)
     return this.issueTokens(user)
   }
 
@@ -94,6 +100,16 @@ export class AuthOrchestrator {
     const userId = await this.passwordRecoveryService.consume(token)
     await this.userService.setPassword(userId, newPassword)
     await this.refreshTokenService.revokeAll(userId)
+  }
+
+  private assertAppRole(
+    app: AppName,
+    role: Role,
+    message = 'Tu cuenta no pertenece a esta aplicación. Ingresá desde la app que corresponde a tu rol.',
+  ): void {
+    if (!APP_ROLES[app].includes(role)) {
+      throw new DomainException(ERROR_CODES.appRoleMismatch, message, 403)
+    }
   }
 
   private async issueTokens(user: PublicUser): Promise<AuthTokensResponse> {

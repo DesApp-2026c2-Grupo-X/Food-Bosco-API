@@ -429,23 +429,27 @@ Es idempotente por claves naturales (email, nombre de sucursal, etc.).
 
 | Método | Ruta                         | Acceso                                  | Qué hace                                        |
 | ------ | ---------------------------- | --------------------------------------- | ----------------------------------------------- |
-| POST   | `/v1/auth/register`          | público                                 | crea **customer** y devuelve tokens             |
+| POST   | `/v1/auth/register`          | público                                 | crea **customer** (`app: store`) y devuelve tokens |
 | POST   | `/v1/auth/register-rider`    | público                                 | crea **rider** con vehículo                     |
-| POST   | `/v1/auth/login`             | público                                 | email + password → tokens                       |
+| POST   | `/v1/auth/login`             | público                                 | email + password + `app` → tokens (valida rol vs app) |
 | POST   | `/v1/auth/refresh`           | público (requiere refresh token válido) | rota tokens                                     |
 | POST   | `/v1/auth/logout`            | autenticado                             | revoca **todos** los refresh tokens del usuario |
 | POST   | `/v1/auth/password-recovery` | público                                 | solicita email de recuperación                  |
 | POST   | `/v1/auth/reset-password`    | público (requiere token)                | cambia contraseña y revoca sesiones             |
 
+`login` y `register` reciben un campo obligatorio `app` (`STORE`, `ADMIN`, `BRANCH`, `RIDER`). El Auth Service valida que el rol del usuario pertenezca a esa app y responde `403 APP_ROLE_MISMATCH` sin emitir tokens si no coincide.
+
 ## 4.2 Login
 
 ```text
-LoginDto (email, password)
+LoginDto (email, password, app)
 → AuthOrchestrator.login
 → UserService.verifyCredentials
     → repository.findByEmailWithPassword (select +passwordHash)
     → bcrypt.compare
     → si !active → 403 USER_INACTIVE
+→ assertAppRole(app, user.role)
+    → si el rol no pertenece a la app → 403 APP_ROLE_MISMATCH
 → issueTokens(user)
     → JwtService.signAccessToken({ id, role, branchId })
     → RefreshTokenService.issue(user.id)
@@ -493,10 +497,10 @@ El frontend (Apollo `errorLink`) detecta `UNAUTHENTICATED`, llama `refreshToken`
 
 ## 4.6 Registro
 
-- `register` siempre crea `customer`; no acepta rol desde el cliente.
+- `register` siempre crea `customer`; no acepta rol desde el cliente y exige `app: store`.
 - `register-rider` es público y crea `rider` con vehículo (auto-registro desde la app rider). También existe `POST /v1/users/riders` (super_admin) para que un admin cree riders.
 - `RegisterRiderDto`: los mismos campos que `RegisterDto` + `vehicle` obligatorio (≤100).
-- `RegisterDto`: nombres ≤100, email válido, teléfono ≤50, password **8–128**.
+- `RegisterDto`: nombres ≤100, email válido, teléfono ≤50, password **8–128**, `app` obligatoria (`STORE` para clientes).
 
 ## 4.7 Recuperación de contraseña
 
@@ -1237,9 +1241,9 @@ El gateway resuelve las uniones cross-service por REST + DataLoader; **no hay jo
 
 | Mutation                                                                                     | Acceso       | Notas                                      |
 | -------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------ |
-| `register(input)`                                                                            | público      | crea customer                              |
+| `register(input)`                                                                            | público      | crea customer (solo `app: STORE`)          |
 | `registerRider(input)`                                                                       | público      | rider + vehículo                           |
-| `login(input)`                                                                               | público      | tokens                                     |
+| `login(input)`                                                                               | público      | tokens (valida `app` contra el rol)        |
 | `refreshToken(refreshToken)`                                                                 | público      | rotación                                   |
 | `logout`                                                                                     | autenticado  | revoca todos                               |
 | `requestPasswordRecovery(email)`                                                             | público      | throttled 5/min                            |

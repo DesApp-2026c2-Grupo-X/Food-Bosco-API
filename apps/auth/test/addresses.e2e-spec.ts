@@ -63,6 +63,7 @@ describe('Addresses (e2e)', () => {
       email,
       phone: '11223344',
       password: 'password123',
+      app: 'store',
     })
 
   const createAddress = async (
@@ -130,7 +131,7 @@ describe('Addresses (e2e)', () => {
 
     const login = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email: 'admin@test.com', password: 'admin-pass' })
+      .send({ email: 'admin@test.com', password: 'admin-pass', app: 'admin' })
       .expect(200)
     adminToken = login.body.accessToken as string
   })

@@ -109,7 +109,7 @@ describe('Gateway auth (e2e) — frontend → GraphQL → REST', () => {
       .post('/graphql')
       .send(
         gql(
-          'mutation { login(input: { email: "a@b.com", password: "p" }) { accessToken refreshToken } }',
+          'mutation { login(input: { email: "a@b.com", password: "p", app: STORE }) { accessToken refreshToken } }',
         ),
       )
       .expect(200)
