@@ -89,7 +89,9 @@ Por decisión del equipo se resolvieron además:
 
 - **COM-10** (id de subdocumento sintetizado de forma estable).
 - **NEW-01…NEW-15**.
-- **Seguridad (alta prioridad):** `register-rider` restringido a `super_admin` (auth + gateway); `@Roles` en `GET /v1/orders`; validación de secretos por defecto en producción (`JWT_SECRET`/`INTERNAL_API_TOKEN`) en los 4 servicios.
+- **Seguridad (alta prioridad):** `@Roles` en `GET /v1/orders`; validación de secretos por defecto en producción (`JWT_SECRET`/`INTERNAL_API_TOKEN`) en los 4 servicios.
+
+> **Actualización 2026-10-21:** `register-rider` volvió a ser **público** por decisión de producto (la app rider necesita auto-registro). `POST /v1/users/riders` sigue restringido a `super_admin` para altas administrativas.
 
 ---
 

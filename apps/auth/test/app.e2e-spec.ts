@@ -540,7 +540,7 @@ describe('Auth Service (e2e)', () => {
     })
   })
 
-  describe('registro de repartidor por admin (register-rider, Security)', () => {
+  describe('auto-registro de repartidor (register-rider, público)', () => {
     const riderBody = {
       firstName: 'R',
       lastName: 'R',
@@ -550,29 +550,9 @@ describe('Auth Service (e2e)', () => {
       vehicle: 'Bici',
     }
 
-    it('rechaza sin token con 401', async () => {
+    it('permite registrarse sin token y devuelve tokens de rider', async () => {
       const res = await request(app.getHttpServer())
         .post('/v1/auth/register-rider')
-        .send(riderBody)
-        .expect(401)
-
-      expect(res.body.code).toBe('UNAUTHENTICATED')
-    })
-
-    it('rechaza a un cliente con 403', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/v1/auth/register-rider')
-        .set('Authorization', `Bearer ${customerToken}`)
-        .send(riderBody)
-        .expect(403)
-
-      expect(res.body.code).toBe('FORBIDDEN')
-    })
-
-    it('permite a un super_admin registrar un rider con vehicle', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/v1/auth/register-rider')
-        .set('Authorization', `Bearer ${adminToken}`)
         .send(riderBody)
         .expect(201)
 

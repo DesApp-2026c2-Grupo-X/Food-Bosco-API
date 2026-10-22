@@ -427,15 +427,15 @@ Es idempotente por claves naturales (email, nombre de sucursal, etc.).
 
 ## 4.1 Endpoints
 
-| Método | Ruta                         | Acceso                                  | Qué hace                                              |
-| ------ | ---------------------------- | --------------------------------------- | ----------------------------------------------------- |
-| POST   | `/v1/auth/register`          | público                                 | crea **customer** (`app: store`) y devuelve tokens    |
-| POST   | `/v1/auth/register-rider`    | `super_admin`                           | crea **rider** con vehículo                           |
+| Método | Ruta                         | Acceso                                  | Qué hace                                        |
+| ------ | ---------------------------- | --------------------------------------- | ----------------------------------------------- |
+| POST   | `/v1/auth/register`          | público                                 | crea **customer** (`app: store`) y devuelve tokens |
+| POST   | `/v1/auth/register-rider`    | público                                 | crea **rider** con vehículo                     |
 | POST   | `/v1/auth/login`             | público                                 | email + password + `app` → tokens (valida rol vs app) |
-| POST   | `/v1/auth/refresh`           | público (requiere refresh token válido) | rota tokens                                           |
-| POST   | `/v1/auth/logout`            | autenticado                             | revoca **todos** los refresh tokens del usuario       |
-| POST   | `/v1/auth/password-recovery` | público                                 | solicita email de recuperación                        |
-| POST   | `/v1/auth/reset-password`    | público (requiere token)                | cambia contraseña y revoca sesiones                   |
+| POST   | `/v1/auth/refresh`           | público (requiere refresh token válido) | rota tokens                                     |
+| POST   | `/v1/auth/logout`            | autenticado                             | revoca **todos** los refresh tokens del usuario |
+| POST   | `/v1/auth/password-recovery` | público                                 | solicita email de recuperación                  |
+| POST   | `/v1/auth/reset-password`    | público (requiere token)                | cambia contraseña y revoca sesiones             |
 
 `login` y `register` reciben un campo obligatorio `app` (`STORE`, `ADMIN`, `BRANCH`, `RIDER`). El Auth Service valida que el rol del usuario pertenezca a esa app y responde `403 APP_ROLE_MISMATCH` sin emitir tokens si no coincide.
 
@@ -497,10 +497,10 @@ El frontend (Apollo `errorLink`) detecta `UNAUTHENTICATED`, llama `refreshToken`
 
 ## 4.6 Registro
 
-- `register` siempre crea `customer`; no acepta rol desde el cliente.
-- `register-rider` exige `super_admin`. También existe `POST /v1/users/riders` (super_admin) para crear riders.
-- **No hay auto-registro público de riders**: el rider se crea desde el admin o por seed.
-- `RegisterDto`: nombres ≤100, email válido, teléfono ≤50, password **8–128**.
+- `register` siempre crea `customer`; no acepta rol desde el cliente y exige `app: store`.
+- `register-rider` es público y crea `rider` con vehículo (auto-registro desde la app rider). También existe `POST /v1/users/riders` (super_admin) para que un admin cree riders.
+- `RegisterRiderDto`: los mismos campos que `RegisterDto` + `vehicle` obligatorio (≤100).
+- `RegisterDto`: nombres ≤100, email válido, teléfono ≤50, password **8–128**, `app` obligatoria (`STORE` para clientes).
 
 ## 4.7 Recuperación de contraseña
 
@@ -621,7 +621,7 @@ Los servicios:
 | `myAddresses`, `address`, `createAddress`, `updateAddress`, `deleteAddress`                                                                                                                                               |    —    |      ✅      |        —         |      —      |       —        |
 | `riderProfile`, `tripOffers`, `trip`, `myTrips`, `updateRiderProfile`, `updateRiderVehicle`, `setRiderAvailability`, `updateRiderLocation`, `acceptTripOffer`, `rejectTripOffer`, `markOrderPickup`, `markOrderDelivered` |    —    |      —       |        —         |      —      |       ✅       |
 | `register`, `login`, `refreshToken`, `requestPasswordRecovery`, `resetPassword`                                                                                                                                           |   ✅    |      ✅      |        ✅        |     ✅      |       ✅       |
-| `registerRider`                                                                                                                                                                                                           |    —    |      —       |        —         |     ✅      |       —        |
+| `registerRider`                                                                                                                                                                                                           |   ✅    |      ✅      |        ✅        |     ✅      |       ✅       |
 
 > `order`/`orderHistory` delegan el ownership al servicio: super_admin; branch_admin de la sucursal; rider asignado; o el cliente dueño. Si no, el servicio responde `404 ORDER_NOT_FOUND` (no 403, para no filtrar existencia).
 
@@ -1242,7 +1242,7 @@ El gateway resuelve las uniones cross-service por REST + DataLoader; **no hay jo
 | Mutation                                                                                     | Acceso       | Notas                                      |
 | -------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------ |
 | `register(input)`                                                                            | público      | crea customer (solo `app: STORE`)          |
-| `registerRider(input)`                                                                       | super_admin  | rider + vehículo                           |
+| `registerRider(input)`                                                                       | público      | rider + vehículo                           |
 | `login(input)`                                                                               | público      | tokens (valida `app` contra el rol)        |
 | `refreshToken(refreshToken)`                                                                 | público      | rotación                                   |
 | `logout`                                                                                     | autenticado  | revoca todos                               |
@@ -1455,7 +1455,7 @@ Estas rutas las consumen el gateway (y ocasionalmente el frontend para uploads).
 | Método           | Ruta                         | Acceso                |
 | ---------------- | ---------------------------- | --------------------- |
 | POST             | `/v1/auth/register`          | público               |
-| POST             | `/v1/auth/register-rider`    | super_admin           |
+| POST             | `/v1/auth/register-rider`    | público               |
 | POST             | `/v1/auth/login`             | público               |
 | POST             | `/v1/auth/refresh`           | público               |
 | POST             | `/v1/auth/logout`            | autenticado           |
@@ -2170,10 +2170,9 @@ Inconsistencias verificadas (el código es la verdad):
 | 7   | Documentación funcional sugiere estados configurables                                                                                           | `ORDER_TRANSITIONS` está **hardcodeado**; `orderStates` es sólo catálogo de UI.                                                                                                  |
 | 8   | Documentación funcional incluye promociones                                                                                                     | `promotions` es CRUD; **no** se aplica a carrito/pedido.                                                                                                                         |
 | 9   | Documentación funcional incluye zonas/turnos de delivery                                                                                        | `zones`/`shifts` son CRUD; el matching usa **distancia + disponibilidad + staleness**, no zonas/turnos.                                                                          |
-| 10  | Guía del frontend: registro permite `customer` o `rider`                                                                                        | El backend exige **super_admin** para `register-rider` y `POST /v1/users/riders`; un rider no puede auto-registrarse desde la app.                                               |
-| 11  | Guía del frontend: `dayOfWeek` 1–7                                                                                                              | El backend usa **0 = domingo … 6 = sábado** (`getUTCDay`), y el seed genera 0–6.                                                                                                 |
-| 12  | “Frontend habla únicamente GraphQL”                                                                                                             | El frontend usa **`POST /v1/uploads`** (REST del gateway) para subir imágenes.                                                                                                   |
-| 13  | `docs/credenciales-seed.md` sugiere que el seed crea todo (incluidos branch admins, pedidos y pedido listo)                                     | El **seed directo** (`npm run seed`) no crea branch admins, pedidos ni pedido listo; eso ocurre sólo con **`POST /seed`** del gateway, que pasa sucursales y contexto de pedido. |
+| 10  | Guía del frontend: `dayOfWeek` 1–7                                                                                                              | El backend usa **0 = domingo … 6 = sábado** (`getUTCDay`), y el seed genera 0–6.                                                                                                 |
+| 11  | “Frontend habla únicamente GraphQL”                                                                                                             | El frontend usa **`POST /v1/uploads`** (REST del gateway) para subir imágenes.                                                                                                   |
+| 12  | `docs/credenciales-seed.md` sugiere que el seed crea todo (incluidos branch admins, pedidos y pedido listo)                                     | El **seed directo** (`npm run seed`) no crea branch admins, pedidos ni pedido listo; eso ocurre sólo con **`POST /seed`** del gateway, que pasa sucursales y contexto de pedido. |
 
 > Estas diferencias no rompen la demo, pero conviene mencionarlas si preguntan “¿esto está documentado así?”. La respuesta correcta es: **el código manda**.
 
@@ -2204,7 +2203,7 @@ Inconsistencias verificadas (el código es la verdad):
 - `AuthGuard` del gateway vs `RolesGuard` de los servicios (metadata y precedencia).
 - El gateway verifica el JWT una vez y propaga identidad por headers; los servicios **reverifican**.
 - `@Internal()` no hace pública la ruta: exige token interno **o** JWT+rol.
-- Diferencia entre `register` (customer) y `register-rider` (super_admin).
+- Diferencia entre `register` (customer) y `register-rider` (rider público).
 - Rotación de refresh y por qué el reuso falla.
 - `PasswordRecovery` neutral + ventana de 60 s + TTL 1 h.
 - Haversine y su uso en cobertura/matching/ruta.
@@ -2486,11 +2485,11 @@ Inconsistencias verificadas (el código es la verdad):
 
 **Técnica:** gateway + REST da contrato único hacia afuera y simplicidad adentro; las variantes Federation/gRPC quedaron documentadas como descartadas.
 
-### 41. ¿Por qué el rider no puede registrarse solo?
+### 41. ¿Cómo se crea un rider?
 
-**Corta:** el alta de rider exige super_admin.
+**Corta:** se auto-registra desde la app rider o lo crea un super_admin.
 
-**Técnica:** `register-rider` y `POST /v1/users/riders` tienen `@Roles(super_admin)`. El frontend del rider ofrece registro, pero el backend lo rechaza; el alta real es desde admin o seed.
+**Técnica:** `register-rider` es público y crea el usuario con rol `rider` + `vehicle`; `POST /v1/users/riders` sigue siendo `super_admin` para altas administrativas. Ambos validan email único y vehículo obligatorio.
 
 ### 42. ¿Para qué existen `orderStates` si las transiciones están hardcodeadas?
 
