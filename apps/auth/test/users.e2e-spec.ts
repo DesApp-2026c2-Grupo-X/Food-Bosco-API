@@ -145,6 +145,22 @@ describe('Users admin (e2e)', () => {
       expect(res.body.data.every((u: { role: string }) => u.role === 'rider')).toBe(true)
     })
 
+    it('filtra por varios roles separados por coma', async () => {
+      await createUser('riders', { ...riderBody, email: 'multi-role-rider@test.com' }).expect(201)
+
+      const res = await request(app.getHttpServer())
+        .get('/v1/users?roles=branch_admin,super_admin')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+
+      expect(res.body.data.length).toBeGreaterThan(0)
+      expect(
+        res.body.data.every((u: { role: string }) =>
+          ['branch_admin', 'super_admin'].includes(u.role),
+        ),
+      ).toBe(true)
+    })
+
     it('filtra por active=true', async () => {
       const res = await request(app.getHttpServer())
         .get('/v1/users?active=true')
@@ -543,6 +559,64 @@ describe('Users admin (e2e)', () => {
         .expect(200)
 
       expect(res.body.active).toBe(expected)
+    })
+  })
+
+  describe('DELETE /v1/users/:userId (baja lógica de colaboradores)', () => {
+    it('da de baja al colaborador, lo oculta del listado y bloquea su login', async () => {
+      const created = await createUser('staff', {
+        ...staffBody,
+        email: 'delete-staff@test.com',
+      }).expect(201)
+      const staffId = created.body.id as string
+
+      await request(app.getHttpServer())
+        .delete(`/v1/users/${staffId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+
+      const list = await request(app.getHttpServer())
+        .get('/v1/users?search=delete-staff@test.com')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+      expect(list.body.data).toHaveLength(0)
+
+      const stored = await userModel.findById(staffId).lean()
+      expect(stored?.active).toBe(false)
+      expect(stored?.deletedAt).toBeInstanceOf(Date)
+
+      const blocked = await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: 'delete-staff@test.com', password: 'password123', app: 'branch' })
+        .expect(403)
+      expect(blocked.body.code).toBe('USER_INACTIVE')
+    })
+
+    it('rechaza eliminar un super_admin con 403', async () => {
+      const res = await request(app.getHttpServer())
+        .delete(`/v1/users/${adminId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(403)
+
+      expect(res.body.code).toBe('FORBIDDEN')
+    })
+
+    it('devuelve 404 si el colaborador no existe', async () => {
+      const res = await request(app.getHttpServer())
+        .delete(`/v1/users/${new Types.ObjectId().toString()}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404)
+
+      expect(res.body.code).toBe('USER_NOT_FOUND')
+    })
+
+    it('requiere autenticación de super_admin', async () => {
+      await request(app.getHttpServer()).delete(`/v1/users/${adminId}`).expect(401)
+
+      await request(app.getHttpServer())
+        .delete(`/v1/users/${adminId}`)
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(403)
     })
   })
 })

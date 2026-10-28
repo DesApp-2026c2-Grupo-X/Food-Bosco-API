@@ -360,6 +360,23 @@ describe('UserQueryDto (listado con filtros)', () => {
     expect(invalid).toEqual(['active'])
   })
 
+  it('convierte roles separados por coma en un array validado', async () => {
+    const { instance, invalid } = await check(UserQueryDto, {
+      roles: 'branch_admin, super_admin',
+    })
+
+    expect(invalid).toEqual([])
+    expect(instance.roles).toEqual(['branch_admin', 'super_admin'])
+  })
+
+  it.each([
+    { name: 'un rol desconocido', roles: 'branch_admin,vendedor' },
+    { name: 'un array con rol inválido', roles: ['rider', 'vendedor'] },
+  ])('rechaza roles con $name', async ({ roles }) => {
+    const { invalid } = await check(UserQueryDto, { roles })
+    expect(invalid).toEqual(['roles'])
+  })
+
   it('con whitelist descarta parámetros desconocidos', async () => {
     const { instance, invalid } = await check(
       UserQueryDto,

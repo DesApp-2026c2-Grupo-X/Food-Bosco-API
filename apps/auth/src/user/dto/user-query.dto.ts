@@ -1,5 +1,15 @@
 import { Transform, Type } from 'class-transformer'
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator'
 import { USER_ROLE_VALUES } from '../../config/constants'
 import type { Role } from '../../config/constants'
 
@@ -7,6 +17,19 @@ export class UserQueryDto {
   @IsOptional()
   @IsIn(USER_ROLE_VALUES)
   role?: Role
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map((role) => role.trim())
+          .filter((role) => role.length > 0)
+      : value,
+  )
+  @IsArray()
+  @IsIn(USER_ROLE_VALUES, { each: true })
+  roles?: Role[]
 
   @IsOptional()
   @Transform(({ value }) => {

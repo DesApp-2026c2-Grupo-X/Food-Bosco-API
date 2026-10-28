@@ -62,7 +62,7 @@ export class UserService {
       throw new DomainException(ERROR_CODES.invalidCredentials, INVALID_CREDENTIALS_MESSAGE, 401)
     }
 
-    if (!doc.active) {
+    if (!doc.active || doc.deletedAt != null) {
       throw new DomainException(ERROR_CODES.userInactive, INACTIVE_USER_MESSAGE, 403)
     }
 
@@ -94,6 +94,11 @@ export class UserService {
 
   async setActive(id: string, active: boolean): Promise<PublicUser | null> {
     const doc = await this.repository.setActive(id, active)
+    return doc ? serializeUser(doc) : null
+  }
+
+  async softDelete(id: string): Promise<PublicUser | null> {
+    const doc = await this.repository.softDelete(id)
     return doc ? serializeUser(doc) : null
   }
 

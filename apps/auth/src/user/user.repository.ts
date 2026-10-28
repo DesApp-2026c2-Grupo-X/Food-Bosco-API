@@ -24,6 +24,7 @@ export interface UpdateUserData {
 
 export interface UserListQuery {
   role?: Role
+  roles?: Role[]
   active?: boolean
   search?: string
   limit: number
@@ -59,9 +60,10 @@ export class UserRepository {
   }
 
   async list(query: UserListQuery): Promise<{ data: UserDocument[]; total: number }> {
-    const filter: Record<string, unknown> = {}
+    const filter: Record<string, unknown> = { deletedAt: null }
 
-    if (query.role) filter.role = query.role
+    if (query.roles?.length) filter.role = { $in: query.roles }
+    else if (query.role) filter.role = query.role
     if (query.active !== undefined) filter.active = query.active
     if (query.search) {
       const regex = new RegExp(escapeRegex(query.search), 'i')
@@ -84,6 +86,13 @@ export class UserRepository {
   async setActive(id: string, active: boolean): Promise<UserDocument | null> {
     if (!isValidObjectId(id)) return null
     return this.model.findByIdAndUpdate(id, { $set: { active } }, { new: true }).exec()
+  }
+
+  async softDelete(id: string): Promise<UserDocument | null> {
+    if (!isValidObjectId(id)) return null
+    return this.model
+      .findByIdAndUpdate(id, { $set: { active: false, deletedAt: new Date() } }, { new: true })
+      .exec()
   }
 
   async updatePassword(id: string, passwordHash: string): Promise<void> {

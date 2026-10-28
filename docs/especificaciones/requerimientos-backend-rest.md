@@ -601,6 +601,7 @@ type Mutation {
   createRider(input: CreateRiderInput!): User!
   updateUser(id: ID!, input: UpdateUserInput!): User!
   setUserActive(id: ID!, active: Boolean!): User!
+  deleteUser(id: ID!): Boolean!
 
   # Direcciones (cliente)
   createAddress(input: CreateAddressInput!): Address!
@@ -848,6 +849,7 @@ input UpdateRiderProfileInput {
 
 input UserFilter {
   role: Role
+  roles: [Role!]
   active: Boolean
   search: String
 }
@@ -1030,15 +1032,16 @@ Dueño de la identidad, la autenticación, las sesiones, los roles, las **direcc
 
 ### 6.2 Usuarios / personal (administración)
 
-| Método | Ruta                        | Acceso                  | Operación                                                                    |
-| ------ | --------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
-| GET    | `/v1/users`                 | `super_admin`           | Listar usuarios (filtros: `role`, `active`, `search`)                        |
-| GET    | `/v1/users/{userId}`        | `super_admin` / interno | Obtener usuario por id (referencias cross-service del gateway)               |
-| POST   | `/v1/users/staff`           | `super_admin`           | Crear colaborador `branch_admin` (vínculo a sucursal existente)              |
-| POST   | `/v1/users/admins`          | `super_admin`           | Crear otro `super_admin`                                                     |
-| POST   | `/v1/users/riders`          | `super_admin`           | Crear repartidor `rider` (con vehículo y teléfono)                           |
-| PATCH  | `/v1/users/{userId}`        | `super_admin`           | Modificar datos permitidos (incluida la sucursal asignada de un colaborador) |
-| PATCH  | `/v1/users/{userId}/active` | `super_admin`           | Activar/desactivar usuario (sin borrado físico)                              |
+| Método | Ruta                        | Acceso                  | Operación                                                                           |
+| ------ | --------------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| GET    | `/v1/users`                 | `super_admin`           | Listar usuarios (filtros: `role`, `roles`, `active`, `search`)                      |
+| GET    | `/v1/users/{userId}`        | `super_admin` / interno | Obtener usuario por id (referencias cross-service del gateway)                      |
+| POST   | `/v1/users/staff`           | `super_admin`           | Crear colaborador `branch_admin` (vínculo a sucursal existente)                     |
+| POST   | `/v1/users/admins`          | `super_admin`           | Crear otro `super_admin`                                                            |
+| POST   | `/v1/users/riders`          | `super_admin`           | Crear repartidor `rider` (con vehículo y teléfono)                                  |
+| PATCH  | `/v1/users/{userId}`        | `super_admin`           | Modificar datos permitidos (incluida la sucursal asignada de un colaborador)        |
+| PATCH  | `/v1/users/{userId}/active` | `super_admin`           | Activar/desactivar usuario (sin borrado físico)                                     |
+| DELETE | `/v1/users/{userId}`        | `super_admin`           | Baja lógica de un colaborador `branch_admin` (oculta del listado y revoca sesiones) |
 
 ### 6.3 Direcciones (cliente)
 
@@ -1052,30 +1055,30 @@ Dueño de la identidad, la autenticación, las sesiones, los roles, las **direcc
 
 ### 6.4 Requerimientos
 
-| ID         | Requerimiento                                                                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| RQ-AUTH-01 | El sistema deberá permitir el registro de un cliente con nombre, apellido, correo, teléfono y contraseña.                                                                       |
-| RQ-AUTH-02 | El correo deberá identificar de forma única a cada usuario.                                                                                                                     |
-| RQ-AUTH-03 | La contraseña deberá almacenarse con hash (bcrypt/argon2); nunca en texto plano.                                                                                                |
-| RQ-AUTH-04 | El sistema deberá permitir el login de clientes, admins y repartidores con correo y contraseña.                                                                                 |
-| RQ-AUTH-05 | El login deberá devolver un `accessToken` (JWT de corta vida) y un `refreshToken`.                                                                                              |
-| RQ-AUTH-06 | El login fallido deberá devolver un error genérico ("Credenciales inválidas") sin revelar si falló el correo o la contraseña.                                                   |
-| RQ-AUTH-07 | El sistema deberá permitir refrescar el `accessToken` a partir de un `refreshToken` válido.                                                                                     |
-| RQ-AUTH-08 | El sistema deberá permitir cerrar sesión (revocar el `refreshToken`).                                                                                                           |
-| RQ-AUTH-09 | El sistema deberá permitir solicitar recuperación de contraseña y responder de forma neutral (sin revelar si el correo existe).                                                 |
-| RQ-AUTH-10 | El sistema deberá generar un token de recuperación con expiración y permitir restablecer la contraseña con él.                                                                  |
-| RQ-AUTH-11 | Un usuario autenticado deberá poder consultar y modificar su propio perfil.                                                                                                     |
-| RQ-AUTH-12 | El sistema deberá crearse con un administrador inicial (`super_admin`) por seed.                                                                                                |
-| RQ-AUTH-13 | Un `super_admin` deberá poder crear colaboradores de sucursal (`branch_admin`) y vincularlos a una sucursal existente (validando la sucursal contra Commerce Service vía REST). |
-| RQ-AUTH-14 | Un `super_admin` deberá poder crear otros `super_admin`.                                                                                                                        |
-| RQ-AUTH-15 | El sistema deberá permitir el registro de repartidores (`rider`) con su vehículo y teléfono, tanto por auto-registro público como por un `super_admin`.                         |
-| RQ-AUTH-16 | El sistema deberá poder activar/desactivar usuarios (sin borrado físico).                                                                                                       |
-| RQ-AUTH-17 | El servicio deberá exponer `GET /v1/users/{userId}` para que el gateway y otros servicios resuelvan la entidad `User` por id.                                                   |
-| RQ-AUTH-18 | El sistema deberá devolver el `role` y los datos del perfil en `GET /v1/me`.                                                                                                    |
-| RQ-AUTH-19 | Un cliente autenticado deberá poder listar sus direcciones de entrega.                                                                                                          |
-| RQ-AUTH-20 | Un cliente autenticado deberá poder crear, consultar y modificar sus propias direcciones.                                                                                       |
-| RQ-AUTH-21 | Un cliente autenticado deberá poder eliminar/desactivar una dirección propia.                                                                                                   |
-| RQ-AUTH-22 | Una dirección deberá tener etiqueta, texto, localidad/ciudad, código postal, latitud y longitud.                                                                                |
+| ID         | Requerimiento                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-AUTH-01 | El sistema deberá permitir el registro de un cliente con nombre, apellido, correo, teléfono y contraseña.                                                                                   |
+| RQ-AUTH-02 | El correo deberá identificar de forma única a cada usuario.                                                                                                                                 |
+| RQ-AUTH-03 | La contraseña deberá almacenarse con hash (bcrypt/argon2); nunca en texto plano.                                                                                                            |
+| RQ-AUTH-04 | El sistema deberá permitir el login de clientes, admins y repartidores con correo y contraseña.                                                                                             |
+| RQ-AUTH-05 | El login deberá devolver un `accessToken` (JWT de corta vida) y un `refreshToken`.                                                                                                          |
+| RQ-AUTH-06 | El login fallido deberá devolver un error genérico ("Credenciales inválidas") sin revelar si falló el correo o la contraseña.                                                               |
+| RQ-AUTH-07 | El sistema deberá permitir refrescar el `accessToken` a partir de un `refreshToken` válido.                                                                                                 |
+| RQ-AUTH-08 | El sistema deberá permitir cerrar sesión (revocar el `refreshToken`).                                                                                                                       |
+| RQ-AUTH-09 | El sistema deberá permitir solicitar recuperación de contraseña y responder de forma neutral (sin revelar si el correo existe).                                                             |
+| RQ-AUTH-10 | El sistema deberá generar un token de recuperación con expiración y permitir restablecer la contraseña con él.                                                                              |
+| RQ-AUTH-11 | Un usuario autenticado deberá poder consultar y modificar su propio perfil.                                                                                                                 |
+| RQ-AUTH-12 | El sistema deberá crearse con un administrador inicial (`super_admin`) por seed.                                                                                                            |
+| RQ-AUTH-13 | Un `super_admin` deberá poder crear colaboradores de sucursal (`branch_admin`) y vincularlos a una sucursal existente (validando la sucursal contra Commerce Service vía REST).             |
+| RQ-AUTH-14 | Un `super_admin` deberá poder crear otros `super_admin`.                                                                                                                                    |
+| RQ-AUTH-15 | El sistema deberá permitir el registro de repartidores (`rider`) con su vehículo y teléfono, tanto por auto-registro público como por un `super_admin`.                                     |
+| RQ-AUTH-16 | El sistema deberá poder activar/desactivar usuarios (sin borrado físico). Los colaboradores de sucursal podrán darse de baja lógicamente (`deletedAt`) y dejarán de aparecer en el listado. |
+| RQ-AUTH-17 | El servicio deberá exponer `GET /v1/users/{userId}` para que el gateway y otros servicios resuelvan la entidad `User` por id.                                                               |
+| RQ-AUTH-18 | El sistema deberá devolver el `role` y los datos del perfil en `GET /v1/me`.                                                                                                                |
+| RQ-AUTH-19 | Un cliente autenticado deberá poder listar sus direcciones de entrega.                                                                                                                      |
+| RQ-AUTH-20 | Un cliente autenticado deberá poder crear, consultar y modificar sus propias direcciones.                                                                                                   |
+| RQ-AUTH-21 | Un cliente autenticado deberá poder eliminar/desactivar una dirección propia.                                                                                                               |
+| RQ-AUTH-22 | Una dirección deberá tener etiqueta, texto, localidad/ciudad, código postal, latitud y longitud.                                                                                            |
 
 ---
 
@@ -1699,7 +1702,7 @@ Mapa pantalla (`requerimientos-frontend.md`) → endpoints REST que invoca el ga
 | G-07 Catálogo de ingredientes | `GET /v1/catalog/ingredients`, `POST ...`, `PATCH .../{id}`, `PATCH .../{id}/active`                                                                       |
 | G-08/G-09 Sucursales          | `GET /v1/branches`, `POST ...`, `PATCH .../{id}`, `PATCH .../{id}/active`, `GET/PUT /v1/branches/{id}/hours`                                               |
 | G-10/G-11 Promociones         | `GET /v1/catalog/promotions`, `POST ...`, `GET/PATCH .../{id}`, `PATCH .../{id}/active`                                                                    |
-| G-12/G-13 Personal            | `GET /v1/users`, `POST /v1/users/staff`, `POST /v1/users/admins`, `GET /v1/users/{id}`, `PATCH ...`, `PATCH .../active`                                    |
+| G-12/G-13 Personal            | `GET /v1/users`, `POST /v1/users/staff`, `POST /v1/users/admins`, `GET /v1/users/{id}`, `PATCH ...`, `PATCH .../active`, `DELETE ...`                      |
 | G-14 Estados generales        | `GET /v1/config/order-states`, `POST ...`, `PUT .../{code}`, `PATCH .../{code}/active`                                                                     |
 | G-15 Parámetros               | `GET /v1/config/parameters`, `PATCH /v1/config/parameters/{key}`                                                                                           |
 
