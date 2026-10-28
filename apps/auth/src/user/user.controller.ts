@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { Internal } from '../config/security/internal.decorator'
@@ -39,6 +39,7 @@ export class UserController {
   list(@Query() query: UserQueryDto): Promise<UserListResponse> {
     return this.userService.list({
       role: query.role,
+      roles: query.roles,
       active: typeof query.active === 'boolean' ? query.active : undefined,
       search: query.search,
       limit: query.limit ?? 20,
@@ -95,5 +96,12 @@ export class UserController {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)
     }
     return user
+  }
+
+  @Delete(':userId')
+  @Roles(ROLES.superAdmin)
+  async remove(@Param('userId') userId: string): Promise<{ ok: boolean }> {
+    await this.staffOrchestrator.deleteUser(userId)
+    return { ok: true }
   }
 }

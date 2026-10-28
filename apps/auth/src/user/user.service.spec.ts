@@ -17,6 +17,7 @@ const buildDoc = (overrides: Partial<User> = {}): UserDocument =>
     active: true,
     branchId: null,
     vehicle: null,
+    deletedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   }) as unknown as UserDocument
@@ -38,6 +39,7 @@ interface RepositoryMock {
   list: jest.Mock
   update: jest.Mock
   setActive: jest.Mock
+  softDelete: jest.Mock
   updatePassword: jest.Mock
 }
 
@@ -50,6 +52,7 @@ const makeService = (overrides: Partial<RepositoryMock> = {}) => {
     list: jest.fn(),
     update: jest.fn(),
     setActive: jest.fn(),
+    softDelete: jest.fn(),
     updatePassword: jest.fn(),
     ...overrides,
   }
@@ -202,6 +205,20 @@ describe('UserService.verifyCredentials (RQ-AUTH-04/06)', () => {
       service.verifyCredentials('cliente@example.com', 'otra-clave'),
     ).rejects.toMatchObject({ code: ERROR_CODES.invalidCredentials, status: 401 })
   })
+
+  it('rechaza a un colaborador eliminado lógicamente aunque su contraseña sea correcta', async () => {
+    const { repository, service } = makeService()
+    repository.findByEmailWithPassword.mockResolvedValue(
+      buildDoc({ passwordHash, active: false, deletedAt: new Date('2026-10-28T00:00:00.000Z') }),
+    )
+
+    await expect(
+      service.verifyCredentials('cliente@example.com', 'secreto123'),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.userInactive,
+      status: 403,
+    })
+  })
 })
 
 describe('UserService.findByEmail / findById (RQ-AUTH-17)', () => {
@@ -325,6 +342,23 @@ describe('UserService.update / setActive / findById (RQ-AUTH-16)', () => {
     repository.setActive.mockResolvedValue(null)
 
     await expect(service.setActive('missing', false)).resolves.toBeNull()
+  })
+
+  it('softDelete delega la baja lógica y serializa la respuesta', async () => {
+    const { repository, service } = makeService()
+    repository.softDelete.mockResolvedValue(buildDoc({ active: false }))
+
+    const result = await service.softDelete('u1')
+
+    expect(repository.softDelete).toHaveBeenCalledWith('u1')
+    expect(result?.active).toBe(false)
+  })
+
+  it('softDelete devuelve null si el usuario no existe', async () => {
+    const { repository, service } = makeService()
+    repository.softDelete.mockResolvedValue(null)
+
+    await expect(service.softDelete('missing')).resolves.toBeNull()
   })
 })
 

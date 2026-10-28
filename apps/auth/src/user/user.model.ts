@@ -32,6 +32,9 @@ export class User {
   @Prop({ default: null, type: String })
   vehicle!: string | null
 
+  @Prop({ default: null, type: Date })
+  deletedAt!: Date | null
+
   createdAt!: Date
 }
 

@@ -190,6 +190,9 @@ export class UserFilterInput {
   @Field(() => Role, { nullable: true })
   role?: Role
 
+  @Field(() => [Role], { nullable: true })
+  roles?: Role[]
+
   @Field({ nullable: true })
   active?: boolean
 

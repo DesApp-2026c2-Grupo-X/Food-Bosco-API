@@ -2,6 +2,7 @@ import { ServiceUnavailableException } from '@nestjs/common'
 import { ERROR_CODES, ROLES } from '../config/constants'
 import { CommerceClient } from '../config/http/commerce.client'
 import { DomainException } from '../config/exceptions/domain.exception'
+import { RefreshTokenService } from '../refresh-token/refresh-token.service'
 import { PublicUser, UserService } from './user.service'
 import { CreateStaffInput, StaffOrchestrator } from './staff.orchestrator'
 
@@ -35,16 +36,29 @@ interface CommerceMock {
 interface UserServiceMock {
   createUser: jest.Mock
   update: jest.Mock
+  findById: jest.Mock
+  softDelete: jest.Mock
+}
+
+interface RefreshTokenMock {
+  revokeAll: jest.Mock
 }
 
 const makeOrchestrator = (overrides: Partial<CommerceMock> = {}) => {
   const commerce: CommerceMock = { branchExists: jest.fn(), ...overrides }
-  const userService: UserServiceMock = { createUser: jest.fn(), update: jest.fn() }
+  const userService: UserServiceMock = {
+    createUser: jest.fn(),
+    update: jest.fn(),
+    findById: jest.fn(),
+    softDelete: jest.fn(),
+  }
+  const refreshTokens: RefreshTokenMock = { revokeAll: jest.fn() }
   const orchestrator = new StaffOrchestrator(
     userService as unknown as UserService,
     commerce as unknown as CommerceClient,
+    refreshTokens as unknown as RefreshTokenService,
   )
-  return { commerce, userService, orchestrator }
+  return { commerce, userService, refreshTokens, orchestrator }
 }
 
 describe('StaffOrchestrator.createStaff (RQ-AUTH-13)', () => {
@@ -169,5 +183,60 @@ describe('StaffOrchestrator.updateUser (NEW-02, RQ-AUTH-13/16)', () => {
     userService.update.mockResolvedValue(null)
 
     await expect(orchestrator.updateUser('u1', { firstName: 'X' })).resolves.toBeNull()
+  })
+})
+
+describe('StaffOrchestrator.deleteUser (baja lógica)', () => {
+  it('da de baja al colaborador y revoca sus sesiones', async () => {
+    const { userService, refreshTokens, orchestrator } = makeOrchestrator()
+    userService.findById.mockResolvedValue(publicUser())
+    userService.softDelete.mockResolvedValue(publicUser({ active: false }))
+
+    await orchestrator.deleteUser('u1')
+
+    expect(userService.softDelete).toHaveBeenCalledWith('u1')
+    expect(refreshTokens.revokeAll).toHaveBeenCalledWith('u1')
+  })
+
+  it('lanza USER_NOT_FOUND 404 si el colaborador no existe', async () => {
+    const { userService, refreshTokens, orchestrator } = makeOrchestrator()
+    userService.findById.mockResolvedValue(null)
+
+    await expect(orchestrator.deleteUser('missing')).rejects.toMatchObject({
+      code: ERROR_CODES.userNotFound,
+      message: 'Usuario no encontrado',
+      status: 404,
+    })
+    expect(userService.softDelete).not.toHaveBeenCalled()
+    expect(refreshTokens.revokeAll).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { name: 'admin global', role: ROLES.superAdmin },
+    { name: 'repartidor', role: ROLES.rider },
+    { name: 'cliente', role: ROLES.customer },
+  ])('rechaza con FORBIDDEN 403 a un $name y no lo elimina', async ({ role }) => {
+    const { userService, refreshTokens, orchestrator } = makeOrchestrator()
+    userService.findById.mockResolvedValue(publicUser({ role }))
+
+    await expect(orchestrator.deleteUser('u1')).rejects.toMatchObject({
+      code: ERROR_CODES.forbidden,
+      message: 'Solo se pueden eliminar colaboradores de sucursal',
+      status: 403,
+    })
+    expect(userService.softDelete).not.toHaveBeenCalled()
+    expect(refreshTokens.revokeAll).not.toHaveBeenCalled()
+  })
+
+  it('lanza USER_NOT_FOUND 404 si la baja no persiste y no revoca sesiones', async () => {
+    const { userService, refreshTokens, orchestrator } = makeOrchestrator()
+    userService.findById.mockResolvedValue(publicUser())
+    userService.softDelete.mockResolvedValue(null)
+
+    await expect(orchestrator.deleteUser('u1')).rejects.toMatchObject({
+      code: ERROR_CODES.userNotFound,
+      status: 404,
+    })
+    expect(refreshTokens.revokeAll).not.toHaveBeenCalled()
   })
 })
