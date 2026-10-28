@@ -277,7 +277,9 @@ describe('Gateway delivery extendido (e2e) — gaps de errores, tripOffers y aut
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].extensions?.code).toBe('UNAUTHENTICATED')
-      expect(body.errors?.[0].message).toBe('Tu sesión expiró o no es válida. Iniciá sesión nuevamente.')
+      expect(body.errors?.[0].message).toBe(
+        'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+      )
       expect(downstream.calls).toHaveLength(0)
     })
 

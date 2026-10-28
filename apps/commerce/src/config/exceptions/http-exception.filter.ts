@@ -4,8 +4,7 @@ import { ERROR_CODES, HEADERS } from '../constants'
 import { DomainException } from './domain.exception'
 
 type ErrorBody =
-  | string
-  | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
+  string | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
 
 const STATUS_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,
@@ -88,7 +87,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (isCastError(exception)) {
       response
         .status(HttpStatus.NOT_FOUND)
-        .json(withCorrelation({ code: ERROR_CODES.notFound, message: 'Recurso no encontrado', path }))
+        .json(
+          withCorrelation({ code: ERROR_CODES.notFound, message: 'Recurso no encontrado', path }),
+        )
       return
     }
 

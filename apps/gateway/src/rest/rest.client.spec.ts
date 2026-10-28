@@ -261,9 +261,7 @@ describe('RestClient.request', () => {
       }),
     )
 
-    const error = await callAndCatch(
-      client.get('/v1/orders', { context: { requestId: 'rid-1' } }),
-    )
+    const error = await callAndCatch(client.get('/v1/orders', { context: { requestId: 'rid-1' } }))
 
     expect((error as GraphQLError).extensions).toEqual({
       code: 'INSUFFICIENT_STOCK',
@@ -283,9 +281,7 @@ describe('RestClient.request', () => {
   it('traduce un fallo de red a GraphQLError SERVICE_UNAVAILABLE sin filtrar detalles', async () => {
     fetchMock.mockRejectedValue(new Error('ECONNREFUSED 10.0.0.5'))
 
-    const error = await callAndCatch(
-      client.get('/v1/me', { context: { requestId: 'rid-1' } }),
-    )
+    const error = await callAndCatch(client.get('/v1/me', { context: { requestId: 'rid-1' } }))
 
     expect(error).toBeInstanceOf(GraphQLError)
     expect((error as GraphQLError).message).toBe(

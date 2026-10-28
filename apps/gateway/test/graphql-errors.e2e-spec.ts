@@ -94,25 +94,22 @@ describe('Gateway error propagation (e2e) — RQ-GW-07', () => {
       },
     ]
 
-    it.each(cases)(
-      '$name sin body de error → INTERNAL_SERVER_ERROR',
-      async ({ query, role }) => {
-        failure = { status: 500, body: { message: 'sin code' } }
-        const token = signToken({ userId: 'u1', roles: [role] })
+    it.each(cases)('$name sin body de error → INTERNAL_SERVER_ERROR', async ({ query, role }) => {
+      failure = { status: 500, body: { message: 'sin code' } }
+      const token = signToken({ userId: 'u1', roles: [role] })
 
-        const res = await request(app.getHttpServer())
-          .post('/graphql')
-          .set('Authorization', `Bearer ${token}`)
-          .send(gql(query))
-          .expect(200)
+      const res = await request(app.getHttpServer())
+        .post('/graphql')
+        .set('Authorization', `Bearer ${token}`)
+        .send(gql(query))
+        .expect(200)
 
-        const body = res.body as GraphQLBody
-        expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
-        expect(body.errors?.[0].message).toBe(
-          'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
-        )
-      },
-    )
+      const body = res.body as GraphQLBody
+      expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
+      expect(body.errors?.[0].message).toBe(
+        'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
+      )
+    })
   })
 
   it('propaga el code y message de un 409 leído por el mismo cliente GraphQL', async () => {

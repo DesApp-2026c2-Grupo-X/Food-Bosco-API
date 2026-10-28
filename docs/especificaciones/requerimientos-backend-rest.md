@@ -1019,7 +1019,7 @@ Dueño de la identidad, la autenticación, las sesiones, los roles, las **direcc
 | Método | Ruta                         | Acceso      | Operación                                                           |
 | ------ | ---------------------------- | ----------- | ------------------------------------------------------------------- |
 | POST   | `/v1/auth/register`          | Público     | Registro de cliente (nombre, apellido, email, teléfono, contraseña) |
-| POST   | `/v1/auth/register-rider`    | Público     | Auto-registro de repartidor (datos personales + vehículo)          |
+| POST   | `/v1/auth/register-rider`    | Público     | Auto-registro de repartidor (datos personales + vehículo)           |
 | POST   | `/v1/auth/login`             | Público     | Login (devuelve `accessToken` + `refreshToken`)                     |
 | POST   | `/v1/auth/refresh`           | Público     | Refrescar `accessToken` a partir de `refreshToken`                  |
 | POST   | `/v1/auth/logout`            | Autenticado | Revocar el `refreshToken` (cierre de sesión)                        |
@@ -1068,7 +1068,7 @@ Dueño de la identidad, la autenticación, las sesiones, los roles, las **direcc
 | RQ-AUTH-12 | El sistema deberá crearse con un administrador inicial (`super_admin`) por seed.                                                                                                |
 | RQ-AUTH-13 | Un `super_admin` deberá poder crear colaboradores de sucursal (`branch_admin`) y vincularlos a una sucursal existente (validando la sucursal contra Commerce Service vía REST). |
 | RQ-AUTH-14 | Un `super_admin` deberá poder crear otros `super_admin`.                                                                                                                        |
-| RQ-AUTH-15 | El sistema deberá permitir el registro de repartidores (`rider`) con su vehículo y teléfono, tanto por auto-registro público como por un `super_admin`.                        |
+| RQ-AUTH-15 | El sistema deberá permitir el registro de repartidores (`rider`) con su vehículo y teléfono, tanto por auto-registro público como por un `super_admin`.                         |
 | RQ-AUTH-16 | El sistema deberá poder activar/desactivar usuarios (sin borrado físico).                                                                                                       |
 | RQ-AUTH-17 | El servicio deberá exponer `GET /v1/users/{userId}` para que el gateway y otros servicios resuelvan la entidad `User` por id.                                                   |
 | RQ-AUTH-18 | El sistema deberá devolver el `role` y los datos del perfil en `GET /v1/me`.                                                                                                    |

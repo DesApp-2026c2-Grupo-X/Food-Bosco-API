@@ -43,7 +43,10 @@ describe('formatGraphQLError', () => {
 
   it('preserva el mensaje de los errores de dominio conocidos', () => {
     const result = formatGraphQLError(
-      { message: 'Solo quedan 3 unidades disponibles.', extensions: { code: 'INSUFFICIENT_STOCK' } },
+      {
+        message: 'Solo quedan 3 unidades disponibles.',
+        extensions: { code: 'INSUFFICIENT_STOCK' },
+      },
       new GraphQLError('Solo quedan 3 unidades disponibles.', {
         extensions: { code: 'INSUFFICIENT_STOCK' },
       }),

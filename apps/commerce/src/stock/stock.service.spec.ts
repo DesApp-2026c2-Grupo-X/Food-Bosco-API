@@ -207,7 +207,11 @@ describe('StockService.discount (RQ-STK-07/08)', () => {
     expect(repository.increment).toHaveBeenCalledWith('b1', 'i1', 3)
     expect(repository.createMovement).toHaveBeenCalledTimes(1)
     expect(repository.createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ ingredientId: 'i1', delta: 3, reason: STOCK_MOVEMENT_REASON.adjust }),
+      expect.objectContaining({
+        ingredientId: 'i1',
+        delta: 3,
+        reason: STOCK_MOVEMENT_REASON.adjust,
+      }),
     )
   })
 

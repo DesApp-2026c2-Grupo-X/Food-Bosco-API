@@ -405,10 +405,7 @@ describe('OrderService.applyTransition — concurrencia (NFR-04)', () => {
     const confirmed = buildDoc({ status: ORDER_STATUS.confirmed })
     const alreadyPreparing = buildDoc({ status: ORDER_STATUS.preparing })
     const repository = {
-      findById: jest
-        .fn()
-        .mockResolvedValueOnce(confirmed)
-        .mockResolvedValueOnce(alreadyPreparing),
+      findById: jest.fn().mockResolvedValueOnce(confirmed).mockResolvedValueOnce(alreadyPreparing),
       transition: jest.fn().mockResolvedValue(null),
     }
     const service = new OrderService(repository as unknown as OrderRepository)

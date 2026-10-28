@@ -99,7 +99,11 @@ export class OrderService {
     )
   }
 
-  async revertTransition(id: string, newStatus: OrderStatus, previousStatus: OrderStatus): Promise<void> {
+  async revertTransition(
+    id: string,
+    newStatus: OrderStatus,
+    previousStatus: OrderStatus,
+  ): Promise<void> {
     await this.repository.revertTransition(id, newStatus, previousStatus)
   }
 
