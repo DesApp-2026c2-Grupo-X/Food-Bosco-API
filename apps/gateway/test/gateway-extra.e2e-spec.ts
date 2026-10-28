@@ -68,7 +68,9 @@ describe('Gateway extras (e2e) — throttle por operación, upload y /health', (
       expect(blocked.status).toBe(429)
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
-      expect(body.errors?.[0].message).toBe('Demasiados intentos. Esperá un minuto antes de volver a intentarlo.')
+      expect(body.errors?.[0].message).toBe(
+        'Demasiados intentos. Esperá un minuto antes de volver a intentarlo.',
+      )
       expect(body.errors?.[0].extensions?.code).toBe('TOO_MANY_REQUESTS')
 
       expect(
@@ -92,7 +94,9 @@ describe('Gateway extras (e2e) — throttle por operación, upload y /health', (
       // INT-13: el exceso de cupo responde 429 en lugar de 200.
       expect(blocked.status).toBe(429)
       expect(body.data).toBeNull()
-      expect(body.errors?.[0].message).toBe('Demasiados intentos. Esperá un minuto antes de volver a intentarlo.')
+      expect(body.errors?.[0].message).toBe(
+        'Demasiados intentos. Esperá un minuto antes de volver a intentarlo.',
+      )
       expect(body.errors?.[0].extensions?.code).toBe('TOO_MANY_REQUESTS')
 
       expect(

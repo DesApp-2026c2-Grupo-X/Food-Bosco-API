@@ -24,7 +24,9 @@ interface DownstreamErrorBody {
 }
 
 const isDownstreamError = (value: unknown): value is DownstreamErrorBody =>
-  typeof value === 'object' && value !== null && typeof (value as DownstreamErrorBody).code === 'string'
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as DownstreamErrorBody).code === 'string'
 
 @Injectable()
 export class AuthClient {

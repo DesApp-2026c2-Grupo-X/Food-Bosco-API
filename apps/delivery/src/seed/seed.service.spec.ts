@@ -89,6 +89,7 @@ describe('SeedService (delivery)', () => {
     expect(result.summary).toEqual({ zones: 3, shifts: 3, riders: 1 })
     expect(result.rider).toEqual({ id: 'r1', userId: 'u-rider' })
     expect(result.readyOrderId).toBeNull()
+    expect(result.readyOrderIds).toEqual([])
     expect(riderService.create).toHaveBeenCalledWith({
       userId: 'u-rider',
       firstName: 'Marcos',
@@ -245,6 +246,30 @@ describe('SeedService (delivery)', () => {
 
       expect(repo.upsertReady).not.toHaveBeenCalled()
       expect(result.readyOrderId).toBeNull()
+      expect(result.readyOrderIds).toEqual([])
+    })
+
+    it('marca varios pedidos listos para ofertas', async () => {
+      const repo = {
+        upsertReady: jest
+          .fn()
+          .mockImplementation(async (input: { orderId: string }) => ({ orderId: input.orderId })),
+      }
+      const readyOrder = (orderId: string) => ({
+        orderId,
+        branchId: 'b1',
+        branchLocation: { latitude: -34.589, longitude: -58.636 },
+        deliveryAddress: { text: 'Calle 1', latitude: -34.6, longitude: -58.4 },
+      })
+
+      const result = await buildService({ rider: riderStub(), repo }).seedRiderProfile({
+        ...baseInput,
+        readyOrders: [readyOrder('o1'), readyOrder('o2'), readyOrder('o3')],
+      })
+
+      expect(repo.upsertReady).toHaveBeenCalledTimes(3)
+      expect(result.readyOrderIds).toEqual(['o1', 'o2', 'o3'])
+      expect(result.readyOrderId).toBe('o1')
     })
   })
 })

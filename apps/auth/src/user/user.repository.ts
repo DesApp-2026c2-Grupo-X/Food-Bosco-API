@@ -41,10 +41,7 @@ export class UserRepository {
   }
 
   findByEmailWithPassword(email: string): Promise<UserDocument | null> {
-    return this.model
-      .findOne({ email: email.trim().toLowerCase() })
-      .select('+passwordHash')
-      .exec()
+    return this.model.findOne({ email: email.trim().toLowerCase() }).select('+passwordHash').exec()
   }
 
   async findById(id: string): Promise<UserDocument | null> {

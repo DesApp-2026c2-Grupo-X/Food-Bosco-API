@@ -11,3 +11,16 @@ export type { UpsertableModel } from './idempotency'
 
 export { runSeed } from './runner'
 export type { SeedAppContext, SeedRunnerOptions } from './runner'
+
+export { createRandomSeed, createSeededRandom } from './random'
+export type { SeededRandom, WeightedEntry } from './random'
+
+export {
+  addMinutes,
+  BUSINESS_UTC_OFFSET_HOURS,
+  localDateAt,
+  localDayOfWeek,
+  minutesBetween,
+} from './dates'
+
+export { createBatchId } from './batch'

@@ -109,6 +109,10 @@ export class Order {
   @Prop({ type: [OrderStatusHistorySchema], default: [] })
   statusHistory!: OrderStatusHistory[]
 
+  /** Lote de datos de demo; `null` en pedidos reales. Permite el reset selectivo. */
+  @Prop({ default: null, type: String, index: true })
+  demoBatchId!: string | null
+
   createdAt!: Date
   updatedAt!: Date
 }

@@ -6,7 +6,7 @@
 
 ## Prompt
 
-````markdown
+```markdown
 # Tarea: Auditoría e implementación integral de validaciones rigurosas y mensajes claros en Food-Bosco
 
 ## 1. Objetivo general
@@ -265,12 +265,12 @@ Cada error debería tener, cuando corresponda:
 Ejemplo conceptual de error de stock:
 
 {
-  "code": "INSUFFICIENT_STOCK",
-  "message": "No hay stock suficiente para la cantidad solicitada.",
-  "details": {
-    "requestedQuantity": 5,
-    "availableQuantity": 3
-  }
+"code": "INSUFFICIENT_STOCK",
+"message": "No hay stock suficiente para la cantidad solicitada.",
+"details": {
+"requestedQuantity": 5,
+"availableQuantity": 3
+}
 }
 
 El formato definitivo debe respetar los contratos reales del proyecto. No copiar este ejemplo literalmente si resulta incompatible con el esquema GraphQL actual.
@@ -439,7 +439,7 @@ En el diagnóstico inicial, informar brevemente:
 No afirmar que se utilizó una skill si no se consultó ni se aplicó realmente.
 
 **Objetivo:** aprovechar las capacidades especializadas del agente para mejorar la calidad, seguridad, consistencia y mantenibilidad de las validaciones en toda la aplicación, sin perder de vista los requisitos del proyecto ni su arquitectura actual.
-````
+```
 
 ## Informe
 

@@ -4,8 +4,7 @@ import { ERROR_CODES, HEADERS } from '../constants'
 import { DomainException } from './domain.exception'
 
 type ErrorBody =
-  | string
-  | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
+  string | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
 
 const STATUS_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,

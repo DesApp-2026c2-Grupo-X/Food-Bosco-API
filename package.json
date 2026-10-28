@@ -13,6 +13,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "seed": "node scripts/seed.mjs",
+    "seed:direct": "node scripts/seed-direct.mjs",
+    "seed:verify-addresses": "node scripts/verify-seed-addresses.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

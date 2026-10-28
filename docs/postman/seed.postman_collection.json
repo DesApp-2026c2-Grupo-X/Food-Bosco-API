@@ -1,0 +1,216 @@
+{
+  "info": {
+    "name": "Food Bosco — Seed",
+    "description": "Genera los datos de demo de la plataforma. Requiere MongoDB y las 4 apps levantadas (`npm run dev`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gatewayUrl",
+      "value": "http://localhost:4000"
+    },
+    {
+      "key": "internalToken",
+      "value": "dev-internal-token"
+    }
+  ],
+  "item": [
+    {
+      "name": "Seed completo (150 pedidos)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('genera el lote demo', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.demo.orders).to.be.greaterThan(0);",
+              "});",
+              "console.log(pm.response.json().demo);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-internal-token",
+            "value": "{{internalToken}}",
+            "type": "text"
+          }
+        ],
+        "url": "{{gatewayUrl}}/seed",
+        "description": "Maestros + 24 clientes demo (por defecto) + 150 pedidos históricos + pedidos listos para delivery."
+      }
+    },
+    {
+      "name": "Seed a medida (300 pedidos / 90 días / seed 42)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "console.log(pm.response.json().demo);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-internal-token",
+            "value": "{{internalToken}}",
+            "type": "text"
+          },
+          {
+            "key": "content-type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"orders\":300,\"days\":90,\"seed\":42}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{gatewayUrl}}/seed",
+        "description": "La misma seed reproduce el mismo lote de pedidos."
+      }
+    },
+    {
+      "name": "Reset + regenerar",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "console.log('Lotes borrados:', pm.response.json().demo.resetDeleted);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-internal-token",
+            "value": "{{internalToken}}",
+            "type": "text"
+          },
+          {
+            "key": "content-type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"reset\":true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{gatewayUrl}}/seed",
+        "description": "Borra sólo los pedidos de lotes demo anteriores y genera 150 nuevos."
+      }
+    },
+    {
+      "name": "Sólo maestros (sin demo)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('demo deshabilitado', () => {",
+              "  pm.expect(pm.response.json().demo.enabled).to.be.false;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-internal-token",
+            "value": "{{internalToken}}",
+            "type": "text"
+          },
+          {
+            "key": "content-type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"demo\":false}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{gatewayUrl}}/seed",
+        "description": "Catálogo, sucursales, stock, usuarios base y branch admins. Sin clientes ni pedidos demo."
+      }
+    },
+    {
+      "name": "Más clientes (80) + 200 pedidos",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "console.log(pm.response.json().demo);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "x-internal-token",
+            "value": "{{internalToken}}",
+            "type": "text"
+          },
+          {
+            "key": "content-type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"clients\":80,\"orders\":200}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{gatewayUrl}}/seed",
+        "description": "80 clientes demo (los extra reutilizan las direcciones verificadas) y 200 pedidos."
+      }
+    }
+  ]
+}

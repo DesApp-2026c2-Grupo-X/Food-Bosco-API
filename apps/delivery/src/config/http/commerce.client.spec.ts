@@ -60,9 +60,7 @@ describe('CommerceClient.patchOrderStatus', () => {
     async (status) => {
       fetchMock.mockResolvedValue(jsonResponse(status))
 
-      const error = await callAndCatch(
-        client.patchOrderStatus('ord-1', ORDER_STATUS.delivered),
-      )
+      const error = await callAndCatch(client.patchOrderStatus('ord-1', ORDER_STATUS.delivered))
 
       expect(error).toBeInstanceOf(BadGatewayException)
       expect((error as HttpException).getStatus()).toBe(502)

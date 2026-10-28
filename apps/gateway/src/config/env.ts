@@ -47,4 +47,7 @@ export const env = {
   uploads: {
     maxSizeBytes: toNumber(process.env.UPLOAD_MAX_SIZE_BYTES, 5 * 1024 * 1024),
   },
+  seed: {
+    demo: process.env.SEED_DEMO_ENABLED !== 'false',
+  },
 }

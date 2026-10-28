@@ -84,7 +84,9 @@ food-bosco-api/
 │   ├── eslint-config/       # @repo/eslint-config
 │   ├── typescript-config/   # @repo/typescript-config
 │   └── seed-utils/          # @repo/seed-utils (carga de JSON, idempotencia, runner)
-├── scripts/seed.mjs         # seed directo a DB, orden commerce → auth → delivery
+├── scripts/seed.mjs         # seed completo: POST /seed al gateway
+├── scripts/seed-direct.mjs  # sólo maestros: orden commerce → auth → delivery
+├── scripts/verify-seed-addresses.mjs  # valida direcciones con Geoapify
 ├── docs/                    # especificaciones, auditoría, testing, histórico
 ├── turbo.json
 └── package.json
@@ -292,7 +294,7 @@ No hay migraciones ni repositorio compartido: el contrato es “cada servicio es
 1. MongoDB disponible.
 2. `npm run dev` (Turborepo levanta las 4 apps en paralelo).
 3. Opcional: RabbitMQ + `BROKER_URL` si se quiere el flujo de eventos cross-service real.
-4. Opcional: `npm run seed` o `POST /seed` en el gateway.
+4. Opcional: `npm run seed` (equivale a `POST /seed` en el gateway).
 
 El gateway no falla si los servicios están caídos: falla la operación que intente llamarlos (`RestClient` propaga el error como `GraphQLError` con código `INTERNAL_SERVER_ERROR` o el código que devuelva el servicio).
 
@@ -398,12 +400,12 @@ Conclusión honesta para la defensa: el gateway **mitiga** el N+1 por deduplicac
 `POST /seed` (sin `/v1`) con header `x-internal-token`:
 
 1. `InternalGuard` valida el token.
-2. Llama `POST /v1/seed` a commerce → obtiene sucursales.
-3. Llama `POST /v1/seed` a auth con las sucursales → crea usuarios y direcciones.
-4. Llama `POST /v1/seed` a commerce otra vez con el cliente/dirección → crea pedidos de ejemplo.
-5. Llama `POST /v1/seed` a delivery con el rider y (si hay) un pedido `ready_for_delivery`.
+2. Llama `POST /v1/seed` a commerce → crea maestros y devuelve sucursales.
+3. Llama `POST /v1/seed` a auth con las sucursales → crea usuarios base, branch admins y (por defecto) 24 clientes demo con direcciones (configurable con `clients`).
+4. Llama `POST /v1/seed` a commerce otra vez con los clientes → genera un lote de pedidos históricos aleatorios (150 por defecto) y devuelve los que quedaron `ready_for_delivery`.
+5. Llama `POST /v1/seed` a delivery con el rider y hasta 5 pedidos listos.
 
-Es idempotente por claves naturales (email, nombre de sucursal, etc.).
+Acepta un body opcional para controlar el lote demo: `{ "demo": false, "orders": 150, "days": 120, "clients": 24, "seed": 42, "reset": true }`. Los maestros son idempotentes; los pedidos demo se acumulan por corrida y `reset` borra sólo los lotes anteriores.
 
 ## 3.9 Errores GraphQL
 
@@ -427,15 +429,15 @@ Es idempotente por claves naturales (email, nombre de sucursal, etc.).
 
 ## 4.1 Endpoints
 
-| Método | Ruta                         | Acceso                                  | Qué hace                                        |
-| ------ | ---------------------------- | --------------------------------------- | ----------------------------------------------- |
-| POST   | `/v1/auth/register`          | público                                 | crea **customer** (`app: store`) y devuelve tokens |
-| POST   | `/v1/auth/register-rider`    | público                                 | crea **rider** con vehículo                     |
+| Método | Ruta                         | Acceso                                  | Qué hace                                              |
+| ------ | ---------------------------- | --------------------------------------- | ----------------------------------------------------- |
+| POST   | `/v1/auth/register`          | público                                 | crea **customer** (`app: store`) y devuelve tokens    |
+| POST   | `/v1/auth/register-rider`    | público                                 | crea **rider** con vehículo                           |
 | POST   | `/v1/auth/login`             | público                                 | email + password + `app` → tokens (valida rol vs app) |
-| POST   | `/v1/auth/refresh`           | público (requiere refresh token válido) | rota tokens                                     |
-| POST   | `/v1/auth/logout`            | autenticado                             | revoca **todos** los refresh tokens del usuario |
-| POST   | `/v1/auth/password-recovery` | público                                 | solicita email de recuperación                  |
-| POST   | `/v1/auth/reset-password`    | público (requiere token)                | cambia contraseña y revoca sesiones             |
+| POST   | `/v1/auth/refresh`           | público (requiere refresh token válido) | rota tokens                                           |
+| POST   | `/v1/auth/logout`            | autenticado                             | revoca **todos** los refresh tokens del usuario       |
+| POST   | `/v1/auth/password-recovery` | público                                 | solicita email de recuperación                        |
+| POST   | `/v1/auth/reset-password`    | público (requiere token)                | cambia contraseña y revoca sesiones                   |
 
 `login` y `register` reciben un campo obligatorio `app` (`STORE`, `ADMIN`, `BRANCH`, `RIDER`). El Auth Service valida que el rol del usuario pertenezca a esa app y responde `403 APP_ROLE_MISMATCH` sin emitir tokens si no coincide.
 
@@ -1966,7 +1968,8 @@ npm run build          # turbo run build
 npm run lint
 npm run typecheck
 npm run test
-npm run seed           # seed directo a Mongo (commerce → auth → delivery)
+npm run seed           # seed completo: llama a POST /seed del gateway
+npm run seed:direct    # sólo maestros, directo a Mongo (sin servicios)
 npm run format
 ```
 
@@ -1974,38 +1977,39 @@ Cada app: `dev`, `build`, `start`, `start:prod`, `lint`, `typecheck`, `test`, `t
 
 ## 18.2 Variables de entorno
 
-| Variable                                                         | App                    | Default                              | Uso                                            |
-| ---------------------------------------------------------------- | ---------------------- | ------------------------------------ | ---------------------------------------------- |
-| `PORT`                                                           | todas                  | 4000/4201/4202/4203                  | puerto                                         |
-| `NODE_ENV`                                                       | todas                  | development                          | playground/introspección y avisos de seguridad |
-| `MONGODB_URI`                                                    | auth/commerce/delivery | `mongodb://localhost:27017/fastfood` | base                                           |
-| `JWT_SECRET`                                                     | todas                  | `dev-secret-change-me`               | firma/verificación                             |
-| `INTERNAL_API_TOKEN`                                             | todas                  | `dev-internal-token`                 | llamadas internas                              |
-| `AUTH_SERVICE_URL`                                               | gateway/delivery       | `http://localhost:4201`              |                                                |
-| `COMMERCE_SERVICE_URL`                                           | gateway/auth/delivery  | `http://localhost:4202`              |                                                |
-| `DELIVERY_SERVICE_URL`                                           | gateway                | `http://localhost:4203`              |                                                |
-| `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`                             | gateway                | 60000 / 100                          | rate limit                                     |
-| `JWT_ACCESS_EXPIRES_IN`                                          | auth                   | `15m`                                | access token                                   |
-| `JWT_REFRESH_EXPIRES_IN`                                         | auth                   | `7d`                                 | refresh token                                  |
-| `PASSWORD_RECOVERY_EXPIRES_IN`                                   | auth                   | `1h`                                 | token de reset                                 |
-| `PASSWORD_RECOVERY_MIN_INTERVAL`                                 | auth                   | `60s`                                | anti-spam                                      |
-| `EMAIL_PROVIDER`                                                 | auth                   | `log`                                | `log` o `resend`                               |
-| `EMAIL_FROM`                                                     | auth                   | `Food Bosco <no-reply@...>`          | remitente                                      |
-| `RESEND_API_KEY`                                                 | auth                   | —                                    | obligatorio si `resend`                        |
-| `STORE_URL` / `ADMIN_URL` / `BRANCH_URL` / `RIDER_URL`           | auth                   | 5173/5174/5175/5176                  | links de reset por rol                         |
-| `PASSWORD_RESET_PATH`                                            | auth                   | `/reset-password`                    |                                                |
-| `BROKER_URL`                                                     | commerce/delivery      | vacío                                | RabbitMQ; vacío = in-process                   |
-| `RIDER_STALE_AFTER_MS`                                           | delivery               | 300000                               | staleness                                      |
-| `OFFER_TTL_SECONDS`                                              | delivery               | 30                                   | vida de la oferta                              |
-| `SAME_RIDER_COOLDOWN_SECONDS`                                    | delivery               | 45                                   | ventana de rotación                            |
-| `EARNINGS_BASE` / `EARNINGS_PER_KM` / `EARNINGS_PER_ORDER`       | delivery               | 500 / 200 / 300                      | ganancia estimada                              |
-| `MAX_MATCH_DISTANCE_KM`                                          | delivery               | 8                                    | radio de matching                              |
-| `AVG_SPEED_KMH`                                                  | delivery               | 25                                   | ETA de viaje                                   |
-| `MAX_ORDERS_PER_TRIP`                                            | delivery               | 3                                    | multi-pedido                                   |
-| `UPLOAD_MAX_SIZE_BYTES`                                          | gateway/commerce       | 5 MB                                 | upload                                         |
-| `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` / `_FOLDER` | commerce               | —                                    | uploads                                        |
-| `SEED_PARAM_MAX_DISTANCE_KM` / `BASE_PREP_MIN` / `AVG_SPEED_KMH` | commerce               | 10 / 15 / 25                         | defaults de parámetros                         |
-| `SEED_*_PASSWORD`, `SEED_*_EMAIL`, etc.                          | auth                   | ver §18.4                            | seed                                           |
+| Variable                                                                 | App                    | Default                              | Uso                                            |
+| ------------------------------------------------------------------------ | ---------------------- | ------------------------------------ | ---------------------------------------------- |
+| `PORT`                                                                   | todas                  | 4000/4201/4202/4203                  | puerto                                         |
+| `NODE_ENV`                                                               | todas                  | development                          | playground/introspección y avisos de seguridad |
+| `MONGODB_URI`                                                            | auth/commerce/delivery | `mongodb://localhost:27017/fastfood` | base                                           |
+| `JWT_SECRET`                                                             | todas                  | `dev-secret-change-me`               | firma/verificación                             |
+| `INTERNAL_API_TOKEN`                                                     | todas                  | `dev-internal-token`                 | llamadas internas                              |
+| `AUTH_SERVICE_URL`                                                       | gateway/delivery       | `http://localhost:4201`              |                                                |
+| `COMMERCE_SERVICE_URL`                                                   | gateway/auth/delivery  | `http://localhost:4202`              |                                                |
+| `DELIVERY_SERVICE_URL`                                                   | gateway                | `http://localhost:4203`              |                                                |
+| `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`                                     | gateway                | 60000 / 100                          | rate limit                                     |
+| `JWT_ACCESS_EXPIRES_IN`                                                  | auth                   | `15m`                                | access token                                   |
+| `JWT_REFRESH_EXPIRES_IN`                                                 | auth                   | `7d`                                 | refresh token                                  |
+| `PASSWORD_RECOVERY_EXPIRES_IN`                                           | auth                   | `1h`                                 | token de reset                                 |
+| `PASSWORD_RECOVERY_MIN_INTERVAL`                                         | auth                   | `60s`                                | anti-spam                                      |
+| `EMAIL_PROVIDER`                                                         | auth                   | `log`                                | `log` o `resend`                               |
+| `EMAIL_FROM`                                                             | auth                   | `Food Bosco <no-reply@...>`          | remitente                                      |
+| `RESEND_API_KEY`                                                         | auth                   | —                                    | obligatorio si `resend`                        |
+| `STORE_URL` / `ADMIN_URL` / `BRANCH_URL` / `RIDER_URL`                   | auth                   | 5173/5174/5175/5176                  | links de reset por rol                         |
+| `PASSWORD_RESET_PATH`                                                    | auth                   | `/reset-password`                    |                                                |
+| `BROKER_URL`                                                             | commerce/delivery      | vacío                                | RabbitMQ; vacío = in-process                   |
+| `RIDER_STALE_AFTER_MS`                                                   | delivery               | 300000                               | staleness                                      |
+| `OFFER_TTL_SECONDS`                                                      | delivery               | 30                                   | vida de la oferta                              |
+| `SAME_RIDER_COOLDOWN_SECONDS`                                            | delivery               | 45                                   | ventana de rotación                            |
+| `EARNINGS_BASE` / `EARNINGS_PER_KM` / `EARNINGS_PER_ORDER`               | delivery               | 500 / 200 / 300                      | ganancia estimada                              |
+| `MAX_MATCH_DISTANCE_KM`                                                  | delivery               | 8                                    | radio de matching                              |
+| `AVG_SPEED_KMH`                                                          | delivery               | 25                                   | ETA de viaje                                   |
+| `MAX_ORDERS_PER_TRIP`                                                    | delivery               | 3                                    | multi-pedido                                   |
+| `UPLOAD_MAX_SIZE_BYTES`                                                  | gateway/commerce       | 5 MB                                 | upload                                         |
+| `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` / `_FOLDER`         | commerce               | —                                    | uploads                                        |
+| `SEED_PARAM_MAX_DISTANCE_KM` / `BASE_PREP_MIN` / `AVG_SPEED_KMH`         | commerce               | 10 / 15 / 25                         | defaults de parámetros                         |
+| `SEED_DEMO_ENABLED` / `ORDERS` / `DAYS` / `CUSTOMERS` / `SEED` / `RESET` | gateway/commerce/auth  | ver §18.4                            | datos de demo                                  |
+| `SEED_*_PASSWORD`, `SEED_*_EMAIL`, etc.                                  | auth                   | ver §18.4                            | seed                                           |
 
 ## 18.3 Resolución de URLs
 
@@ -2019,8 +2023,11 @@ Cada app: `dev`, `build`, `start`, `start:prod`, `lint`, `typecheck`, `test`, `t
 # vía HTTP (requiere los 4 servicios arriba)
 curl -X POST http://localhost:4000/seed -H "x-internal-token: dev-internal-token"
 
-# directo a Mongo (no requiere servicios)
+# exactamente lo mismo, desde la consola
 npm run seed
+
+# sólo maestros, directo a Mongo (no requiere servicios)
+npm run seed:direct
 ```
 
 Credenciales (`docs/credenciales-seed.md`):
@@ -2035,12 +2042,12 @@ Credenciales (`docs/credenciales-seed.md`):
 | `sucursal.norte@foodbosco.local`  | branch_admin | `Sucursal123!` (Norte)        |
 | `sucursal.oeste@foodbosco.local`  | branch_admin | `Sucursal123!` (Oeste)        |
 
-**Ojo con la diferencia entre los dos caminos** (verificado en `apps/*/src/seed/seed.ts`):
+**Los dos caminos son distintos a propósito:**
 
-- **`npm run seed` (directo a Mongo):** commerce crea catálogo, sucursales, stock, promociones, parámetros y estados (sin pedidos); auth crea `super_admin`, `customer`, `rider` y las direcciones del cliente (**no** crea branch admins, porque no recibe las sucursales); delivery crea zonas, turnos y el perfil del rider (sin pedido listo).
-- **`POST /seed` (gateway, con los servicios arriba):** encadena los tres seeds pasándose datos; crea **un branch_admin por sucursal**, los **pedidos de ejemplo** y, si hay un pedido `ready_for_delivery`, lo inserta en el pool de delivery.
+- **`npm run seed` / `POST /seed` (gateway, con los servicios arriba):** es el mismo código. Encadena los tres seeds pasándose datos y crea **un branch_admin por sucursal**, **24 clientes demo** (configurable con `clients`, hasta 500), un **lote de 150 pedidos históricos** (fechas, precios y estados variados) y hasta **5 pedidos listos** para el pool de delivery. Con `{ "demo": false }` se limita a los maestros.
+- **`npm run seed:direct` (directo a Mongo):** commerce crea catálogo, sucursales, stock, promociones, parámetros y estados (sin pedidos); auth crea `super_admin`, `customer`, `rider` y las direcciones del cliente (**no** crea branch admins ni clientes demo, porque no recibe las sucursales); delivery crea zonas, turnos y el perfil del rider (sin pedido listo). Sirve para dejar los maestros sin levantar servicios.
 
-Para una demo completa del flujo de reparto conviene usar el seed vía gateway (o levantar RabbitMQ y mover un pedido a `ready_for_delivery`).
+Para una demo completa del flujo de reparto y de reportes usá el seed vía gateway (`npm run seed` o `POST /seed`).
 
 ## 18.5 Deployment
 
@@ -2159,20 +2166,20 @@ Para una demo completa del flujo de reparto conviene usar el seed vía gateway (
 
 Inconsistencias verificadas (el código es la verdad):
 
-| #   | Documento dice                                                                                                                                  | El código hace                                                                                                                                                                   |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `fundamentacion-gateway-graphql-rest.md` §1: “**cinco frontends** (`apps/auth`, `apps/store`, `apps/admin`, `apps/admin-global`, `apps/rider`)” | El repo de frontend tiene **4 apps** (`store`, `admin`, `branch`, `rider`); `auth` es un **paquete** (`packages/auth`), no una app.                                              |
-| 2   | `fundamentacion` §3: “el SDL se genera/exporta y se codegene en TypeScript para `@repo/domain`”                                                 | El gateway usa `autoSchemaFile: true` (SDL en memoria); no hay archivo SDL ni codegen en el repo.                                                                                |
-| 3   | `fundamentacion` §6: “comunicación asíncrona por broker (**RabbitMQ/Kafka**)”                                                                   | Sólo **RabbitMQ** (`amqplib`), y es **opcional**: sin `BROKER_URL` usa `InProcessTransport`. No hay Kafka.                                                                       |
-| 4   | `fundamentacion` §4/§6: “servicios documentados con **OpenAPI**”                                                                                | No hay `@nestjs/swagger`, `SwaggerModule` ni spec OpenAPI en el repo.                                                                                                            |
-| 5   | `docs/credenciales-seed.md`: “En producción el arranque **falla** si los secretos quedan en sus valores por defecto”                            | Los cuatro `env.ts` sólo emiten `console.warn`; **no** abortan el arranque.                                                                                                      |
-| 6   | `fundamentacion` §3: “**DataLoader** agrupa y deduplica las llamadas REST internas”                                                             | Deduplica claves por request, pero `buildByIdLoader` hace **un `GET` por id** (`Promise.all`); no hay endpoint batch.                                                            |
-| 7   | Documentación funcional sugiere estados configurables                                                                                           | `ORDER_TRANSITIONS` está **hardcodeado**; `orderStates` es sólo catálogo de UI.                                                                                                  |
-| 8   | Documentación funcional incluye promociones                                                                                                     | `promotions` es CRUD; **no** se aplica a carrito/pedido.                                                                                                                         |
-| 9   | Documentación funcional incluye zonas/turnos de delivery                                                                                        | `zones`/`shifts` son CRUD; el matching usa **distancia + disponibilidad + staleness**, no zonas/turnos.                                                                          |
-| 10  | Guía del frontend: `dayOfWeek` 1–7                                                                                                              | El backend usa **0 = domingo … 6 = sábado** (`getUTCDay`), y el seed genera 0–6.                                                                                                 |
-| 11  | “Frontend habla únicamente GraphQL”                                                                                                             | El frontend usa **`POST /v1/uploads`** (REST del gateway) para subir imágenes.                                                                                                   |
-| 12  | `docs/credenciales-seed.md` sugiere que el seed crea todo (incluidos branch admins, pedidos y pedido listo)                                     | El **seed directo** (`npm run seed`) no crea branch admins, pedidos ni pedido listo; eso ocurre sólo con **`POST /seed`** del gateway, que pasa sucursales y contexto de pedido. |
+| #   | Documento dice                                                                                                                                  | El código hace                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `fundamentacion-gateway-graphql-rest.md` §1: “**cinco frontends** (`apps/auth`, `apps/store`, `apps/admin`, `apps/admin-global`, `apps/rider`)” | El repo de frontend tiene **4 apps** (`store`, `admin`, `branch`, `rider`); `auth` es un **paquete** (`packages/auth`), no una app.  |
+| 2   | `fundamentacion` §3: “el SDL se genera/exporta y se codegene en TypeScript para `@repo/domain`”                                                 | El gateway usa `autoSchemaFile: true` (SDL en memoria); no hay archivo SDL ni codegen en el repo.                                    |
+| 3   | `fundamentacion` §6: “comunicación asíncrona por broker (**RabbitMQ/Kafka**)”                                                                   | Sólo **RabbitMQ** (`amqplib`), y es **opcional**: sin `BROKER_URL` usa `InProcessTransport`. No hay Kafka.                           |
+| 4   | `fundamentacion` §4/§6: “servicios documentados con **OpenAPI**”                                                                                | No hay `@nestjs/swagger`, `SwaggerModule` ni spec OpenAPI en el repo.                                                                |
+| 5   | `docs/credenciales-seed.md`: “En producción el arranque **falla** si los secretos quedan en sus valores por defecto”                            | Los cuatro `env.ts` sólo emiten `console.warn`; **no** abortan el arranque.                                                          |
+| 6   | `fundamentacion` §3: “**DataLoader** agrupa y deduplica las llamadas REST internas”                                                             | Deduplica claves por request, pero `buildByIdLoader` hace **un `GET` por id** (`Promise.all`); no hay endpoint batch.                |
+| 7   | Documentación funcional sugiere estados configurables                                                                                           | `ORDER_TRANSITIONS` está **hardcodeado**; `orderStates` es sólo catálogo de UI.                                                      |
+| 8   | Documentación funcional incluye promociones                                                                                                     | `promotions` es CRUD; **no** se aplica a carrito/pedido.                                                                             |
+| 9   | Documentación funcional incluye zonas/turnos de delivery                                                                                        | `zones`/`shifts` son CRUD; el matching usa **distancia + disponibilidad + staleness**, no zonas/turnos.                              |
+| 10  | Guía del frontend: `dayOfWeek` 1–7                                                                                                              | El backend usa **0 = domingo … 6 = sábado** (`getUTCDay`), y el seed genera 0–6.                                                     |
+| 11  | “Frontend habla únicamente GraphQL”                                                                                                             | El frontend usa **`POST /v1/uploads`** (REST del gateway) para subir imágenes.                                                       |
+| 12  | `docs/credenciales-seed.md` sugiere que el seed crea todo (incluidos branch admins, pedidos y pedido listo)                                     | `npm run seed` y `POST /seed` lo crean todo; sólo `npm run seed:direct` escribe maestros sin branch admins, pedidos ni pedido listo. |
 
 > Estas diferencias no rompen la demo, pero conviene mencionarlas si preguntan “¿esto está documentado así?”. La respuesta correcta es: **el código manda**.
 
@@ -2212,7 +2219,7 @@ Inconsistencias verificadas (el código es la verdad):
 - Reserva atómica de pedidos y liberación por TTL.
 - Idempotencia de eventos (`processedEvents`).
 - Reportes: revenue sin cancelados, `variation` null si base 0.
-- Seed: `npm run seed` vs `POST /seed`.
+- Seed: `npm run seed` (igual que `POST /seed`) vs `npm run seed:direct` (sólo maestros).
 
 ## 🟢 SECUNDARIO — Está bueno saberlo
 
@@ -2517,9 +2524,9 @@ Inconsistencias verificadas (el código es la verdad):
 
 ### 46. ¿Cómo se corre el seed y qué crea cada camino?
 
-**Corta:** `npm run seed` escribe directo a Mongo; `POST /seed` en el gateway orquesta los tres servicios y crea el escenario completo.
+**Corta:** `npm run seed` llama a `POST /seed` del gateway y crea el escenario completo. `npm run seed:direct` escribe sólo los maestros directo a Mongo.
 
-**Técnica:** el seed directo **no** crea branch admins (auth no recibe las sucursales), pedidos de ejemplo ni pedido listo para delivery. El seed del gateway encadena commerce → auth (con sucursales) → commerce (con cliente/dirección) → delivery (con rider y pedido listo). Para la demo completa, usar el segundo.
+**Técnica:** `npm run seed` y `POST /seed` comparten el mismo código (el script hace un POST con `x-internal-token`), así que no pueden divergir. El seed directo **no** crea branch admins (auth no recibe las sucursales), clientes demo, pedidos históricos ni pedido listo para delivery. Para la demo completa, usar el primero.
 
 ---
 

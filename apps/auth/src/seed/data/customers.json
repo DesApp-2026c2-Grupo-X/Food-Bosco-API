@@ -1,0 +1,420 @@
+{
+  "customers": [
+    {
+      "firstName": "Sofía",
+      "lastName": "Ramírez",
+      "email": "sofia.ramirez@foodbosco.local",
+      "phone": "1145550101",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Germán Argerich 1333, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5918429,
+          "longitude": -58.6371925
+        },
+        {
+          "label": "Trabajo",
+          "text": "Félix Frías 3259, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6091317,
+          "longitude": -58.6432517
+        }
+      ]
+    },
+    {
+      "firstName": "Mateo",
+      "lastName": "Fernández",
+      "email": "mateo.fernandez@foodbosco.local",
+      "phone": "1145550102",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Avenida Arturo Jauretche 1197, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5899585,
+          "longitude": -58.6332502
+        }
+      ]
+    },
+    {
+      "firstName": "Valentina",
+      "lastName": "López",
+      "email": "valentina.lopez@foodbosco.local",
+      "phone": "1145550103",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Avenida Rivadavia 18500, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6492342,
+          "longitude": -58.6240339
+        }
+      ]
+    },
+    {
+      "firstName": "Joaquín",
+      "lastName": "Pérez",
+      "email": "joaquin.perez@foodbosco.local",
+      "phone": "1145550104",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "General Simón Bolívar 1800, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5892023,
+          "longitude": -58.6422604
+        }
+      ]
+    },
+    {
+      "firstName": "Camila",
+      "lastName": "Gómez",
+      "email": "camila.gomez@foodbosco.local",
+      "phone": "1145550105",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Leandro N. Alem 817, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6453972,
+          "longitude": -58.6200427
+        },
+        {
+          "label": "Casa de mis viejos",
+          "text": "General Martín Miguel de Güemes 1702, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5846532,
+          "longitude": -58.6372404
+        }
+      ]
+    },
+    {
+      "firstName": "Thiago",
+      "lastName": "Sosa",
+      "email": "thiago.sosa@foodbosco.local",
+      "phone": "1145550106",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Génova 2402, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.6001234,
+          "longitude": -58.6392817
+        }
+      ]
+    },
+    {
+      "firstName": "Martina",
+      "lastName": "Díaz",
+      "email": "martina.diaz@foodbosco.local",
+      "phone": "1145550107",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "25 de Mayo 431, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6532303,
+          "longitude": -58.6199492
+        }
+      ]
+    },
+    {
+      "firstName": "Benjamín",
+      "lastName": "Rojas",
+      "email": "benjamin.rojas@foodbosco.local",
+      "phone": "1145550108",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Juan de Garay 950, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5945868,
+          "longitude": -58.6296797
+        }
+      ]
+    },
+    {
+      "firstName": "Julieta",
+      "lastName": "Acosta",
+      "email": "julieta.acosta@foodbosco.local",
+      "phone": "1145550109",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Miramar 501, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6186974,
+          "longitude": -58.6470291
+        }
+      ]
+    },
+    {
+      "firstName": "Lautaro",
+      "lastName": "Medina",
+      "email": "lautaro.medina@foodbosco.local",
+      "phone": "1145550110",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Avenida Gobernador Valentín Vergara 2302, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6155858,
+          "longitude": -58.6344355
+        }
+      ]
+    },
+    {
+      "firstName": "Delfina",
+      "lastName": "Castro",
+      "email": "delfina.castro@foodbosco.local",
+      "phone": "1145550111",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Coraceros 3000, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.6019672,
+          "longitude": -58.6434303
+        }
+      ]
+    },
+    {
+      "firstName": "Santiago",
+      "lastName": "Herrera",
+      "email": "santiago.herrera@foodbosco.local",
+      "phone": "1145550112",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Bartolomé Mitre 1434, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6529541,
+          "longitude": -58.6280269
+        }
+      ]
+    },
+    {
+      "firstName": "Micaela",
+      "lastName": "Benítez",
+      "email": "micaela.benitez@foodbosco.local",
+      "phone": "1145550113",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Boulevard Brigadier General Juan Manuel de Rosas 99, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6412091,
+          "longitude": -58.6239462
+        },
+        {
+          "label": "Trabajo",
+          "text": "Granada 252, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6175592,
+          "longitude": -58.6385608
+        }
+      ]
+    },
+    {
+      "firstName": "Facundo",
+      "lastName": "Aguirre",
+      "email": "facundo.aguirre@foodbosco.local",
+      "phone": "1145550114",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Manuel Ocampo 1901, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.6003941,
+          "longitude": -58.6315839
+        }
+      ]
+    },
+    {
+      "firstName": "Abril",
+      "lastName": "Molina",
+      "email": "abril.molina@foodbosco.local",
+      "phone": "1145550115",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Avenida Gobernador Valentín Vergara 2101, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6180716,
+          "longitude": -58.6338749
+        }
+      ]
+    },
+    {
+      "firstName": "Ignacio",
+      "lastName": "Vargas",
+      "email": "ignacio.vargas@foodbosco.local",
+      "phone": "1145550116",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Sebastian Gaboto 1040, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5954869,
+          "longitude": -58.6329884
+        }
+      ]
+    },
+    {
+      "firstName": "Renata",
+      "lastName": "Cabrera",
+      "email": "renata.cabrera@foodbosco.local",
+      "phone": "1145550117",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Entre Ríos 1092, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6572078,
+          "longitude": -58.6240292
+        }
+      ]
+    },
+    {
+      "firstName": "Tomás",
+      "lastName": "Ledesma",
+      "email": "tomas.ledesma@foodbosco.local",
+      "phone": "1145550118",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Avenida Rivadavia 17899, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6492083,
+          "longitude": -58.6159987
+        }
+      ]
+    },
+    {
+      "firstName": "Zoe",
+      "lastName": "Quiroga",
+      "email": "zoe.quiroga@foodbosco.local",
+      "phone": "1145550119",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Lugones 872, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6420206,
+          "longitude": -58.618212
+        }
+      ]
+    },
+    {
+      "firstName": "Bautista",
+      "lastName": "Ferreyra",
+      "email": "bautista.ferreyra@foodbosco.local",
+      "phone": "1145550120",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Santa Fe 646, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6558928,
+          "longitude": -58.618034
+        }
+      ]
+    },
+    {
+      "firstName": "Catalina",
+      "lastName": "Ponce",
+      "email": "catalina.ponce@foodbosco.local",
+      "phone": "1145550121",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "General Tomás Guido 739, Morón",
+          "city": "Morón",
+          "postalCode": "1708",
+          "latitude": -34.6562447,
+          "longitude": -58.6300189
+        }
+      ]
+    },
+    {
+      "firstName": "Lorenzo",
+      "lastName": "Maldonado",
+      "email": "lorenzo.maldonado@foodbosco.local",
+      "phone": "1145550122",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Maria Mazzarello 4199, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6214595,
+          "longitude": -58.6419699
+        }
+      ]
+    },
+    {
+      "firstName": "Emilia",
+      "lastName": "Coronel",
+      "email": "emilia.coronel@foodbosco.local",
+      "phone": "1145550123",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Juan de Garay 1801, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5868989,
+          "longitude": -58.6398939
+        }
+      ]
+    },
+    {
+      "firstName": "Nicolás",
+      "lastName": "Villalba",
+      "email": "nicolas.villalba@foodbosco.local",
+      "phone": "1145550124",
+      "addresses": [
+        {
+          "label": "Casa",
+          "text": "Gluck 3698, Villa Tesei",
+          "city": "Villa Tesei",
+          "postalCode": "1688",
+          "latitude": -34.6153934,
+          "longitude": -58.6439891
+        },
+        {
+          "label": "Trabajo",
+          "text": "Manuel Ocampo 1599, Hurlingham",
+          "city": "Hurlingham",
+          "postalCode": "1686",
+          "latitude": -34.5982162,
+          "longitude": -58.6290944
+        }
+      ]
+    }
+  ]
+}

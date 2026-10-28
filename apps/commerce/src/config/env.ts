@@ -5,6 +5,12 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const toOptionalNumber = (value: string | undefined): number | null => {
+  if (value === undefined || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 export const DEV_JWT_SECRET = 'dev-secret-change-me'
 export const DEV_INTERNAL_API_TOKEN = 'dev-internal-token'
 
@@ -64,5 +70,11 @@ export const env = {
     maxDistanceKm: toNumber(process.env.SEED_PARAM_MAX_DISTANCE_KM, 10),
     basePrepMin: toNumber(process.env.SEED_PARAM_BASE_PREP_MIN, 15),
     avgSpeedKmh: toNumber(process.env.SEED_PARAM_AVG_SPEED_KMH, 25),
+    demo: {
+      orders: toOptionalNumber(process.env.SEED_DEMO_ORDERS),
+      days: toOptionalNumber(process.env.SEED_DEMO_DAYS),
+      seed: toOptionalNumber(process.env.SEED_DEMO_SEED),
+      reset: process.env.SEED_DEMO_RESET === 'true',
+    },
   },
 }
