@@ -165,6 +165,22 @@ describe('Health & Seed (e2e)', () => {
       expect(await addressModel.countDocuments({ userId: customer?._id.toString() })).toBe(2)
     })
 
+    it('puede generar más clientes demo que la bolsa curada', async () => {
+      await userModel.deleteMany({})
+      await addressModel.deleteMany({})
+
+      const res = await request(app.getHttpServer())
+        .post('/v1/seed')
+        .set('x-internal-token', env.internalApiToken)
+        .send({ demoCustomers: true, demoCustomerCount: 30 })
+        .expect(201)
+
+      expect(res.body.summary.users).toBe(33)
+      expect(res.body.customers).toHaveLength(31)
+      expect(res.body.summary.addresses).toBe(36)
+      expect(await userModel.countDocuments({ role: 'customer' })).toBe(31)
+    })
+
     // Decisión del equipo: POST /v1/seed es intencionalmente accesible. Sólo declara
     // @Internal() (sin @Roles); el guard corta por x-internal-token cuando coincide y,
     // si no, acepta cualquier JWT válido. Que un customer pueda ejecutar el seed es el

@@ -29,6 +29,19 @@ npm run format     # Prettier sobre todo el repo
 npm run format:check
 ```
 
+## Seed
+
+Con MongoDB arriba y los servicios levantados (`npm run dev`):
+
+```bash
+npm run seed                                  # datos completos de demo (igual que POST /seed)
+npm run seed -- --customers 80 --orders 300   # más clientes y pedidos
+npm run seed -- --reset                       # limpia los lotes demo y regenera
+npm run seed:direct                           # sólo maestros, directo a Mongo
+```
+
+Detalle, credenciales, variables y Postman: [`docs/credenciales-seed.md`](docs/credenciales-seed.md).
+
 ## Estructura
 
 ```text

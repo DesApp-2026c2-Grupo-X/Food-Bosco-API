@@ -1,6 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common'
 import { Type } from 'class-transformer'
 import {
+  IsArray,
   IsBoolean,
   IsNotEmpty,
   IsNumber,
@@ -27,6 +28,12 @@ class SeedLocationDto {
   longitude!: number
 }
 
+class SeedDeliveryAddressDto extends SeedLocationDto {
+  @IsString()
+  @IsNotEmpty()
+  text!: string
+}
+
 class SeedReadyOrderDto {
   @IsString()
   @IsNotEmpty()
@@ -41,8 +48,8 @@ class SeedReadyOrderDto {
   branchLocation!: SeedLocationDto
 
   @ValidateNested()
-  @Type(() => SeedLocationDto)
-  deliveryAddress!: SeedLocationDto & { text: string }
+  @Type(() => SeedDeliveryAddressDto)
+  deliveryAddress!: SeedDeliveryAddressDto
 }
 
 class SeedBody {
@@ -79,6 +86,12 @@ class SeedBody {
   @ValidateNested()
   @Type(() => SeedReadyOrderDto)
   readyOrder?: SeedReadyOrderDto
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SeedReadyOrderDto)
+  readyOrders?: SeedReadyOrderDto[]
 }
 
 @Controller('v1/seed')

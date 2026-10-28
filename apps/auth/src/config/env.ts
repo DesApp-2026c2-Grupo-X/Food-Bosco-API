@@ -6,6 +6,12 @@ const toNumber = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+const toOptionalNumber = (value: string | undefined): number | null => {
+  if (value === undefined || value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const durationToMs = (value: string): number => {
   const match = /^(\d+)\s*(ms|s|m|h|d)?$/.exec(value.trim())
   if (!match) {
@@ -85,5 +91,6 @@ export const env = {
     customerPassword: process.env.SEED_CUSTOMER_PASSWORD ?? 'Cliente123!',
     branchAdminPassword: process.env.SEED_BRANCH_ADMIN_PASSWORD ?? 'Sucursal123!',
     riderPassword: process.env.SEED_RIDER_PASSWORD ?? 'Repartidor123!',
+    demoCustomers: toOptionalNumber(process.env.SEED_DEMO_CUSTOMERS),
   },
 }
