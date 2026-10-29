@@ -923,6 +923,18 @@ export class CommerceResolver {
     return {
       cart: mapCart(raw.cart as RawRecord),
       skippedProducts: (raw.skippedProducts as RawRecord[]).map(mapProduct),
+      skippedItems: ((raw.skippedItems as RawRecord[] | undefined) ?? []).map((item) => ({
+        productId: item.productId as string,
+        name: item.name as string,
+        reason: item.reason as string,
+      })),
+      priceChanges: ((raw.priceChanges as RawRecord[] | undefined) ?? []).map((change) => ({
+        productId: change.productId as string,
+        name: change.name as string,
+        quantity: change.quantity as number,
+        previousUnitPrice: change.previousUnitPrice as number,
+        currentUnitPrice: change.currentUnitPrice as number,
+      })),
     }
   }
 

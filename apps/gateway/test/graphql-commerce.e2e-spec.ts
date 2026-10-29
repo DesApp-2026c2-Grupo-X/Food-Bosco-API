@@ -1119,18 +1119,28 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       })
     })
 
-    it('repeatOrder mapea cart y skippedProducts', async () => {
+    it('repeatOrder mapea cart, skippedProducts y validaciones de repetición', async () => {
       downstream.setResponder(
         respondWith({
           'POST /v1/orders/o1/repeat': {
             cart: rawCart,
             skippedProducts: [{ ...rawProduct, id: 'p9' }],
+            skippedItems: [{ productId: 'p9', name: 'Burger', reason: 'PRODUCT_UNAVAILABLE' }],
+            priceChanges: [
+              {
+                productId: 'p1',
+                name: 'Burger',
+                quantity: 2,
+                previousUnitPrice: 100,
+                currentUnitPrice: 120,
+              },
+            ],
           },
         }),
       )
 
       const res = await run(
-        'mutation { repeatOrder(orderId: "o1") { cart { id total } skippedProducts { id name } } }',
+        'mutation { repeatOrder(orderId: "o1") { cart { id total } skippedProducts { id name } skippedItems { productId name reason } priceChanges { productId name quantity previousUnitPrice currentUnitPrice } } }',
         'customer',
       ).expect(200)
 
@@ -1138,6 +1148,16 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
         repeatOrder: {
           cart: { id: 'cart1', total: 20 },
           skippedProducts: [{ id: 'p9', name: 'Burger' }],
+          skippedItems: [{ productId: 'p9', name: 'Burger', reason: 'PRODUCT_UNAVAILABLE' }],
+          priceChanges: [
+            {
+              productId: 'p1',
+              name: 'Burger',
+              quantity: 2,
+              previousUnitPrice: 100,
+              currentUnitPrice: 120,
+            },
+          ],
         },
       })
     })
