@@ -19,13 +19,13 @@ if (nodeEnv === 'production') {
   if (isInsecureSecret(jwtSecret, DEFAULT_JWT_SECRET)) {
     // eslint-disable-next-line no-console -- aviso de seguridad en el arranque (no debe romper el deploy)
     console.warn(
-      '[env] JWT_SECRET should be set to a secure, non-default value when NODE_ENV=production',
+      '[env] JWT_SECRET debe configurarse con un valor seguro y distinto del default cuando NODE_ENV=production',
     )
   }
   if (isInsecureSecret(internalApiToken, DEFAULT_INTERNAL_API_TOKEN)) {
     // eslint-disable-next-line no-console -- aviso de seguridad en el arranque (no debe romper el deploy)
     console.warn(
-      '[env] INTERNAL_API_TOKEN should be set to a secure, non-default value when NODE_ENV=production',
+      '[env] INTERNAL_API_TOKEN debe configurarse con un valor seguro y distinto del default cuando NODE_ENV=production',
     )
   }
 }

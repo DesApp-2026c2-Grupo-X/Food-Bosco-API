@@ -135,14 +135,24 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
     it('sin x-internal-token → 401 y no llama a ningún downstream', async () => {
       const res = await seed().expect(401)
 
-      expect(res.body).toEqual({ statusCode: 401, message: 'Unauthorized' })
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          statusCode: 401,
+          message: 'No autorizado. Se requiere un token interno válido.',
+        }),
+      )
       expect(downstream.calls).toHaveLength(0)
     })
 
     it('token incorrecto → 401 y no llama a ningún downstream', async () => {
       const res = await seed('token-invalido').expect(401)
 
-      expect(res.body).toEqual({ statusCode: 401, message: 'Unauthorized' })
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          statusCode: 401,
+          message: 'No autorizado. Se requiere un token interno válido.',
+        }),
+      )
       expect(downstream.calls).toHaveLength(0)
     })
   })

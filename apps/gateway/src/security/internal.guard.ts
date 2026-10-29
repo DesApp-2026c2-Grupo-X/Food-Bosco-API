@@ -16,7 +16,7 @@ export class InternalGuard implements CanActivate {
     const token = headerToString(request.headers?.[HEADERS.internalToken])
 
     if (token !== env.internalApiToken) {
-      throw new UnauthorizedException()
+      throw new UnauthorizedException('No autorizado. Se requiere un token interno válido.')
     }
 
     return true

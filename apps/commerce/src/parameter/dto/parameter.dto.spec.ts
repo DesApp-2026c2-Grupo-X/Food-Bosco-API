@@ -61,8 +61,20 @@ describe('CreateParameterDto (RQ-CFG-01/02)', () => {
   }> = [
     { name: 'sin key', payload: { value: 10, unit: 'km' }, property: 'key' },
     { name: 'key vacía', payload: { key: '', value: 10, unit: 'km' }, property: 'key' },
+    { name: 'key numérica', payload: { key: 123, value: 10, unit: 'km' }, property: 'key' },
+    {
+      name: 'key demasiado larga',
+      payload: { key: 'K'.repeat(101), value: 10, unit: 'km' },
+      property: 'key',
+    },
     { name: 'sin unit', payload: { key: 'K', value: 10 }, property: 'unit' },
     { name: 'unit vacía', payload: { key: 'K', value: 10, unit: '' }, property: 'unit' },
+    { name: 'unit numérica', payload: { key: 'K', value: 10, unit: 5 }, property: 'unit' },
+    {
+      name: 'unit demasiado larga',
+      payload: { key: 'K', value: 10, unit: 'u'.repeat(51) },
+      property: 'unit',
+    },
     { name: 'valor cero', payload: { key: 'K', value: 0, unit: 'u' }, property: 'value' },
     { name: 'valor negativo', payload: { key: 'K', value: -5, unit: 'u' }, property: 'value' },
     { name: 'sin valor', payload: { key: 'K', unit: 'u' }, property: 'value' },
