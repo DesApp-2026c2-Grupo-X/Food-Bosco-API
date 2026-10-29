@@ -24,6 +24,7 @@ export class DeliveryAddressDto {
 export class CreateOrderDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   addressId!: string
 
   @IsNotEmpty()

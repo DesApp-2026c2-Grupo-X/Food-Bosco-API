@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, Min } from 'class-validator'
+import { IsNotEmpty, IsNumber, IsString, MaxLength, Min } from 'class-validator'
 
 export class UpdateParameterDto {
   @IsNumber()
@@ -7,13 +7,17 @@ export class UpdateParameterDto {
 }
 
 export class CreateParameterDto {
+  @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   key!: string
 
   @IsNumber()
   @Min(0.0001)
   value!: number
 
+  @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
   unit!: string
 }

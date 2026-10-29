@@ -4,11 +4,13 @@ import { PHONE_PATTERN } from '../../config/validation/normalize'
 export class UpdateUserDto {
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   firstName?: string
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   lastName?: string
 

@@ -13,9 +13,27 @@ const codeForStatus = (status: number): string => {
   return ERROR_CODES.internal
 }
 
+const FALLBACK_MESSAGE = 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.'
+
 const extractMessage = (payload: ErrorPayload): string => {
   if (Array.isArray(payload.message)) return payload.message.join('; ')
-  return payload.message ?? 'Error'
+  return payload.message ?? FALLBACK_MESSAGE
+}
+
+const translateDefaultMessage = (message: string, status: number): string => {
+  const normalized = message.trim()
+
+  if (status === HttpStatus.UNAUTHORIZED && /^unauthorized$/i.test(normalized)) {
+    return 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.'
+  }
+  if (status === HttpStatus.FORBIDDEN && /^forbidden$/i.test(normalized)) {
+    return 'No tenés permisos para realizar esta acción.'
+  }
+  if (/^error$/i.test(normalized)) {
+    return FALLBACK_MESSAGE
+  }
+
+  return message
 }
 
 @Catch()
@@ -32,7 +50,7 @@ export class UploadExceptionFilter implements ExceptionFilter {
 
       response.status(status).json({
         code: payload.code ?? codeForStatus(status),
-        message: extractMessage(payload),
+        message: translateDefaultMessage(extractMessage(payload), status),
         path: payload.path ?? request.url,
       })
       return

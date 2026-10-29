@@ -1,13 +1,22 @@
-import { IsLatitude, IsLongitude, IsOptional, IsString, MaxLength } from 'class-validator'
+import {
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator'
 
 export class UpdateAddressDto {
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(100)
   label?: string
 
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(300)
   text?: string
 

@@ -153,10 +153,20 @@ describe('Delivery Service (e2e)', () => {
       const res = await request(app.getHttpServer())
         .patch('/v1/riders/me')
         .set('Authorization', `Bearer ${riderToken}`)
-        .send({ phone: '999' })
+        .send({ phone: '11 5555-1234' })
         .expect(200)
 
-      expect(res.body.phone).toBe('999')
+      expect(res.body.phone).toBe('11 5555-1234')
+    })
+
+    it('rechaza un teléfono con formato inválido', async () => {
+      const res = await request(app.getHttpServer())
+        .patch('/v1/riders/me')
+        .set('Authorization', `Bearer ${riderToken}`)
+        .send({ phone: '999' })
+        .expect(400)
+
+      expect(res.body.code).toBe('VALIDATION_ERROR')
     })
 
     it('rechaza sin token con 401', async () => {

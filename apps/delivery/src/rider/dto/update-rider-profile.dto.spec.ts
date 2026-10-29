@@ -11,6 +11,8 @@ const errorProperties = async (payload: Record<string, unknown>): Promise<string
 describe('UpdateRiderProfileDto (RQ-DLV-11)', () => {
   const validCases: Array<{ name: string; payload: Record<string, unknown> }> = [
     { name: 'solo teléfono', payload: { phone: '11223344' } },
+    { name: 'teléfono con espacios y guiones', payload: { phone: '11 5555-1234' } },
+    { name: 'teléfono internacional', payload: { phone: '+54 11 5555 1234' } },
     { name: 'body vacío (ambos opcionales)', payload: {} },
     { name: 'teléfono de 50 caracteres (límite)', payload: { phone: '1'.repeat(50) } },
     {
@@ -36,6 +38,8 @@ describe('UpdateRiderProfileDto (RQ-DLV-11)', () => {
     { name: 'teléfono vacío', payload: { phone: '' }, property: 'phone' },
     { name: 'teléfono de 51 caracteres', payload: { phone: '1'.repeat(51) }, property: 'phone' },
     { name: 'teléfono numérico', payload: { phone: 11223344 }, property: 'phone' },
+    { name: 'teléfono con letras', payload: { phone: 'abc1234' }, property: 'phone' },
+    { name: 'teléfono demasiado corto', payload: { phone: '123' }, property: 'phone' },
     { name: 'teléfono objeto', payload: { phone: { value: '1' } }, property: 'phone' },
     { name: 'teléfono null (requerido si se envía)', payload: { phone: null }, property: 'phone' },
     { name: 'nombre vacío', payload: { firstName: '' }, property: 'firstName' },

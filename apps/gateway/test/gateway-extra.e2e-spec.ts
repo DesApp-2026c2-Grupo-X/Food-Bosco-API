@@ -200,7 +200,7 @@ describe('Gateway extras (e2e) — throttle por operación, upload y /health', (
 
       expect(res.body).toEqual({
         code: 'UNAUTHENTICATED',
-        message: 'Unauthorized',
+        message: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
         path: '/v1/uploads',
       })
       expect(downstream.calls).toHaveLength(0)

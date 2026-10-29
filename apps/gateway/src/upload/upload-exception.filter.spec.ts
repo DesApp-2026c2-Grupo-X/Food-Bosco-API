@@ -1,4 +1,11 @@
-import { ArgumentsHost, BadRequestException, HttpException, HttpStatus } from '@nestjs/common'
+import {
+  ArgumentsHost,
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { ERROR_CODES } from '../config/constants'
 import { UploadExceptionFilter } from './upload-exception.filter'
@@ -106,13 +113,37 @@ describe('UploadExceptionFilter.catch', () => {
     })
   })
 
-  it('usa el message por defecto "Error" si el payload no trae message', () => {
+  it('usa un mensaje genérico en español si el payload no trae message', () => {
     const { host, json } = buildHost()
     const exception = new HttpException({ code: 'X' }, 400)
 
     filter.catch(exception, host)
 
-    expect(json).toHaveBeenCalledWith(expect.objectContaining({ code: 'X', message: 'Error' }))
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'X',
+        message: 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
+      }),
+    )
+  })
+
+  it.each([
+    {
+      name: '401 Unauthorized por defecto',
+      exception: new UnauthorizedException(),
+      expected: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+    },
+    {
+      name: '403 Forbidden por defecto',
+      exception: new ForbiddenException(),
+      expected: 'No tenés permisos para realizar esta acción.',
+    },
+  ])('traduce $name al español', ({ exception, expected }) => {
+    const { host, json } = buildHost()
+
+    filter.catch(exception, host)
+
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ message: expected }))
   })
 
   it('excepción no-HttpException → 500 INTERNAL_SERVER_ERROR genérico', () => {
