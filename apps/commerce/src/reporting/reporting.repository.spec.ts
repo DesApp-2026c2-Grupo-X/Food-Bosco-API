@@ -246,3 +246,82 @@ describe('ReportingRepository.listStock (RQ-REP-03/06)', () => {
     expect(result).toBe(docs)
   })
 })
+
+describe('ReportingRepository.aggregateCustomerOverview (RQ-REP-CLIENTE)', () => {
+  const filter = {
+    from: new Date('2026-01-01T00:00:00.000Z'),
+    to: new Date('2026-01-31T23:59:59.999Z'),
+    groupBy: 'month' as const,
+  }
+
+  it('filtra por clientId y rango de fechas', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerOverview('client-1', filter)
+
+    const pipeline = orderModel.aggregate.mock.calls[0][0]
+    expect(pipeline[0]).toEqual({
+      $match: {
+        clientId: 'client-1',
+        createdAt: { $gte: filter.from, $lte: filter.to },
+      },
+    })
+    expect(pipeline[1]).toHaveProperty('$facet')
+  })
+
+  it('usa la agrupación mensual por defecto', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerOverview('client-1', {
+      from: filter.from,
+      to: filter.to,
+    })
+
+    const pipeline = orderModel.aggregate.mock.calls[0][0]
+    const series = pipeline[1].$facet.series
+    expect(series[0].$group._id.$dateToString.format).toBe('%Y-%m')
+  })
+
+  it('devuelve la estructura agregada y el nombre de sucursal', async () => {
+    const { repository, orderModel } = makeRepository()
+    const raw = {
+      summary: [
+        {
+          totalOrders: 2,
+          completedOrders: 1,
+          cancelledOrders: 0,
+          activeOrders: 1,
+          totalSpent: 500,
+        },
+      ],
+      status: [{ _id: 'delivered' as const, count: 1 }],
+      series: [{ _id: '2026-01', orders: 2, completedOrders: 1, totalSpent: 500 }],
+      frequentProducts: [
+        { _id: 'p1', name: 'Hamburguesa', quantity: 2, orders: 1, totalSpent: 500 },
+      ],
+      branches: [{ _id: 'b1', orders: 1, totalSpent: 500 }],
+    }
+    orderModel.aggregate.mockReturnValue(execQuery([raw]))
+
+    const result = await repository.aggregateCustomerOverview('client-1', filter)
+
+    expect(result).toEqual(raw)
+  })
+
+  it('devuelve estructura vacía si Mongo no devuelve facet', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    const result = await repository.aggregateCustomerOverview('client-1', filter)
+
+    expect(result).toEqual({
+      summary: [],
+      status: [],
+      series: [],
+      frequentProducts: [],
+      branches: [],
+    })
+  })
+})

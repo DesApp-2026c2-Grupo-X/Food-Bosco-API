@@ -8,7 +8,8 @@ import { Category, CategoryDocument } from '../category/category.model'
 import { Order, OrderDocument } from '../order/order.model'
 import { Product, ProductDocument } from '../product/product.model'
 import { BranchStock, BranchStockDocument } from '../stock/branch-stock.model'
-import type { ReportFilter, ReportGroupBy } from './reporting.model'
+import { CUSTOMER_FREQUENT_PRODUCTS_LIMIT } from './reporting.model'
+import type { CustomerReportFilter, ReportFilter, ReportGroupBy } from './reporting.model'
 
 export interface SalesAggregate {
   quantity: number
@@ -21,6 +22,26 @@ export interface OverviewAggregateRaw {
   series: Array<{ _id: string; revenue: number; orders: number }>
   topProducts: Array<{ _id: string; name: string; quantity: number; revenue: number }>
   branchPerformance: Array<{ _id: string; revenue: number; orders: number }>
+}
+
+export interface CustomerOverviewAggregateRaw {
+  summary: Array<{
+    totalOrders: number
+    completedOrders: number
+    cancelledOrders: number
+    activeOrders: number
+    totalSpent: number
+  }>
+  status: Array<{ _id: OrderStatus; count: number }>
+  series: Array<{ _id: string; orders: number; completedOrders: number; totalSpent: number }>
+  frequentProducts: Array<{
+    _id: string
+    name: string
+    quantity: number
+    orders: number
+    totalSpent: number
+  }>
+  branches: Array<{ _id: string; orders: number; totalSpent: number }>
 }
 
 const TOP_PRODUCTS_LIMIT = 10
@@ -55,6 +76,46 @@ const emptyOverview = (): OverviewAggregateRaw => ({
   series: [],
   topProducts: [],
   branchPerformance: [],
+})
+
+const ACTIVE_CUSTOMER_STATUSES: OrderStatus[] = [
+  ORDER_STATUS.pending,
+  ORDER_STATUS.confirmed,
+  ORDER_STATUS.preparing,
+  ORDER_STATUS.readyForDelivery,
+  ORDER_STATUS.onTheWay,
+]
+
+const completedOrdersExpr = {
+  $sum: { $cond: [{ $eq: ['$status', ORDER_STATUS.delivered] }, 1, 0] },
+}
+
+const cancelledOrdersExpr = {
+  $sum: { $cond: [{ $eq: ['$status', ORDER_STATUS.cancelled] }, 1, 0] },
+}
+
+const activeOrdersExpr = {
+  $sum: { $cond: [{ $in: ['$status', ACTIVE_CUSTOMER_STATUSES] }, 1, 0] },
+}
+
+const totalSpentExpr = {
+  $sum: { $cond: [{ $eq: ['$status', ORDER_STATUS.delivered] }, '$total', 0] },
+}
+
+const buildCustomerOrderMatch = (
+  clientId: string,
+  filter: CustomerReportFilter,
+): Record<string, unknown> => ({
+  clientId,
+  createdAt: { $gte: filter.from, $lte: filter.to },
+})
+
+const emptyCustomerOverview = (): CustomerOverviewAggregateRaw => ({
+  summary: [],
+  status: [],
+  series: [],
+  frequentProducts: [],
+  branches: [],
 })
 
 @Injectable()
@@ -171,6 +232,89 @@ export class ReportingRepository {
 
     const [result] = await this.orderModel.aggregate<OverviewAggregateRaw>(pipeline).exec()
     return result ?? emptyOverview()
+  }
+
+  async aggregateCustomerOverview(
+    clientId: string,
+    filter: CustomerReportFilter,
+  ): Promise<CustomerOverviewAggregateRaw> {
+    const groupFormat = GROUP_FORMATS[filter.groupBy ?? 'month']
+
+    const pipeline: PipelineStage[] = [
+      { $match: buildCustomerOrderMatch(clientId, filter) },
+      {
+        $facet: {
+          summary: [
+            {
+              $group: {
+                _id: null,
+                totalOrders: { $sum: 1 },
+                completedOrders: completedOrdersExpr,
+                cancelledOrders: cancelledOrdersExpr,
+                activeOrders: activeOrdersExpr,
+                totalSpent: totalSpentExpr,
+              },
+            },
+          ],
+          status: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          series: [
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: groupFormat,
+                    date: '$createdAt',
+                    timezone: BUSINESS_TIME_ZONE,
+                  },
+                },
+                orders: { $sum: 1 },
+                completedOrders: completedOrdersExpr,
+                totalSpent: totalSpentExpr,
+              },
+            },
+            { $sort: { _id: 1 } },
+          ],
+          frequentProducts: [
+            { $match: { status: ORDER_STATUS.delivered } },
+            { $unwind: '$items' },
+            {
+              $group: {
+                _id: '$items.productId',
+                name: { $last: '$items.name' },
+                quantity: { $sum: '$items.quantity' },
+                orders: { $addToSet: '$_id' },
+                totalSpent: { $sum: '$items.subtotal' },
+              },
+            },
+            {
+              $project: {
+                name: 1,
+                quantity: 1,
+                totalSpent: 1,
+                orders: { $size: '$orders' },
+              },
+            },
+            { $sort: { quantity: -1, totalSpent: -1, name: 1 } },
+            { $limit: CUSTOMER_FREQUENT_PRODUCTS_LIMIT },
+          ],
+          branches: [
+            { $match: { status: ORDER_STATUS.delivered } },
+            {
+              $group: {
+                _id: '$branchId',
+                orders: { $sum: 1 },
+                totalSpent: { $sum: '$total' },
+              },
+            },
+            { $sort: { orders: -1, totalSpent: -1 } },
+            { $limit: 1 },
+          ],
+        },
+      },
+    ]
+
+    const [result] = await this.orderModel.aggregate<CustomerOverviewAggregateRaw>(pipeline).exec()
+    return result ?? emptyCustomerOverview()
   }
 
   private async findProductIdsByCategory(categoryId?: string): Promise<string[] | null> {
