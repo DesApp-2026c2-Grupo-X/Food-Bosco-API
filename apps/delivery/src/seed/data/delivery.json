@@ -2,12 +2,12 @@
   "zones": [
     {
       "name": "Centro",
-      "center": { "latitude": -34.5958088, "longitude": -58.6360255 },
+      "center": { "latitude": -34.5899585, "longitude": -58.6332502 },
       "radiusKm": 4
     },
     {
       "name": "Norte",
-      "center": { "latitude": -34.6117136, "longitude": -58.6394095 },
+      "center": { "latitude": -34.6155858, "longitude": -58.6344355 },
       "radiusKm": 4
     },
     {

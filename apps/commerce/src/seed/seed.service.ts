@@ -1,12 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { join } from 'node:path'
-import { isDuplicateKeyError, loadSeedData } from '@repo/seed-utils'
-import { PARAMETER_KEYS, ORDER_STATUS, OrderStatus } from '../config/constants'
-import { env } from '../config/env'
+import {
+  createBatchId,
+  createRandomSeed,
+  createSeededRandom,
+  isDuplicateKeyError,
+  loadSeedData,
+} from '@repo/seed-utils'
+import type { PublicBranch } from '../branch/branch.model'
 import { BranchService } from '../branch/branch.service'
 import type { BranchHours } from '../branch/branch.model'
-import { buildBranchHours, type HoursSchedule } from './branch-hours'
 import { CategoryService } from '../category/category.service'
+import { ORDER_STATUS, OrderStatus, PARAMETER_KEYS } from '../config/constants'
+import { env } from '../config/env'
 import { IngredientService } from '../ingredient/ingredient.service'
 import type { OrderItem } from '../order/order.model'
 import { OrderService } from '../order/order.service'
@@ -16,6 +22,9 @@ import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
 import { PromotionService } from '../promotion/promotion.service'
 import { StockService } from '../stock/stock.service'
+import { buildBranchHours, type HoursSchedule } from './branch-hours'
+import { buildDemoOrders, type DemoOrderConfig } from './demo/demo-order.factory'
+import { DemoOrdersRepository, type InsertedDemoOrder } from './demo/demo-orders.repository'
 
 interface BranchSeed {
   name: string
@@ -78,9 +87,22 @@ interface ParameterSeed {
   unit: string
 }
 
+interface LowStockSeed {
+  branch: string
+  items: { ingredient: string; quantity: number }[]
+}
+
+interface DemoSeedConfig extends DemoOrderConfig {
+  outOfStock: {
+    branch: string
+    ingredients: string[]
+  }
+  lowStock?: LowStockSeed[]
+}
+
 interface CommerceSeedData {
   categories: string[]
-  ingredients: { name: string; unit: string }[]
+  ingredients: { name: string; unit: string; minQuantity?: number }[]
   hours: HoursSchedule
   branches: BranchSeed[]
   products: ProductSeed[]
@@ -95,8 +117,29 @@ export interface SeedOrderContext {
   address: { id: string; text: string; latitude: number; longitude: number }
 }
 
+export interface SeedCustomerAddress {
+  id: string
+  text: string
+  latitude: number
+  longitude: number
+}
+
+export interface SeedCustomerContext {
+  id: string
+  addresses: SeedCustomerAddress[]
+}
+
+export interface SeedDemoOptions {
+  orders?: number
+  days?: number
+  seed?: number
+  reset?: boolean
+}
+
 export interface SeedOptions {
   order?: SeedOrderContext
+  customers?: SeedCustomerContext[]
+  demo?: SeedDemoOptions
 }
 
 const DATA_DIR = join(__dirname, 'data')
@@ -132,6 +175,11 @@ const STATUS_PATHS: Record<OrderStatus, OrderStatus[]> = {
   [ORDER_STATUS.cancelled]: [ORDER_STATUS.cancelled],
 }
 
+const MAX_DEMO_ORDERS = 2000
+const MAX_DEMO_DAYS = 730
+const READY_ORDER_WINDOW_MS = 6 * 60 * 60 * 1000
+const MAX_READY_ORDERS = 5
+
 interface SeedSummary {
   categories: number
   ingredients: number
@@ -142,6 +190,7 @@ interface SeedSummary {
   orderStates: number
   parameters: number
   orders: number
+  demoOrders: number
 }
 
 export interface SeedOrderSummary {
@@ -154,10 +203,46 @@ export interface SeedOrderSummary {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+export interface SeedDemoSummary {
+  enabled: boolean
+  batchId: string | null
+  seed: number | null
+  orders: number
+  customers: number
+  resetDeleted: number
+  outOfStockRows: number
+}
+
 export interface SeedResult {
   summary: SeedSummary
   branches: { id: string; name: string }[]
   orders: SeedOrderSummary[]
+  demo: SeedDemoSummary
+}
+
+interface DemoRunResult {
+  summary: SeedDemoSummary
+  readyOrders: SeedOrderSummary[]
+}
+
+const emptyDemoSummary = (): SeedDemoSummary => ({
+  enabled: false,
+  batchId: null,
+  seed: null,
+  orders: 0,
+  customers: 0,
+  resetDeleted: 0,
+  outOfStockRows: 0,
+})
+
+const clampInt = (
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number => {
+  const candidate = Number.isFinite(value) ? Math.trunc(value as number) : fallback
+  return Math.min(Math.max(candidate, min), max)
 }
 
 @Injectable()
@@ -172,10 +257,12 @@ export class SeedService {
     private readonly promotionService: PromotionService,
     private readonly stockService: StockService,
     private readonly orderService: OrderService,
+    private readonly demoOrdersRepository: DemoOrdersRepository,
   ) {}
 
   async seed(options: SeedOptions = {}): Promise<SeedResult> {
     const data = this.loadData()
+    const demoConfig = this.loadDemoConfig()
 
     await this.seedOrderStates(data.orderStates)
     await this.seedParameters(data.parameters)
@@ -186,7 +273,15 @@ export class SeedService {
     const products = await this.seedProducts(data.products, categories, ingredients)
     const promotions = await this.seedPromotions(data.promotions)
     const stockRows = await this.seedStock(branches, ingredients)
-    const orders = await this.seedOrders(data.orders ?? [], branches, options)
+    const showcaseOrders = await this.seedOrders(data.orders ?? [], branches, options)
+
+    const demoRun = await this.seedDemoOrders(branches, options, demoConfig)
+    const outOfStockRows = demoRun.summary.enabled
+      ? await this.seedDemoStock(demoConfig, branches, ingredients)
+      : 0
+    const demo: SeedDemoSummary = { ...demoRun.summary, outOfStockRows }
+
+    const orders = [...showcaseOrders, ...demoRun.readyOrders]
 
     return {
       summary: {
@@ -198,16 +293,169 @@ export class SeedService {
         stockRows,
         orderStates: data.orderStates.length,
         parameters: data.parameters.length,
-        orders: orders.length,
+        orders: showcaseOrders.length,
+        demoOrders: demo.orders,
       },
       branches: branches.map((branch) => ({ id: branch.id, name: branch.name })),
       orders,
+      demo,
     }
+  }
+
+  private async seedDemoOrders(
+    branches: PublicBranch[],
+    options: SeedOptions,
+    config: DemoSeedConfig,
+  ): Promise<DemoRunResult> {
+    const customers = (options.customers ?? []).filter((customer) => customer.addresses.length > 0)
+    if (customers.length === 0) {
+      return { summary: emptyDemoSummary(), readyOrders: [] }
+    }
+
+    const demo = options.demo ?? {}
+    const orders = clampInt(
+      demo.orders ?? env.seed.demo.orders ?? config.orders,
+      config.orders,
+      0,
+      MAX_DEMO_ORDERS,
+    )
+    if (orders === 0) {
+      return { summary: emptyDemoSummary(), readyOrders: [] }
+    }
+
+    const days = clampInt(
+      demo.days ?? env.seed.demo.days ?? config.days,
+      config.days,
+      1,
+      MAX_DEMO_DAYS,
+    )
+    const seedValue = demo.seed ?? env.seed.demo.seed ?? createRandomSeed()
+    const random = createSeededRandom(seedValue)
+    const reset = demo.reset ?? env.seed.demo.reset
+
+    const resetDeleted = reset ? await this.demoOrdersRepository.resetDemoData() : 0
+
+    const products = (await this.productService.list({ limit: 500, offset: 0 })).data.filter(
+      (product) => product.available,
+    )
+    const activeBranches = branches.filter((branch) => branch.active)
+
+    if (products.length === 0 || activeBranches.length === 0) {
+      return {
+        summary: { ...emptyDemoSummary(), resetDeleted },
+        readyOrders: [],
+      }
+    }
+
+    const planned = buildDemoOrders({
+      customers: customers.map((customer) => ({ id: customer.id, addresses: customer.addresses })),
+      products,
+      branches: activeBranches,
+      config: { ...config, orders, days },
+      random,
+      now: new Date(),
+    })
+
+    const batchId = createBatchId(seedValue)
+    const inserted = await this.demoOrdersRepository.insert(planned, batchId)
+    const branchById = new Map(activeBranches.map((branch) => [branch.id, branch]))
+    const readyOrders = inserted
+      .filter(
+        (order) =>
+          order.status === ORDER_STATUS.readyForDelivery &&
+          order.createdAt.getTime() > Date.now() - READY_ORDER_WINDOW_MS,
+      )
+      .slice(0, MAX_READY_ORDERS)
+      .map((order) => this.toDemoOrderSummary(order, branchById))
+
+    Logger.log(
+      `lote demo ${batchId}: ${inserted.length} pedidos de ${customers.length} clientes (semilla ${seedValue})`,
+      'Seed',
+    )
+
+    return {
+      summary: {
+        enabled: true,
+        batchId,
+        seed: seedValue,
+        orders: inserted.length,
+        customers: customers.length,
+        resetDeleted,
+        outOfStockRows: 0,
+      },
+      readyOrders,
+    }
+  }
+
+  private toDemoOrderSummary(
+    order: InsertedDemoOrder,
+    branchById: Map<string, PublicBranch>,
+  ): SeedOrderSummary {
+    const branch = branchById.get(order.branchId)
+
+    return {
+      id: order.id,
+      number: order.number,
+      status: order.status,
+      branchId: order.branchId,
+      branchName: branch?.name ?? '',
+      branchLocation: {
+        latitude: branch?.latitude ?? 0,
+        longitude: branch?.longitude ?? 0,
+      },
+      deliveryAddress: order.deliveryAddress,
+    }
+  }
+
+  private async seedDemoStock(
+    config: DemoSeedConfig,
+    branches: { id: string; name: string }[],
+    ingredients: Map<string, string>,
+  ): Promise<number> {
+    let adjusted = 0
+    const outBranch = branches.find((entry) => entry.name === config.outOfStock.branch)
+
+    if (outBranch) {
+      const stock = await this.stockService.list(outBranch.id)
+
+      for (const name of config.outOfStock.ingredients) {
+        const ingredientId = ingredients.get(name)
+        if (!ingredientId) continue
+
+        const row = stock.find((entry) => entry.ingredientId === ingredientId)
+        if (!row || row.quantity <= 0) continue
+
+        await this.stockService.adjust(outBranch.id, ingredientId, -row.quantity)
+        adjusted += 1
+      }
+
+      if (adjusted > 0) {
+        Logger.log(`stock agotado en ${outBranch.name}: ${adjusted} ingrediente(s)`, 'Seed')
+      }
+    }
+
+    for (const group of config.lowStock ?? []) {
+      const targetBranch = branches.find((entry) => entry.name === group.branch)
+      if (!targetBranch) continue
+
+      const stock = await this.stockService.list(targetBranch.id)
+      for (const item of group.items) {
+        const ingredientId = ingredients.get(item.ingredient)
+        if (!ingredientId) continue
+
+        const row = stock.find((entry) => entry.ingredientId === ingredientId)
+        if (!row || row.quantity <= item.quantity) continue
+
+        await this.stockService.adjust(targetBranch.id, ingredientId, item.quantity - row.quantity)
+      }
+    }
+
+    return adjusted
   }
 
   private async seedOrders(
     seeds: OrderSeed[],
-    branches: { id: string; name: string }[],
+    branches: PublicBranch[],
     options: SeedOptions,
   ): Promise<SeedOrderSummary[]> {
     const context = options.order
@@ -353,7 +601,7 @@ export class SeedService {
   }
 
   private async seedIngredients(
-    ingredients: { name: string; unit: string }[],
+    ingredients: { name: string; unit: string; minQuantity?: number }[],
   ): Promise<Map<string, string>> {
     const { data } = await this.ingredientService.list({ limit: 500, offset: 0 })
     const byName = new Map<string, string>()
@@ -361,6 +609,9 @@ export class SeedService {
     for (const seed of ingredients) {
       const existing = data.find((ingredient) => ingredient.name === seed.name)
       if (existing) {
+        if ((existing.minQuantity ?? 0) === 0 && (seed.minQuantity ?? 0) > 0) {
+          await this.ingredientService.update(existing.id, { minQuantity: seed.minQuantity })
+        }
         byName.set(existing.name, existing.id)
         continue
       }
@@ -372,9 +623,9 @@ export class SeedService {
     return byName
   }
 
-  private async seedBranches(data: CommerceSeedData): Promise<{ id: string; name: string }[]> {
+  private async seedBranches(data: CommerceSeedData): Promise<PublicBranch[]> {
     const { data: existingBranches } = await this.branchService.list({ limit: 500, offset: 0 })
-    const result: { id: string; name: string }[] = []
+    const result: PublicBranch[] = []
 
     for (const seed of data.branches) {
       const existing = existingBranches.find((branch) => branch.name === seed.name)
@@ -391,7 +642,7 @@ export class SeedService {
         await this.branchService.updateHours(branch.id, seed.hours ?? buildBranchHours(data.hours))
       }
 
-      result.push({ id: branch.id, name: branch.name })
+      result.push(branch)
 
       if (!existing) {
         Logger.log(`sucursal creada: ${branch.name}`, 'Seed')
@@ -515,5 +766,9 @@ export class SeedService {
 
   private loadData(): CommerceSeedData {
     return loadSeedData<CommerceSeedData>('commerce', { baseDir: DATA_DIR })
+  }
+
+  private loadDemoConfig(): DemoSeedConfig {
+    return loadSeedData<DemoSeedConfig>('commerce.demo', { baseDir: DATA_DIR })
   }
 }

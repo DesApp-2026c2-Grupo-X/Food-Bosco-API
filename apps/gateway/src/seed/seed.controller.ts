@@ -1,11 +1,7 @@
-import { Controller, Inject, Post, UseGuards } from '@nestjs/common'
-
+import { BadRequestException, Body, Controller, Inject, Post, UseGuards } from '@nestjs/common'
 import { env } from '../config/env'
-
 import { RestClient } from '../rest/rest.client'
-
 import { InternalGuard } from '../security/internal.guard'
-
 import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT, DELIVERY_REST_CLIENT } from '../rest/rest.module'
 
 type Raw = Record<string, unknown>
@@ -34,6 +30,15 @@ interface SeedAddress {
   longitude: number
 }
 
+interface SeedCustomer {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  phone: string
+  addresses: SeedAddress[]
+}
+
 interface SeedOrder {
   id: string
   number: string
@@ -43,21 +48,72 @@ interface SeedOrder {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+interface SeedDemoSummary {
+  enabled: boolean
+  batchId: string | null
+  seed: number | null
+  orders: number
+  customers: number
+  resetDeleted: number
+  outOfStockRows: number
+}
+
 interface CommerceSeedResult {
   summary: Raw
   branches: SeedBranch[]
   orders?: SeedOrder[]
+  demo?: SeedDemoSummary
 }
 
 interface AuthSeedResult {
   summary: Raw
   users: SeedUser[]
   addresses?: SeedAddress[]
+  customers?: SeedCustomer[]
 }
 
 interface RestContext {
   internalToken: string
 }
+
+interface SeedRequest {
+  demo?: unknown
+  orders?: unknown
+  days?: unknown
+  seed?: unknown
+  reset?: unknown
+  clients?: unknown
+}
+
+const MAX_DEMO_ORDERS = 2000
+const MAX_DEMO_DAYS = 730
+const MAX_READY_ORDERS = 5
+
+const readBoolean = (value: unknown): boolean | undefined =>
+  typeof value === 'boolean' ? value : undefined
+
+const readInt = (field: string, value: unknown, min: number, max: number): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+
+  const parsed =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN
+
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new BadRequestException(`${field} debe ser un entero entre ${min} y ${max}`)
+  }
+
+  return parsed
+}
+
+const emptyDemoSummary = (): SeedDemoSummary => ({
+  enabled: false,
+  batchId: null,
+  seed: null,
+  orders: 0,
+  customers: 0,
+  resetDeleted: 0,
+  outOfStockRows: 0,
+})
 
 @Controller('seed')
 @UseGuards(InternalGuard)
@@ -74,12 +130,13 @@ export class SeedController {
   ) {}
 
   @Post()
-  async seed(): Promise<{
-    commerce: Raw
-    auth: Raw
-    delivery: Raw
-  }> {
+  async seed(
+    @Body() body: SeedRequest = {},
+  ): Promise<{ commerce: Raw; auth: Raw; demo: SeedDemoSummary; delivery: Raw }> {
     const context: RestContext = { internalToken: env.internalApiToken }
+    const demoEnabled = readBoolean(body.demo) ?? env.seed.demo
+    const clients = demoEnabled ? readInt('clients', body.clients, 1, 500) : undefined
+    const demo = demoEnabled ? this.readDemoOptions(body) : undefined
 
     const commerceResult = await this.commerce.post<CommerceSeedResult>('/v1/seed', {
       context,
@@ -88,43 +145,65 @@ export class SeedController {
 
     const authResult = await this.auth.post<AuthSeedResult>('/v1/seed', {
       context,
-      body: { branches: commerceResult.branches },
+      body: {
+        branches: commerceResult.branches,
+        demoCustomers: demoEnabled,
+        ...(clients !== undefined ? { demoCustomerCount: clients } : {}),
+      },
       errorsAsHttp: true,
     })
 
-    const ordersResult = await this.seedOrders(context, authResult)
+    const ordersResult = await this.seedOrders(context, authResult, demo)
+
     const deliverySummary = await this.seedDelivery(context, authResult, ordersResult)
 
     return {
       commerce: commerceResult.summary,
       auth: authResult.summary,
+      demo: ordersResult.demo ?? emptyDemoSummary(),
       delivery: deliverySummary,
+    }
+  }
+
+  private readDemoOptions(body: SeedRequest): {
+    orders?: number
+    days?: number
+    seed?: number
+    reset?: boolean
+  } {
+    return {
+      orders: readInt('orders', body.orders, 0, MAX_DEMO_ORDERS),
+      days: readInt('days', body.days, 1, MAX_DEMO_DAYS),
+      seed: readInt('seed', body.seed, 1, Number.MAX_SAFE_INTEGER),
+      reset: readBoolean(body.reset),
     }
   }
 
   private async seedOrders(
     context: RestContext,
     authResult: AuthSeedResult,
+    demo?: { orders?: number; days?: number; seed?: number; reset?: boolean },
   ): Promise<CommerceSeedResult> {
-    const customer = authResult.users.find((user) => user.role === 'customer')
-    const address = authResult.addresses?.find((entry) => entry.userId === customer?.id)
+    if (!demo) return { summary: {}, branches: [], orders: [] }
 
-    if (!customer || !address) {
-      return { summary: { orders: 0 }, branches: [], orders: [] }
-    }
+    const customers = (authResult.customers ?? []).filter(
+      (customer) => customer.addresses.length > 0,
+    )
+    if (customers.length === 0) return { summary: {}, branches: [], orders: [] }
 
     return this.commerce.post<CommerceSeedResult>('/v1/seed', {
       context,
       body: {
-        order: {
-          clientId: customer.id,
-          address: {
+        customers: customers.map((customer) => ({
+          id: customer.id,
+          addresses: customer.addresses.map((address) => ({
             id: address.id,
             text: address.text,
             latitude: address.latitude,
             longitude: address.longitude,
-          },
-        },
+          })),
+        })),
+        demo,
       },
       errorsAsHttp: true,
     })
@@ -138,7 +217,15 @@ export class SeedController {
     const rider = authResult.users.find((user) => user.role === 'rider')
     if (!rider) return { riders: 0 }
 
-    const readyOrder = ordersResult.orders?.find((order) => order.status === 'ready_for_delivery')
+    const readyOrders = (ordersResult.orders ?? [])
+      .filter((order) => order.status === 'ready_for_delivery')
+      .slice(0, MAX_READY_ORDERS)
+      .map((order) => ({
+        orderId: order.id,
+        branchId: order.branchId,
+        branchLocation: order.branchLocation,
+        deliveryAddress: order.deliveryAddress,
+      }))
 
     const deliveryResult = await this.delivery.post<{ summary: Raw }>('/v1/seed', {
       context,
@@ -149,15 +236,8 @@ export class SeedController {
         phone: rider.phone,
         vehicle: rider.vehicle,
         available: true,
-        location: readyOrder?.branchLocation,
-        readyOrder: readyOrder
-          ? {
-              orderId: readyOrder.id,
-              branchId: readyOrder.branchId,
-              branchLocation: readyOrder.branchLocation,
-              deliveryAddress: readyOrder.deliveryAddress,
-            }
-          : undefined,
+        location: readyOrders[0]?.branchLocation,
+        readyOrders,
       },
       errorsAsHttp: true,
     })

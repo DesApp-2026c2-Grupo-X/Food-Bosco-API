@@ -43,7 +43,7 @@ const asBranchStock = (ingredientId: string): BranchStock =>
 const asTripOrder = (orderId: string): TripOrder => ({ orderId }) as unknown as TripOrder
 
 const rawCategory = { id: 'c1', name: 'Hamburguesas', active: true }
-const rawIngredient = { id: 'i1', name: 'Carne', unit: 'g', active: true }
+const rawIngredient = { id: 'i1', name: 'Carne', unit: 'g', minQuantity: 10, active: true }
 const rawBranch = {
   id: 'b1',
   name: 'Centro',
@@ -174,7 +174,7 @@ describe('RecipeItemFieldResolver.ingredient', () => {
     const result = await resolver.ingredient(asRecipeItem('i1'), makeCtx())
 
     expect(commerce.get).toHaveBeenCalledWith('/v1/catalog/ingredients/i1')
-    expect(result).toEqual({ id: 'i1', name: 'Carne', unit: 'g', active: true })
+    expect(result).toEqual({ id: 'i1', name: 'Carne', unit: 'g', minQuantity: 10, active: true })
   })
 
   it('devuelve null cuando el ingrediente no existe', async () => {

@@ -10,6 +10,7 @@ import { Roles } from '../../security/roles.decorator'
 import { PageInput } from '../common/page'
 import { toRestContext } from '../common/rest-context'
 import { configGroupTypeToRest } from '../common/config-group-type.enum'
+import { customerInsightsSortToRest } from '../common/customer-insights-sort.enum'
 import { OrderStatus, orderStatusToRest } from '../common/order-status.enum'
 import { reportGroupByToRest } from '../common/report-group.enum'
 import {
@@ -21,6 +22,7 @@ import {
   CategoryInput,
   ConfigGroupInput,
   ConfigOptionInput,
+  CustomerInsightsFilterInput,
   IngredientInput,
   OrderFilterInput,
   OrderStateInput,
@@ -39,6 +41,9 @@ import {
   Category,
   ConfigGroup,
   ConfigOption,
+  CustomerInsightsOverview,
+  CustomerRegistrationStats,
+  CustomerReportsOverview,
   Ingredient,
   Order,
   OrderState,
@@ -57,6 +62,9 @@ import {
   mapCategory,
   mapConfigGroup,
   mapConfigOption,
+  mapCustomerInsightsOverview,
+  mapCustomerRegistrationStats,
+  mapCustomerReportsOverview,
   mapIngredient,
   mapOrder,
   mapOrderState,
@@ -361,6 +369,48 @@ export class CommerceResolver {
       query: this.reportQuery(filter),
     })
     return mapReportsOverview(raw)
+  }
+
+  @Query(() => CustomerReportsOverview)
+  @Roles(ROLES.customer)
+  async myReportsOverview(
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<CustomerReportsOverview> {
+    const raw = await this.rest.get<RawRecord>('/v1/reporting/customer/overview', {
+      context: toRestContext(ctx),
+      query: this.customerReportQuery(filter),
+    })
+    return mapCustomerReportsOverview(raw)
+  }
+
+  @Query(() => CustomerInsightsOverview)
+  @Roles(ROLES.branchAdmin, ROLES.superAdmin)
+  async customerInsights(
+    @Args('filter', { type: () => CustomerInsightsFilterInput, nullable: true })
+    filter: CustomerInsightsFilterInput | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<CustomerInsightsOverview> {
+    const raw = await this.rest.get<RawRecord>('/v1/reporting/customers/insights', {
+      context: toRestContext(ctx),
+      query: this.customerInsightsQuery(filter),
+    })
+    return mapCustomerInsightsOverview(raw)
+  }
+
+  @Query(() => CustomerRegistrationStats)
+  @Roles(ROLES.superAdmin)
+  async customerRegistrationStats(
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<CustomerRegistrationStats> {
+    const raw = await this.authRest.get<RawRecord>('/v1/users/customers/stats', {
+      context: toRestContext(ctx),
+      query: { from: filter?.from ?? undefined, to: filter?.to ?? undefined },
+    })
+    return mapCustomerRegistrationStats(raw)
   }
 
   @Query(() => [ProductReportRow])
@@ -907,6 +957,18 @@ export class CommerceResolver {
     return {
       cart: mapCart(raw.cart as RawRecord),
       skippedProducts: (raw.skippedProducts as RawRecord[]).map(mapProduct),
+      skippedItems: ((raw.skippedItems as RawRecord[] | undefined) ?? []).map((item) => ({
+        productId: item.productId as string,
+        name: item.name as string,
+        reason: item.reason as string,
+      })),
+      priceChanges: ((raw.priceChanges as RawRecord[] | undefined) ?? []).map((change) => ({
+        productId: change.productId as string,
+        name: change.name as string,
+        quantity: change.quantity as number,
+        previousUnitPrice: change.previousUnitPrice as number,
+        currentUnitPrice: change.currentUnitPrice as number,
+      })),
     }
   }
 
@@ -986,6 +1048,29 @@ export class CommerceResolver {
       groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
       categoryId: filter?.categoryId ?? undefined,
       status: filter?.status ? orderStatusToRest(filter.status) : undefined,
+    }
+  }
+
+  private customerInsightsQuery(
+    filter: CustomerInsightsFilterInput | null,
+  ): Record<string, string | number | undefined> {
+    return {
+      from: filter?.from ?? undefined,
+      to: filter?.to ?? undefined,
+      branchId: filter?.branchId ?? undefined,
+      groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
+      sortBy: filter?.sortBy ? customerInsightsSortToRest(filter.sortBy) : undefined,
+      limit: filter?.limit ?? undefined,
+    }
+  }
+
+  private customerReportQuery(
+    filter: ReportFilterInput | null,
+  ): Record<string, string | undefined> {
+    return {
+      from: filter?.from ?? undefined,
+      to: filter?.to ?? undefined,
+      groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
     }
   }
 

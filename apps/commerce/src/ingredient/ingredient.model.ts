@@ -11,6 +11,9 @@ export class Ingredient {
   @Prop({ required: true, trim: true })
   unit!: string
 
+  @Prop({ default: 0, min: 0 })
+  minQuantity!: number
+
   @Prop({ default: true })
   active!: boolean
 
@@ -26,6 +29,7 @@ export interface PublicIngredient {
   id: string
   name: string
   unit: string
+  minQuantity: number
   active: boolean
 }
 
@@ -33,5 +37,6 @@ export const serializeIngredient = (doc: IngredientDocument): PublicIngredient =
   id: doc._id.toString(),
   name: doc.name,
   unit: doc.unit,
+  minQuantity: doc.minQuantity ?? 0,
   active: doc.active,
 })

@@ -77,6 +77,22 @@ export class StockRepository {
       .exec()
   }
 
+  async ensureRows(branchIds: string[], ingredientIds: string[]): Promise<void> {
+    if (branchIds.length === 0 || ingredientIds.length === 0) return
+
+    const operations = branchIds.flatMap((branchId) =>
+      ingredientIds.map((ingredientId) => ({
+        updateOne: {
+          filter: { branchId, ingredientId },
+          update: { $setOnInsert: { branchId, ingredientId, quantity: 0 } },
+          upsert: true,
+        },
+      })),
+    )
+
+    await this.stockModel.bulkWrite(operations, { ordered: false })
+  }
+
   createMovement(data: CreateMovementData): Promise<StockMovementDocument> {
     return this.movementModel.create({ ...data, orderId: data.orderId ?? null })
   }

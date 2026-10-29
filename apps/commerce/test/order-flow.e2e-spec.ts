@@ -59,6 +59,8 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
   let repeatGoneProductId = ''
   let matrixProductId = ''
   let extraOptionId = ''
+  let repeatOptionId = ''
+  let repeatGroupId = ''
 
   const auth = (token: string): [string, string] => ['Authorization', `Bearer ${token}`]
   const http = () => request(app.getHttpServer())
@@ -194,6 +196,22 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
       .send({ name: 'Extra queso', extraPrice: 50 })
       .expect(201)
     extraOptionId = option.body.id as string
+
+    const repeatGroup = await http()
+      .post(`/v1/catalog/products/${repeatAvailableProductId}/configurations`)
+      .set(...auth(superToken))
+      .send({ name: 'Extras repetibles', type: 'single', required: false })
+      .expect(201)
+    repeatGroupId = repeatGroup.body.id as string
+
+    const repeatOption = await http()
+      .post(
+        `/v1/catalog/products/${repeatAvailableProductId}/configurations/${repeatGroupId}/options`,
+      )
+      .set(...auth(superToken))
+      .send({ name: 'Extra repetible', extraPrice: 20 })
+      .expect(201)
+    repeatOptionId = repeatOption.body.id as string
   })
 
   afterAll(async () => {
@@ -509,12 +527,111 @@ describe('Commerce Service — flujo de pedidos (e2e)', () => {
 
       expect(repeated.body.skippedProducts).toHaveLength(1)
       expect(repeated.body.skippedProducts[0].id).toBe(repeatGoneProductId)
+      expect(repeated.body.skippedItems).toEqual([
+        {
+          productId: repeatGoneProductId,
+          name: 'Hamburguesa discontinuada',
+          reason: 'PRODUCT_UNAVAILABLE',
+        },
+      ])
+      expect(repeated.body.priceChanges).toEqual([])
       expect(repeated.body.cart.items).toHaveLength(1)
       expect(repeated.body.cart.items[0]).toMatchObject({
         productId: repeatAvailableProductId,
         quantity: 2,
       })
       expect(repeated.body.cart.total).toBe(200)
+    })
+
+    it('reconstruye el carrito con los precios actuales e informa los cambios', async () => {
+      const token = customerToken('cust-repeat-price')
+      await addCartItem(token, { productId: repeatAvailableProductId, quantity: 1 }).expect(201)
+      const created = await http()
+        .post('/v1/orders')
+        .set(...auth(token))
+        .send(deliveryAddress)
+        .expect(201)
+      expect(created.body.total).toBe(100)
+
+      await http()
+        .patch(`/v1/catalog/products/${repeatAvailableProductId}`)
+        .set(...auth(superToken))
+        .send({ price: 130 })
+        .expect(200)
+
+      try {
+        const repeated = await http()
+          .post(`/v1/orders/${created.body.id}/repeat`)
+          .set(...auth(token))
+          .expect(201)
+
+        expect(repeated.body.cart.total).toBe(130)
+        expect(repeated.body.priceChanges).toEqual([
+          {
+            productId: repeatAvailableProductId,
+            name: 'Hamburguesa repetible',
+            quantity: 1,
+            previousUnitPrice: 100,
+            currentUnitPrice: 130,
+          },
+        ])
+      } finally {
+        await http()
+          .patch(`/v1/catalog/products/${repeatAvailableProductId}`)
+          .set(...auth(superToken))
+          .send({ price: 100 })
+          .expect(200)
+      }
+    })
+
+    it('omite productos cuya configuración ya no está disponible', async () => {
+      const token = customerToken('cust-repeat-option')
+      await addCartItem(token, {
+        productId: repeatAvailableProductId,
+        quantity: 1,
+        optionIds: [repeatOptionId],
+      }).expect(201)
+      const created = await http()
+        .post('/v1/orders')
+        .set(...auth(token))
+        .send(deliveryAddress)
+        .expect(201)
+      expect(created.body.total).toBe(120)
+
+      await http()
+        .patch(
+          `/v1/catalog/products/${repeatAvailableProductId}/configurations/${repeatGroupId}/options/${repeatOptionId}`,
+        )
+        .set(...auth(superToken))
+        .send({ available: false })
+        .expect(200)
+
+      try {
+        const repeated = await http()
+          .post(`/v1/orders/${created.body.id}/repeat`)
+          .set(...auth(token))
+          .expect(201)
+
+        expect(repeated.body.cart.items).toEqual([])
+        expect(repeated.body.skippedProducts.map((entry: { id: string }) => entry.id)).toEqual([
+          repeatAvailableProductId,
+        ])
+        expect(repeated.body.skippedItems).toEqual([
+          {
+            productId: repeatAvailableProductId,
+            name: 'Hamburguesa repetible',
+            reason: 'OPTION_UNAVAILABLE',
+          },
+        ])
+      } finally {
+        await http()
+          .patch(
+            `/v1/catalog/products/${repeatAvailableProductId}/configurations/${repeatGroupId}/options/${repeatOptionId}`,
+          )
+          .set(...auth(superToken))
+          .send({ available: true })
+          .expect(200)
+      }
     })
 
     it('rechaza repetir un pedido de otro cliente (404)', async () => {

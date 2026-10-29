@@ -1,6 +1,7 @@
 import type { PublicAddress } from '../address/address.model'
 import type { AddressService } from '../address/address.service'
 import { ERROR_CODES } from '../config/constants'
+import { env } from '../config/env'
 import { DomainException } from '../config/exceptions/domain.exception'
 import type { UserService, PublicUser } from '../user/user.service'
 import { SeedService } from './seed.service'
@@ -36,8 +37,24 @@ const buildUserService = (overrides: Partial<UserService> = {}) =>
     findByEmail: jest.fn().mockResolvedValue(null),
     createUser: jest
       .fn()
-      .mockImplementation(async (input: { email: string; branchId?: string | null }) =>
-        publicUser({ id: input.email, email: input.email, branchId: input.branchId ?? null }),
+      .mockImplementation(
+        async (input: {
+          email: string
+          role: PublicUser['role']
+          firstName: string
+          lastName: string
+          phone: string
+          branchId?: string | null
+        }) =>
+          publicUser({
+            id: input.email,
+            email: input.email,
+            role: input.role,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            phone: input.phone,
+            branchId: input.branchId ?? null,
+          }),
       ),
     ...overrides,
   }) as unknown as UserService
@@ -188,5 +205,82 @@ describe('SeedService (auth) — usuarios', () => {
 
     expect(result.users.map((user) => user.email)).toContain('repartidor@foodbosco.local')
     expect(userService.createUser).toHaveBeenCalledTimes(3)
+  })
+})
+
+describe('SeedService (auth) — clientes demo', () => {
+  it('crea la bolsa de clientes con sus direcciones y la devuelve para el seed de pedidos', async () => {
+    const userService = buildUserService()
+    const addressService = buildAddressService()
+
+    const result = await instantiate(userService, addressService).seed({ demoCustomers: true })
+
+    expect(result.summary.users).toBe(27)
+    expect(result.customers).toHaveLength(25)
+    expect(result.summary.addresses).toBe(30)
+
+    const sofia = result.customers.find(
+      (customer) => customer.email === 'sofia.ramirez@foodbosco.local',
+    )
+    expect(sofia?.addresses).toHaveLength(2)
+    expect(sofia?.addresses[0]).toMatchObject({ label: 'Casa', userId: sofia?.id })
+
+    const customerCreations = (userService.createUser as jest.Mock).mock.calls.filter(
+      (call) => call[0].role === 'customer',
+    )
+    expect(customerCreations).toHaveLength(25)
+    expect(customerCreations.every((call) => call[0].password === env.seed.customerPassword)).toBe(
+      true,
+    )
+  })
+
+  it('sin la opción no crea la bolsa demo y sólo devuelve el cliente base', async () => {
+    const userService = buildUserService()
+
+    const result = await instantiate(userService, buildAddressService()).seed()
+
+    expect(result.summary.users).toBe(3)
+    expect(result.customers.map((customer) => customer.email)).toEqual(['cliente@foodbosco.local'])
+    expect(userService.createUser).toHaveBeenCalledTimes(3)
+  })
+
+  it('permite pedir más clientes que la bolsa curada reutilizando direcciones', async () => {
+    const userService = buildUserService()
+
+    const result = await instantiate(userService, buildAddressService()).seed({
+      demoCustomers: true,
+      demoCustomerCount: 30,
+    })
+
+    expect(result.summary.users).toBe(33)
+    expect(result.customers).toHaveLength(31)
+    expect(result.summary.addresses).toBe(36)
+
+    const generated = result.customers.find(
+      (customer) => customer.email === 'cliente.demo.25@foodbosco.local',
+    )
+    expect(generated?.addresses).toHaveLength(1)
+    expect(generated?.addresses[0].label).toBe('Casa')
+  })
+
+  it('es idempotente: reutiliza los clientes demo existentes y converge sus direcciones', async () => {
+    const userService = buildUserService({
+      findByEmail: jest.fn().mockImplementation(async (email: string) => {
+        const role = email.startsWith('admin@')
+          ? 'super_admin'
+          : email.startsWith('repartidor@')
+            ? 'rider'
+            : 'customer'
+
+        return publicUser({ id: `u-${email}`, email, role })
+      }),
+    })
+    const addressService = buildAddressService()
+
+    const result = await instantiate(userService, addressService).seed({ demoCustomers: true })
+
+    expect(userService.createUser).not.toHaveBeenCalled()
+    expect(addressService.create).toHaveBeenCalledTimes(30)
+    expect(result.customers).toHaveLength(25)
   })
 })

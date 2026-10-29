@@ -211,6 +211,11 @@ const reportQueryOps: ProtectedOperation[] = [
     query: 'query { bestSellingProducts { position } }',
     wrongRole: 'customer',
   },
+  {
+    name: 'myReportsOverview',
+    query: 'query { myReportsOverview { summary { totalOrders } } }',
+    wrongRole: 'branch_admin',
+  },
   { name: 'promotions', query: 'query { promotions { id } }', wrongRole: 'branch_admin' },
   { name: 'promotion', query: 'query { promotion(id: "pr1") { id } }', wrongRole: 'branch_admin' },
   { name: 'branches', query: 'query { branches { id } }', wrongRole: 'branch_admin' },
@@ -336,7 +341,9 @@ describe('Gateway autorización por operación (e2e) — matriz protegida', () =
       expect(body.data).toBeNull()
       expect(body.errors).toHaveLength(1)
       expect(body.errors?.[0].extensions?.code).toBe('UNAUTHENTICATED')
-      expect(body.errors?.[0].message).toBe('Tu sesión expiró o no es válida. Iniciá sesión nuevamente.')
+      expect(body.errors?.[0].message).toBe(
+        'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+      )
       expect(downstream.calls).toHaveLength(0)
     })
   })

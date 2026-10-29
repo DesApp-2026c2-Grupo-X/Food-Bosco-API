@@ -27,7 +27,7 @@ export const assertConfigGroupCoherent = (group: ConfigGroupShape): void => {
   if (!isConfigGroupCoherent(group)) {
     throw new DomainException(
       ERROR_CODES.validationError,
-      'La configuración del grupo es inconsistente (required/min/max)',
+      'La configuración del grupo es inconsistente (requerido/mínimo/máximo)',
       400,
     )
   }

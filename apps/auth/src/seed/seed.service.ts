@@ -13,6 +13,11 @@ import { DomainException } from '../config/exceptions/domain.exception'
 import { env } from '../config/env'
 
 import { UserService, type PublicUser } from '../user/user.service'
+import {
+  expandDemoCustomers,
+  type DemoCustomerNames,
+  type DemoCustomerSeed,
+} from './demo-customer.generator'
 
 interface SeedUser {
   key: string
@@ -35,6 +40,10 @@ interface SeedAddress {
   longitude: number
 }
 
+interface DemoCustomersData {
+  customers: DemoCustomerSeed[]
+}
+
 interface AuthSeedData {
   users: SeedUser[]
   addresses?: SeedAddress[]
@@ -48,6 +57,10 @@ export interface SeedBranch {
 export interface SeedOptions {
   branchId?: string
   branches?: SeedBranch[]
+  /** Crea la bolsa de clientes demo con sus direcciones (lo usa el gateway). */
+  demoCustomers?: boolean
+  /** Cantidad de clientes demo a crear. Default: el tamaño de la bolsa curada. */
+  demoCustomerCount?: number
 }
 
 const DATA_DIR = join(__dirname, 'data')
@@ -58,6 +71,8 @@ const PASSWORDS: Record<string, string> = {
   branchAdmin: env.seed.branchAdminPassword,
   rider: env.seed.riderPassword,
 }
+
+const demoKey = (email: string): string => `demo:${email.trim().toLowerCase()}`
 
 export interface SeedUserSummary {
   id: string
@@ -78,10 +93,20 @@ export interface SeedAddressSummary {
   longitude: number
 }
 
+export interface SeedCustomerSummary {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  phone: string
+  addresses: SeedAddressSummary[]
+}
+
 export interface SeedResult {
   summary: { users: number; addresses: number }
   users: SeedUserSummary[]
   addresses: SeedAddressSummary[]
+  customers: SeedCustomerSummary[]
 }
 
 const toUserSummary = (user: PublicUser): SeedUserSummary => ({
@@ -121,13 +146,75 @@ export class SeedService {
       if (created) users.push(created)
     }
 
-    const addresses = await this.seedAddresses(data.addresses ?? [], userByKey)
+    const demoCustomers = options.demoCustomers
+      ? this.buildDemoCustomers(options.demoCustomerCount)
+      : []
+    const demoUsers = await this.seedDemoCustomerUsers(demoCustomers)
+    demoUsers.forEach((user) => users.push(user))
+
+    const demoAddresses = demoCustomers.flatMap((customer) =>
+      customer.addresses.map((address) => ({ ...address, key: demoKey(customer.email) })),
+    )
+
+    const addressOwners = new Map(userByKey)
+    demoUsers.forEach((user) => addressOwners.set(demoKey(user.email), user))
+
+    const addresses = await this.seedAddresses(
+      [...(data.addresses ?? []), ...demoAddresses],
+      addressOwners,
+    )
 
     return {
       summary: { users: users.length, addresses: addresses.length },
       users: users.map(toUserSummary),
       addresses,
+      customers: this.toCustomerSummaries(users, addresses),
     }
+  }
+
+  private toCustomerSummaries(
+    users: PublicUser[],
+    addresses: SeedAddressSummary[],
+  ): SeedCustomerSummary[] {
+    return users
+      .filter((user) => user.role === 'customer')
+      .map((user) => ({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone,
+        addresses: addresses.filter((address) => address.userId === user.id),
+      }))
+  }
+
+  private buildDemoCustomers(count?: number): DemoCustomerSeed[] {
+    const curated = this.loadDemoCustomers().customers
+    const requested = count ?? env.seed.demoCustomers ?? curated.length
+
+    return expandDemoCustomers(curated, requested, this.loadDemoCustomerNames())
+  }
+
+  private async seedDemoCustomerUsers(customers: DemoCustomerSeed[]): Promise<PublicUser[]> {
+    const users: PublicUser[] = []
+
+    for (const customer of customers) {
+      const created = await this.ensureSeedUser(
+        {
+          key: 'customer',
+          email: customer.email,
+          role: 'customer',
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          phone: customer.phone,
+        },
+        null,
+      )
+
+      if (created) users.push(created)
+    }
+
+    return users
   }
 
   private resolveBranchAdmins(
@@ -268,5 +355,13 @@ export class SeedService {
 
   private loadData(): AuthSeedData {
     return loadSeedData<AuthSeedData>('auth', { baseDir: DATA_DIR })
+  }
+
+  private loadDemoCustomers(): DemoCustomersData {
+    return loadSeedData<DemoCustomersData>('customers', { baseDir: DATA_DIR })
+  }
+
+  private loadDemoCustomerNames(): DemoCustomerNames {
+    return loadSeedData<DemoCustomerNames>('demo-names', { baseDir: DATA_DIR })
   }
 }

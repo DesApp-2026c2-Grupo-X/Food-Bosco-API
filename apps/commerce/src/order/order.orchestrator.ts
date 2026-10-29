@@ -26,9 +26,33 @@ export interface CreateOrderInput {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+export const REPEAT_SKIP_REASON = {
+  productNotFound: 'PRODUCT_NOT_FOUND',
+  productUnavailable: 'PRODUCT_UNAVAILABLE',
+  optionUnavailable: 'OPTION_UNAVAILABLE',
+} as const
+
+export type RepeatSkipReason = (typeof REPEAT_SKIP_REASON)[keyof typeof REPEAT_SKIP_REASON]
+
+export interface RepeatSkippedItem {
+  productId: string
+  name: string
+  reason: RepeatSkipReason
+}
+
+export interface RepeatPriceChange {
+  productId: string
+  name: string
+  quantity: number
+  previousUnitPrice: number
+  currentUnitPrice: number
+}
+
 export interface RepeatOrderResult {
   cart: PublicCart
   skippedProducts: PublicProduct[]
+  skippedItems: RepeatSkippedItem[]
+  priceChanges: RepeatPriceChange[]
 }
 
 @Injectable()
@@ -137,29 +161,71 @@ export class OrderOrchestrator {
       throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
     }
 
-    const items: CartItemData[] = []
-    const skippedProducts: PublicProduct[] = []
+    const products = await this.productService.findByIds(order.items.map((item) => item.productId))
+    const productById = new Map(products.map((product) => [product.id, product]))
 
-    for (const item of order.items) {
-      const product = await this.productService.findById(item.productId)
+    const items: CartItemData[] = []
+    const skippedProducts = new Map<string, PublicProduct>()
+    const skippedItems: RepeatSkippedItem[] = []
+    const priceChanges = new Map<string, RepeatPriceChange>()
+
+    for (const orderItem of order.items) {
+      const product = productById.get(orderItem.productId)
       if (!product) {
+        skippedItems.push({
+          productId: orderItem.productId,
+          name: orderItem.name,
+          reason: REPEAT_SKIP_REASON.productNotFound,
+        })
         continue
       }
       if (!product.available) {
-        skippedProducts.push(product)
+        skippedProducts.set(product.id, product)
+        skippedItems.push({
+          productId: product.id,
+          name: product.name,
+          reason: REPEAT_SKIP_REASON.productUnavailable,
+        })
+        continue
+      }
+
+      const optionIds = orderItem.options.map((option) => option.optionId)
+      if (!this.areOptionsAvailable(product, optionIds)) {
+        skippedProducts.set(product.id, product)
+        skippedItems.push({
+          productId: product.id,
+          name: product.name,
+          reason: REPEAT_SKIP_REASON.optionUnavailable,
+        })
         continue
       }
 
       items.push({
-        productId: item.productId,
-        quantity: item.quantity,
-        observations: item.observations,
-        optionIds: item.options.map((option) => option.optionId),
+        productId: product.id,
+        quantity: orderItem.quantity,
+        observations: orderItem.observations,
+        optionIds,
       })
+
+      const currentUnitPrice = this.currentUnitPrice(product, optionIds)
+      if (currentUnitPrice !== orderItem.unitPrice) {
+        priceChanges.set(`${product.id}:${orderItem.unitPrice}:${currentUnitPrice}`, {
+          productId: product.id,
+          name: product.name,
+          quantity: orderItem.quantity,
+          previousUnitPrice: orderItem.unitPrice,
+          currentUnitPrice,
+        })
+      }
     }
 
     const cart = await this.cartOrchestrator.replaceItems(clientId, items)
-    return { cart, skippedProducts }
+    return {
+      cart,
+      skippedProducts: [...skippedProducts.values()],
+      skippedItems,
+      priceChanges: [...priceChanges.values()],
+    }
   }
 
   private async buildOrderItems(
@@ -218,6 +284,21 @@ export class OrderOrchestrator {
       this.accumulateRequirements(requirements, product, optionIds, item.quantity)
     }
     return requirements
+  }
+
+  private areOptionsAvailable(product: PublicProduct, optionIds: string[]): boolean {
+    const availableOptions = new Map(
+      product.configGroups.flatMap((group) => group.options).map((option) => [option.id, option]),
+    )
+    return optionIds.every((optionId) => availableOptions.get(optionId)?.available === true)
+  }
+
+  private currentUnitPrice(product: PublicProduct, optionIds: string[]): number {
+    const extras = product.configGroups
+      .flatMap((group) => group.options)
+      .filter((option) => optionIds.includes(option.id))
+      .reduce((sum, option) => sum + option.extraPrice, 0)
+    return product.price + extras
   }
 
   private resolveOptions(

@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus } from '@nestjs/common'
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { ERROR_CODES } from '../constants'
 import { DomainException } from './domain.exception'
 import { HttpExceptionFilter } from './http-exception.filter'
@@ -50,6 +55,28 @@ describe('HttpExceptionFilter (RQ-REST-07)', () => {
 
     expect(statusSpy).toHaveBeenCalledWith(status)
     expect(json).toHaveBeenCalledWith({ code, message: 'boom', path: '/v1/test' })
+  })
+
+  it.each([
+    {
+      name: '401 Unauthorized por defecto',
+      error: new UnauthorizedException(),
+      status: HttpStatus.UNAUTHORIZED,
+      expected: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+    },
+    {
+      name: '403 Forbidden por defecto',
+      error: new ForbiddenException(),
+      status: HttpStatus.FORBIDDEN,
+      expected: 'No tenés permisos para realizar esta acción.',
+    },
+  ])('traduce $name al español', ({ error, status, expected }) => {
+    const { host, status: statusSpy, json } = makeHost()
+
+    filter.catch(error, host as never)
+
+    expect(statusSpy).toHaveBeenCalledWith(status)
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ message: expected }))
   })
 
   it('une los mensajes de validación en arreglo', () => {

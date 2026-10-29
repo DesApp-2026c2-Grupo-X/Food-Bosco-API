@@ -40,6 +40,9 @@ const RANGE_FROM = '2026-01-01T00:00:00.000Z'
 const RANGE_TO = '2026-01-31T23:59:59.999Z'
 const ORDER_DATE = new Date('2026-01-15T15:00:00.000Z')
 const OLD_ORDER_DATE = new Date('2020-01-01T15:00:00.000Z')
+const CUSTOMER_RANGE_FROM = '2026-03-01T00:00:00.000Z'
+const CUSTOMER_RANGE_TO = '2026-03-31T23:59:59.999Z'
+const CUSTOMER_ORDER_DATE = new Date('2026-03-10T15:00:00.000Z')
 
 const customerToken = (id: string): string =>
   jwt.sign({ userId: id, roles: ['customer'] }, env.jwtSecret)
@@ -110,6 +113,7 @@ interface SeedOrder {
   total: number
   createdAt: Date
   items: SeedItem[]
+  clientId?: string
 }
 
 const productIds = (rows: Array<{ product: { id: string } }>): string[] =>
@@ -163,6 +167,8 @@ describe('Commerce — reporting E2E (RQ-REP)', () => {
     quantity: number,
   ): Promise<void> => {
     const current = await getStock(branchId, ingredientId)
+    if (current === quantity) return
+
     await http()
       .post('/v1/stock/adjustments')
       .set(...auth(superToken))
@@ -202,7 +208,7 @@ describe('Commerce — reporting E2E (RQ-REP)', () => {
   const seedOrder = async (input: SeedOrder): Promise<void> => {
     await orderModel.create({
       number: input.number,
-      clientId: `client-${input.number}`,
+      clientId: input.clientId ?? `client-${input.number}`,
       branchId: input.branchId,
       addressId: 'addr-1',
       deliveryAddress: { text: 'Av Cliente', latitude: 0, longitude: 0 },
@@ -369,6 +375,55 @@ describe('Commerce — reporting E2E (RQ-REP)', () => {
       total: 50,
       createdAt: new Date(),
       items: [{ productId: productId.drink, name: P_DRINK.name, unitPrice: 50, quantity: 1 }],
+    })
+
+    await seedOrder({
+      number: 'C1A',
+      clientId: 'client-c1',
+      branchId: branchA,
+      status: 'delivered',
+      total: 300,
+      createdAt: CUSTOMER_ORDER_DATE,
+      items: [
+        { productId: productId.top, name: P_TOP.name, unitPrice: 100, quantity: 2 },
+        { productId: productId.drink, name: P_DRINK.name, unitPrice: 50, quantity: 2 },
+      ],
+    })
+    await seedOrder({
+      number: 'C1B',
+      clientId: 'client-c1',
+      branchId: branchA,
+      status: 'delivered',
+      total: 200,
+      createdAt: CUSTOMER_ORDER_DATE,
+      items: [{ productId: productId.mid, name: P_MID.name, unitPrice: 200, quantity: 1 }],
+    })
+    await seedOrder({
+      number: 'C1C',
+      clientId: 'client-c1',
+      branchId: branchA,
+      status: 'cancelled',
+      total: 500,
+      createdAt: CUSTOMER_ORDER_DATE,
+      items: [{ productId: productId.top, name: P_TOP.name, unitPrice: 100, quantity: 5 }],
+    })
+    await seedOrder({
+      number: 'C1D',
+      clientId: 'client-c1',
+      branchId: branchB,
+      status: 'pending',
+      total: 50,
+      createdAt: CUSTOMER_ORDER_DATE,
+      items: [{ productId: productId.drink, name: P_DRINK.name, unitPrice: 50, quantity: 1 }],
+    })
+    await seedOrder({
+      number: 'C2A',
+      clientId: 'client-c2',
+      branchId: branchB,
+      status: 'delivered',
+      total: 999,
+      createdAt: CUSTOMER_ORDER_DATE,
+      items: [{ productId: productId.top, name: P_TOP.name, unitPrice: 100, quantity: 9 }],
     })
   })
 
@@ -789,6 +844,119 @@ describe('Commerce — reporting E2E (RQ-REP)', () => {
         branchAdminTokenFor(branchA),
       ).expect(200)
       expect(productIds(res.body as OutOfStockRow[])).toContain(productId.oos)
+    })
+  })
+
+  describe('G. Reportes orientados al cliente (RQ-REP-CLIENTE)', () => {
+    const customerRange = `?from=${CUSTOMER_RANGE_FROM}&to=${CUSTOMER_RANGE_TO}`
+
+    const customerReport = (query: string, token: string) =>
+      http()
+        .get(`/v1/reporting/customer/overview${query}`)
+        .set(...auth(token))
+
+    it('G1: sin token → 401 UNAUTHENTICATED', async () => {
+      const res = await http().get('/v1/reporting/customer/overview').expect(401)
+      expect(res.body.code).toBe('UNAUTHENTICATED')
+    })
+
+    it.each([
+      { role: 'branch_admin', token: branchAdminTokenFor(branchA) },
+      { role: 'super_admin', token: superToken },
+      { role: 'rider', token: riderToken },
+    ])('G2: $role no puede usar el reporte de cliente → 403', async ({ token }) => {
+      const res = await customerReport(customerRange, token).expect(403)
+      expect(res.body.code).toBe('FORBIDDEN')
+    })
+
+    it('G3: resume sólo los pedidos del cliente autenticado', async () => {
+      const res = await customerReport(customerRange, customerToken('client-c1')).expect(200)
+      const body = res.body as {
+        period: { from: string; to: string }
+        summary: {
+          totalOrders: number
+          completedOrders: number
+          cancelledOrders: number
+          activeOrders: number
+          totalSpent: number
+          averageTicket: number
+          favoriteBranch: { branchId: string; branchName: string; orders: number } | null
+        }
+        frequentProducts: Array<{ productId: string; name: string; quantity: number }>
+        ordersByStatus: Array<{ status: string; count: number }>
+      }
+
+      expect(body.period).toEqual({ from: CUSTOMER_RANGE_FROM, to: CUSTOMER_RANGE_TO })
+      expect(body.summary).toMatchObject({
+        totalOrders: 4,
+        completedOrders: 2,
+        cancelledOrders: 1,
+        activeOrders: 1,
+        totalSpent: 500,
+        averageTicket: 250,
+      })
+      expect(body.summary.totalSpent).not.toBe(1499)
+      expect(body.summary.favoriteBranch).toMatchObject({
+        branchId: branchA,
+        branchName: 'Centro Rep',
+        orders: 2,
+      })
+      expect(body.frequentProducts.map((row) => row.productId)).toEqual([
+        productId.top,
+        productId.drink,
+        productId.mid,
+      ])
+      expect(body.frequentProducts[0]).toMatchObject({ quantity: 2 })
+      expect(body.ordersByStatus.find((row) => row.status === 'delivered')?.count).toBe(2)
+      expect(body.ordersByStatus.find((row) => row.status === 'cancelled')?.count).toBe(1)
+    })
+
+    it('G4: cada cliente ve sólo su propio historial', async () => {
+      const res = await customerReport(customerRange, customerToken('client-c2')).expect(200)
+      const body = res.body as {
+        summary: { totalOrders: number; totalSpent: number; completedOrders: number }
+        frequentProducts: Array<{ quantity: number }>
+      }
+
+      expect(body.summary).toMatchObject({
+        totalOrders: 1,
+        completedOrders: 1,
+        totalSpent: 999,
+      })
+      expect(body.frequentProducts).toEqual([expect.objectContaining({ quantity: 9 })])
+    })
+
+    it('G5: ignora un clientId enviado por el frontend', async () => {
+      const res = await customerReport(
+        `${customerRange}&clientId=client-c2`,
+        customerToken('client-c1'),
+      ).expect(200)
+      const body = res.body as { summary: { totalOrders: number } }
+
+      expect(body.summary.totalOrders).toBe(4)
+    })
+
+    it('G6: cliente sin pedidos devuelve ceros y listas vacías', async () => {
+      const res = await customerReport(customerRange, customerToken('client-empty')).expect(200)
+      const body = res.body as {
+        summary: { totalOrders: number; totalSpent: number; averageTicket: number }
+        activitySeries: unknown[]
+        frequentProducts: unknown[]
+        ordersByStatus: unknown[]
+      }
+
+      expect(body.summary).toMatchObject({ totalOrders: 0, totalSpent: 0, averageTicket: 0 })
+      expect(body.activitySeries).toEqual([])
+      expect(body.frequentProducts).toEqual([])
+      expect(body.ordersByStatus).toHaveLength(7)
+    })
+
+    it('G7: rango invertido → 400 VALIDATION_ERROR', async () => {
+      const res = await customerReport(
+        '?from=2026-03-31T00:00:00.000Z&to=2026-03-01T00:00:00.000Z',
+        customerToken('client-c1'),
+      ).expect(400)
+      expect(res.body.code).toBe('VALIDATION_ERROR')
     })
   })
 })

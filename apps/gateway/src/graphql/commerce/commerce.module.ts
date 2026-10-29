@@ -3,6 +3,7 @@ import { RestModule } from '../../rest/rest.module'
 import {
   BranchStockFieldResolver,
   CartItemFieldResolver,
+  CustomerInsightsRowFieldResolver,
   OrderFieldResolver,
   ProductFieldResolver,
   RecipeItemFieldResolver,
@@ -17,6 +18,7 @@ import { CommerceResolver } from './commerce.resolver'
     ProductFieldResolver,
     RecipeItemFieldResolver,
     CartItemFieldResolver,
+    CustomerInsightsRowFieldResolver,
     OrderFieldResolver,
     BranchStockFieldResolver,
     TripOrderFieldResolver,

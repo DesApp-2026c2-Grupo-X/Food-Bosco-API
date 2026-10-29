@@ -120,7 +120,9 @@ describe('Gateway auth extendido (e2e) — gaps de updateUser, users, user y dir
 
       expect(body.data).toBeNull()
       expect(body.errors?.[0].extensions?.code).toBe('UNAUTHENTICATED')
-      expect(body.errors?.[0].message).toBe('Tu sesión expiró o no es válida. Iniciá sesión nuevamente.')
+      expect(body.errors?.[0].message).toBe(
+        'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+      )
       expect(downstream.calls).toHaveLength(0)
     })
 
@@ -234,7 +236,9 @@ describe('Gateway auth extendido (e2e) — gaps de updateUser, users, user y dir
 
       expect(body.data).toBeNull()
       expect(body.errors?.[0].extensions?.code).toBe('INTERNAL_SERVER_ERROR')
-      expect(body.errors?.[0].message).toBe('Ocurrió un error inesperado. Intentá de nuevo en unos instantes.')
+      expect(body.errors?.[0].message).toBe(
+        'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
+      )
     })
   })
 

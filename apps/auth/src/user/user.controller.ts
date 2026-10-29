@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { Internal } from '../config/security/internal.decorator'
@@ -9,6 +9,7 @@ import type { PublicUser, UserListResponse } from './user.service'
 import { CreateAdminDto } from './dto/create-admin.dto'
 import { CreateRiderDto } from './dto/create-rider.dto'
 import { CreateStaffDto } from './dto/create-staff.dto'
+import { CustomerStatsQueryDto } from './dto/customer-stats-query.dto'
 import { SetActiveDto } from './dto/set-active.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { UserQueryDto } from './dto/user-query.dto'
@@ -39,10 +40,20 @@ export class UserController {
   list(@Query() query: UserQueryDto): Promise<UserListResponse> {
     return this.userService.list({
       role: query.role,
+      roles: query.roles,
       active: typeof query.active === 'boolean' ? query.active : undefined,
       search: query.search,
       limit: query.limit ?? 20,
       offset: query.offset ?? 0,
+    })
+  }
+
+  @Get('customers/stats')
+  @Roles(ROLES.superAdmin)
+  customerStats(@Query() query: CustomerStatsQueryDto) {
+    return this.userService.customerStats({
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
     })
   }
 
@@ -95,5 +106,12 @@ export class UserController {
       throw new DomainException(ERROR_CODES.userNotFound, 'Usuario no encontrado', 404)
     }
     return user
+  }
+
+  @Delete(':userId')
+  @Roles(ROLES.superAdmin)
+  async remove(@Param('userId') userId: string): Promise<{ ok: boolean }> {
+    await this.staffOrchestrator.deleteUser(userId)
+    return { ok: true }
   }
 }

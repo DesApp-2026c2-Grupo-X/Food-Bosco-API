@@ -340,13 +340,15 @@ describe('OrderOrchestrator.repeat (RQ-ORD-17)', () => {
         ],
       }),
     )
-    mocks.productService.findById.mockImplementation((id: string) =>
-      Promise.resolve(id === 'p1' ? product() : product({ id: 'p2', available: false })),
-    )
+    mocks.productService.findByIds.mockResolvedValue([
+      product(),
+      product({ id: 'p2', available: false }),
+    ])
     mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2' })
 
     const result = await mocks.orchestrator.repeat('c1', 'o1')
 
+    expect(mocks.productService.findByIds).toHaveBeenCalledWith(['p1', 'p2'])
     expect(mocks.cartOrchestrator.replaceItems).toHaveBeenCalledWith(
       'c1',
       expect.arrayContaining([expect.objectContaining({ productId: 'p1' })]),
@@ -365,9 +367,10 @@ describe('OrderOrchestrator.repeat (RQ-ORD-17)', () => {
   })
 })
 
-const optionProduct = (): PublicProduct =>
+const optionProduct = (overrides: Partial<PublicProduct> = {}): PublicProduct =>
   product({
     price: 100,
+    ...overrides,
     configGroups: [
       {
         id: 'g1',
@@ -791,6 +794,7 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
         clientId: 'c1',
         items: [
           orderItem('p1', {
+            unitPrice: 150,
             quantity: 2,
             observations: 'sin sal',
             options: [{ optionId: 'opt1', name: 'Doble', extraPrice: 50 }],
@@ -800,11 +804,10 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
         ],
       }),
     )
-    mocks.productService.findById.mockImplementation((id: string) => {
-      if (id === 'p1') return Promise.resolve(product())
-      if (id === 'p2') return Promise.resolve(product({ id: 'p2', available: false }))
-      return Promise.resolve(null)
-    })
+    mocks.productService.findByIds.mockResolvedValue([
+      optionProduct(),
+      product({ id: 'p2', available: false }),
+    ])
     mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2' })
 
     const result = await mocks.orchestrator.repeat('c1', 'o1')
@@ -818,6 +821,11 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
       },
     ])
     expect(result.skippedProducts.map((entry) => entry.id)).toEqual(['p2'])
+    expect(result.skippedItems).toEqual([
+      { productId: 'p2', name: 'Hamburguesa', reason: 'PRODUCT_UNAVAILABLE' },
+      { productId: 'missing', name: 'Producto missing', reason: 'PRODUCT_NOT_FOUND' },
+    ])
+    expect(result.priceChanges).toEqual([])
     expect(result.cart.id).toBe('cart2')
   })
 
@@ -837,12 +845,103 @@ describe('OrderOrchestrator.repeat — reconstrucción del carrito (RQ-ORD-17)',
     mocks.orderService.findById.mockResolvedValue(
       order({ clientId: 'c1', items: [orderItem('p2')] }),
     )
-    mocks.productService.findById.mockResolvedValue(product({ id: 'p2', available: false }))
+    mocks.productService.findByIds.mockResolvedValue([product({ id: 'p2', available: false })])
     mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2' })
 
     const result = await mocks.orchestrator.repeat('c1', 'o1')
 
     expect(mocks.cartOrchestrator.replaceItems).toHaveBeenCalledWith('c1', [])
     expect(result.skippedProducts.map((entry) => entry.id)).toEqual(['p2'])
+    expect(result.skippedItems).toEqual([
+      { productId: 'p2', name: 'Hamburguesa', reason: 'PRODUCT_UNAVAILABLE' },
+    ])
+  })
+
+  it.each([
+    { name: 'opción inexistente', optionId: 'missing-option' },
+    { name: 'opción pausada', optionId: 'opt2' },
+  ])('omite el producto si su $name → OPTION_UNAVAILABLE', async ({ optionId }) => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(
+      order({
+        clientId: 'c1',
+        items: [
+          orderItem('p1', {
+            unitPrice: 120,
+            options: [{ optionId, name: 'Opción', extraPrice: 20 }],
+          }),
+        ],
+      }),
+    )
+    mocks.productService.findByIds.mockResolvedValue([optionProduct()])
+    mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2' })
+
+    const result = await mocks.orchestrator.repeat('c1', 'o1')
+
+    expect(mocks.cartOrchestrator.replaceItems).toHaveBeenCalledWith('c1', [])
+    expect(result.skippedProducts.map((entry) => entry.id)).toEqual(['p1'])
+    expect(result.skippedItems).toEqual([
+      { productId: 'p1', name: 'Hamburguesa', reason: 'OPTION_UNAVAILABLE' },
+    ])
+    expect(result.priceChanges).toEqual([])
+  })
+
+  it('reconstruye el ítem con el precio actual e informa el cambio', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(
+      order({
+        clientId: 'c1',
+        items: [
+          orderItem('p1', {
+            unitPrice: 100,
+            quantity: 2,
+            options: [{ optionId: 'opt1', name: 'Doble', extraPrice: 50 }],
+          }),
+        ],
+      }),
+    )
+    mocks.productService.findByIds.mockResolvedValue([optionProduct({ price: 120 })])
+    mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2', total: 340 })
+
+    const result = await mocks.orchestrator.repeat('c1', 'o1')
+
+    expect(mocks.cartOrchestrator.replaceItems).toHaveBeenCalledWith('c1', [
+      {
+        productId: 'p1',
+        quantity: 2,
+        observations: null,
+        optionIds: ['opt1'],
+      },
+    ])
+    expect(result.priceChanges).toEqual([
+      {
+        productId: 'p1',
+        name: 'Hamburguesa',
+        quantity: 2,
+        previousUnitPrice: 100,
+        currentUnitPrice: 170,
+      },
+    ])
+  })
+
+  it('no informa cambio de precio cuando el snapshot coincide con el actual', async () => {
+    const mocks = makeOrchestrator()
+    mocks.orderService.findById.mockResolvedValue(
+      order({
+        clientId: 'c1',
+        items: [
+          orderItem('p1', {
+            unitPrice: 150,
+            options: [{ optionId: 'opt1', name: 'Doble', extraPrice: 50 }],
+          }),
+        ],
+      }),
+    )
+    mocks.productService.findByIds.mockResolvedValue([optionProduct()])
+    mocks.cartOrchestrator.replaceItems.mockResolvedValue({ id: 'cart2' })
+
+    const result = await mocks.orchestrator.repeat('c1', 'o1')
+
+    expect(result.priceChanges).toEqual([])
   })
 })

@@ -9,6 +9,7 @@ import {
   mapCategory,
   mapConfigGroup,
   mapConfigOption,
+  mapCustomerReportsOverview,
   mapIngredient,
   mapOrder,
   mapOrderItem,
@@ -135,16 +136,19 @@ describe('mapRecipeItem', () => {
 
 describe('mapIngredient', () => {
   it('mapea un ingrediente completo', () => {
-    expect(mapIngredient({ id: 'i1', name: 'Carne', unit: 'g', active: true })).toEqual({
+    expect(
+      mapIngredient({ id: 'i1', name: 'Carne', unit: 'g', minQuantity: 10, active: true }),
+    ).toEqual({
       id: 'i1',
       name: 'Carne',
       unit: 'g',
+      minQuantity: 10,
       active: true,
     })
   })
 
   it('aplica defaults ante ausencia de datos', () => {
-    expect(mapIngredient({})).toEqual({ id: '', name: '', unit: '', active: false })
+    expect(mapIngredient({})).toEqual({ id: '', name: '', unit: '', minQuantity: 0, active: false })
   })
 })
 
@@ -582,5 +586,51 @@ describe('mapReportsOverview', () => {
     expect(result.salesSeries).toEqual([])
     expect(result.ordersByStatus).toEqual([])
     expect(result.variation).toEqual({ revenuePct: null, ordersPct: null, averageTicketPct: null })
+  })
+})
+
+describe('mapCustomerReportsOverview', () => {
+  const raw = {
+    period: { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+    summary: {
+      totalOrders: 4,
+      completedOrders: 2,
+      cancelledOrders: 1,
+      activeOrders: 1,
+      totalSpent: 500,
+      averageTicket: 250,
+      favoriteBranch: { branchId: 'b1', branchName: 'Centro', orders: 2, totalSpent: 500 },
+    },
+    activitySeries: [{ bucket: '2026-03', orders: 4, completedOrders: 2, totalSpent: 500 }],
+    frequentProducts: [
+      { productId: 'p1', name: 'Hamburguesa', quantity: 6, orders: 3, totalSpent: 900 },
+    ],
+    ordersByStatus: [{ status: 'delivered', count: 2 }],
+  }
+
+  it('mapea resumen, serie, productos frecuentes y estados', () => {
+    const result = mapCustomerReportsOverview(raw)
+
+    expect(result.period).toEqual({ from: raw.period.from, to: raw.period.to })
+    expect(result.summary.favoriteBranch).toEqual(raw.summary.favoriteBranch)
+    expect(result.summary.averageTicket).toBe(250)
+    expect(result.activitySeries).toEqual(raw.activitySeries)
+    expect(result.frequentProducts[0]).toMatchObject({ productId: 'p1', quantity: 6 })
+    expect(result.ordersByStatus).toEqual([{ status: OrderStatus.DELIVERED, count: 2 }])
+  })
+
+  it('tolera payloads vacíos', () => {
+    const result = mapCustomerReportsOverview({})
+
+    expect(result.summary).toMatchObject({
+      totalOrders: 0,
+      completedOrders: 0,
+      totalSpent: 0,
+      averageTicket: 0,
+      favoriteBranch: null,
+    })
+    expect(result.activitySeries).toEqual([])
+    expect(result.frequentProducts).toEqual([])
+    expect(result.ordersByStatus).toEqual([])
   })
 })

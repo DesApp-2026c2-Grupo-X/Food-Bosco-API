@@ -246,3 +246,189 @@ describe('ReportingRepository.listStock (RQ-REP-03/06)', () => {
     expect(result).toBe(docs)
   })
 })
+
+describe('ReportingRepository.aggregateCustomerOverview (RQ-REP-CLIENTE)', () => {
+  const filter = {
+    from: new Date('2026-01-01T00:00:00.000Z'),
+    to: new Date('2026-01-31T23:59:59.999Z'),
+    groupBy: 'month' as const,
+  }
+
+  it('filtra por clientId y rango de fechas', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerOverview('client-1', filter)
+
+    const pipeline = orderModel.aggregate.mock.calls[0][0]
+    expect(pipeline[0]).toEqual({
+      $match: {
+        clientId: 'client-1',
+        createdAt: { $gte: filter.from, $lte: filter.to },
+      },
+    })
+    expect(pipeline[1]).toHaveProperty('$facet')
+  })
+
+  it('usa la agrupación mensual por defecto', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerOverview('client-1', {
+      from: filter.from,
+      to: filter.to,
+    })
+
+    const pipeline = orderModel.aggregate.mock.calls[0][0]
+    const series = pipeline[1].$facet.series
+    expect(series[0].$group._id.$dateToString.format).toBe('%Y-%m')
+  })
+
+  it('devuelve la estructura agregada y el nombre de sucursal', async () => {
+    const { repository, orderModel } = makeRepository()
+    const raw = {
+      summary: [
+        {
+          totalOrders: 2,
+          completedOrders: 1,
+          cancelledOrders: 0,
+          activeOrders: 1,
+          totalSpent: 500,
+        },
+      ],
+      status: [{ _id: 'delivered' as const, count: 1 }],
+      series: [{ _id: '2026-01', orders: 2, completedOrders: 1, totalSpent: 500 }],
+      frequentProducts: [
+        { _id: 'p1', name: 'Hamburguesa', quantity: 2, orders: 1, totalSpent: 500 },
+      ],
+      branches: [{ _id: 'b1', orders: 1, totalSpent: 500 }],
+    }
+    orderModel.aggregate.mockReturnValue(execQuery([raw]))
+
+    const result = await repository.aggregateCustomerOverview('client-1', filter)
+
+    expect(result).toEqual(raw)
+  })
+
+  it('devuelve estructura vacía si Mongo no devuelve facet', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    const result = await repository.aggregateCustomerOverview('client-1', filter)
+
+    expect(result).toEqual({
+      summary: [],
+      status: [],
+      series: [],
+      frequentProducts: [],
+      branches: [],
+    })
+  })
+})
+
+describe('ReportingRepository.aggregateCustomerInsights', () => {
+  const filter = {
+    from: new Date('2026-10-01T00:00:00.000Z'),
+    to: new Date('2026-10-31T23:59:59.999Z'),
+    branchId: 'b1',
+    groupBy: 'month' as const,
+  }
+
+  interface InsightsFacet {
+    buyers: unknown[]
+    firstPurchases: unknown[]
+    platformFirstPurchases: unknown[]
+    series: unknown[]
+    branchActivity: unknown[]
+  }
+
+  const facetOf = (pipeline: unknown[]): InsightsFacet =>
+    (pipeline[0] as { $facet: InsightsFacet }).$facet
+
+  it('filtra solo compras entregadas, por sucursal y por rango de fechas', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerInsights(filter)
+
+    const pipeline = orderModel.aggregate.mock.calls[0][0]
+    expect(facetOf(pipeline).buyers[0]).toEqual({
+      $match: {
+        status: 'delivered',
+        branchId: 'b1',
+        createdAt: { $gte: filter.from, $lte: filter.to },
+      },
+    })
+  })
+
+  it('calcula la primera compra histórica del alcance y de la plataforma', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerInsights(filter)
+
+    const facet = facetOf(orderModel.aggregate.mock.calls[0][0])
+    expect(facet.firstPurchases[0]).toEqual({
+      $match: {
+        status: 'delivered',
+        branchId: 'b1',
+        createdAt: { $lte: filter.to },
+      },
+    })
+    expect(facet.platformFirstPurchases[0]).toEqual({
+      $match: {
+        status: 'delivered',
+        createdAt: { $lte: filter.to },
+      },
+    })
+  })
+
+  it('cuenta compradores únicos por período y por sucursal', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    await repository.aggregateCustomerInsights(filter)
+
+    const facet = facetOf(orderModel.aggregate.mock.calls[0][0])
+    expect(facet.series[2]).toEqual({ $group: { _id: '$_id.bucket', buyers: { $sum: 1 } } })
+    expect(facet.branchActivity[2]).toEqual({
+      $group: {
+        _id: '$_id.branchId',
+        buyers: { $sum: 1 },
+        orders: { $sum: '$orders' },
+        totalSpent: { $sum: '$totalSpent' },
+      },
+    })
+  })
+
+  it('devuelve la estructura agregada de Mongo', async () => {
+    const { repository, orderModel } = makeRepository()
+    const raw = {
+      buyers: [],
+      series: [],
+      branchActivity: [],
+      firstPurchases: [],
+      platformFirstPurchases: [],
+    }
+    orderModel.aggregate.mockReturnValue(execQuery([raw]))
+
+    const result = await repository.aggregateCustomerInsights(filter)
+
+    expect(result).toEqual(raw)
+  })
+
+  it('devuelve estructura vacía si Mongo no devuelve facet', async () => {
+    const { repository, orderModel } = makeRepository()
+    orderModel.aggregate.mockReturnValue(execQuery([]))
+
+    const result = await repository.aggregateCustomerInsights(filter)
+
+    expect(result).toEqual({
+      buyers: [],
+      series: [],
+      branchActivity: [],
+      firstPurchases: [],
+      platformFirstPurchases: [],
+    })
+  })
+})

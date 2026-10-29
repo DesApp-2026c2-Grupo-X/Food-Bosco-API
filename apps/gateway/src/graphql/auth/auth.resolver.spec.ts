@@ -155,7 +155,7 @@ describe('AuthResolver — operaciones autenticadas', () => {
 })
 
 describe('AuthResolver — usuarios (super_admin)', () => {
-  const rest = { get: jest.fn(), post: jest.fn(), patch: jest.fn() }
+  const rest = { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() }
   const resolver = new AuthResolver(rest as unknown as RestClient)
 
   beforeEach(() => jest.clearAllMocks())
@@ -171,7 +171,14 @@ describe('AuthResolver — usuarios (super_admin)', () => {
 
     expect(rest.get).toHaveBeenCalledWith('/v1/users', {
       context: expect.objectContaining({ userId: 'u1' }),
-      query: { role: 'super_admin', active: true, search: 'juan', limit: 5, offset: 10 },
+      query: {
+        role: 'super_admin',
+        roles: undefined,
+        active: true,
+        search: 'juan',
+        limit: 5,
+        offset: 10,
+      },
     })
     expect(result.pageInfo).toEqual({ total: 1, limit: 5, offset: 10 })
     expect(result.data).toHaveLength(1)
@@ -188,6 +195,7 @@ describe('AuthResolver — usuarios (super_admin)', () => {
       expect.objectContaining({
         query: {
           role: undefined,
+          roles: undefined,
           active: undefined,
           search: undefined,
           limit: undefined,
@@ -298,6 +306,38 @@ describe('AuthResolver — usuarios (super_admin)', () => {
     })
     expect(result.active).toBe(false)
   })
+
+  it('users → mapea varios roles a un filtro REST separado por comas', async () => {
+    rest.get.mockResolvedValue({ data: [], meta: { total: 0, limit: 100, offset: 0 } })
+
+    await resolver.users(
+      { roles: [Role.BRANCH_ADMIN, Role.SUPER_ADMIN] },
+      { limit: 100, offset: 0 },
+      ctx,
+    )
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/users', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        role: undefined,
+        roles: 'branch_admin,super_admin',
+        active: undefined,
+        search: undefined,
+        limit: 100,
+        offset: 0,
+      },
+    })
+  })
+
+  it('deleteUser → DELETE /v1/users/{id}', async () => {
+    rest.delete.mockResolvedValue({ ok: true })
+
+    await expect(resolver.deleteUser('u1', ctx)).resolves.toBe(true)
+
+    expect(rest.delete).toHaveBeenCalledWith('/v1/users/u1', {
+      context: expect.objectContaining({ userId: 'u1' }),
+    })
+  })
 })
 
 describe('AuthResolver — direcciones (customer)', () => {
@@ -399,7 +439,14 @@ describe('AuthResolver — propagación exacta de contexto y errores', () => {
 
     expect(rest.get).toHaveBeenCalledWith('/v1/users', {
       context: expectedContext,
-      query: { role: 'rider', active: false, search: 'ana', limit: 20, offset: 40 },
+      query: {
+        role: 'rider',
+        roles: undefined,
+        active: false,
+        search: 'ana',
+        limit: 20,
+        offset: 40,
+      },
     })
   })
 
@@ -470,6 +517,7 @@ describe('AuthResolver — propagación exacta de contexto y errores', () => {
       method: 'patch',
       invoke: () => resolver.setUserActive('u9', false, ctx),
     },
+    { name: 'deleteUser', method: 'delete', invoke: () => resolver.deleteUser('u9', ctx) },
     { name: 'myAddresses', method: 'get', invoke: () => resolver.myAddresses(ctx) },
     { name: 'address', method: 'get', invoke: () => resolver.address('a1', ctx) },
     {

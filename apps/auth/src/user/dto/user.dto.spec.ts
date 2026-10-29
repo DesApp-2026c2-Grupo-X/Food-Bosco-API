@@ -251,6 +251,8 @@ describe('UpdateUserDto (RQ-AUTH-16)', () => {
     { name: 'solo firstName', payload: { firstName: 'Ana' }, valid: true },
     { name: 'solo branchId', payload: { branchId: 'branch-2' }, valid: true },
     { name: 'firstName de 101 caracteres', payload: { firstName: 'a'.repeat(101) }, valid: false },
+    { name: 'firstName vacío', payload: { firstName: '' }, valid: false },
+    { name: 'lastName vacío', payload: { lastName: '' }, valid: false },
     { name: 'phone de 51 caracteres', payload: { phone: '1'.repeat(51) }, valid: false },
     { name: 'branchId vacío', payload: { branchId: '' }, valid: false },
     { name: 'branchId numérico', payload: { branchId: 123 }, valid: false },
@@ -259,9 +261,12 @@ describe('UpdateUserDto (RQ-AUTH-16)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  it('acepta firstName vacío porque no tiene @IsNotEmpty', async () => {
-    const { invalid } = await check(UpdateUserDto, { firstName: '' })
-    expect(invalid).toEqual([])
+  it.each([
+    { name: 'firstName vacío', payload: { firstName: '' }, property: 'firstName' },
+    { name: 'lastName vacío', payload: { lastName: '' }, property: 'lastName' },
+  ])('rechaza $name', async ({ payload, property }) => {
+    const { invalid } = await check(UpdateUserDto, payload)
+    expect(invalid).toContain(property)
   })
 
   it('acepta branchId null porque @IsOptional ignora null', async () => {
@@ -358,6 +363,23 @@ describe('UserQueryDto (listado con filtros)', () => {
   it('active con un valor no booleano ("yes") es inválido', async () => {
     const { invalid } = await check(UserQueryDto, { active: 'yes' })
     expect(invalid).toEqual(['active'])
+  })
+
+  it('convierte roles separados por coma en un array validado', async () => {
+    const { instance, invalid } = await check(UserQueryDto, {
+      roles: 'branch_admin, super_admin',
+    })
+
+    expect(invalid).toEqual([])
+    expect(instance.roles).toEqual(['branch_admin', 'super_admin'])
+  })
+
+  it.each([
+    { name: 'un rol desconocido', roles: 'branch_admin,vendedor' },
+    { name: 'un array con rol inválido', roles: ['rider', 'vendedor'] },
+  ])('rechaza roles con $name', async ({ roles }) => {
+    const { invalid } = await check(UserQueryDto, { roles })
+    expect(invalid).toEqual(['roles'])
   })
 
   it('con whitelist descarta parámetros desconocidos', async () => {

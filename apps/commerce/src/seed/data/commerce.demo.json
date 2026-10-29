@@ -1,0 +1,48 @@
+{
+  "orders": 150,
+  "days": 120,
+  "recentDays": 30,
+  "recentShare": 0.6,
+  "cancelRate": 0.08,
+  "oldestPriceFactor": 0.82,
+  "maxItems": 4,
+  "maxQuantity": 3,
+  "heavyCustomerEvery": 4,
+  "heavyCustomerWeight": 4,
+  "productWeights": {
+    "Hamburguesa Clásica": 12,
+    "Doble Cheddar": 10,
+    "Pizza Mozzarella": 9,
+    "Papas Fritas": 9,
+    "Gaseosa": 8,
+    "Hamburguesa BBQ": 7,
+    "Pizza Napolitana": 6,
+    "Pollo Crocante": 5,
+    "Helado": 4,
+    "Cerveza Artesanal": 4,
+    "Milkshake": 3,
+    "Pizza Cuatro Quesos": 3,
+    "Café": 3,
+    "Ensalada Fresh": 2,
+    "Agua Mineral": 2,
+    "Donas": 1,
+    "Flan Casero": 1
+  },
+  "outOfStock": {
+    "branch": "Oeste",
+    "ingredients": ["Helado", "Cerveza"]
+  },
+  "lowStock": [
+    {
+      "branch": "Centro",
+      "items": [
+        { "ingredient": "Papa", "quantity": 3 },
+        { "ingredient": "Lechuga", "quantity": 2 }
+      ]
+    },
+    {
+      "branch": "Norte",
+      "items": [{ "ingredient": "Pan de hamburguesa", "quantity": 4 }]
+    }
+  ]
+}

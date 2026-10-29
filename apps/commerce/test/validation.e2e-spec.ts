@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common'
+import { INestApplication } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { Test, TestingModule } from '@nestjs/testing'
 import jwt from 'jsonwebtoken'
@@ -12,6 +12,7 @@ import { CategoryModule } from '../src/category/category.module'
 import { env } from '../src/config/env'
 import { HttpExceptionFilter } from '../src/config/exceptions/http-exception.filter'
 import { SecurityModule } from '../src/config/security/security.module'
+import { createValidationPipe } from '../src/config/validation/validation.pipe'
 import { IngredientModule } from '../src/ingredient/ingredient.module'
 import { OrderModule } from '../src/order/order.module'
 import { ParameterModule } from '../src/parameter/parameter.module'
@@ -372,13 +373,7 @@ describe('Commerce — validaciones 400 faltantes (e2e)', () => {
     }).compile()
 
     app = moduleFixture.createNestApplication()
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-        transformOptions: { enableImplicitConversion: true },
-      }),
-    )
+    app.useGlobalPipes(createValidationPipe())
     app.useGlobalFilters(new HttpExceptionFilter())
     await app.init()
     await app.listen(0)
@@ -389,10 +384,19 @@ describe('Commerce — validaciones 400 faltantes (e2e)', () => {
     await mongod.stop()
   })
 
-  it.each(CASES)('$name → 400 VALIDATION_ERROR', async (entry) => {
+  it.each(CASES)('$name → 400 VALIDATION_ERROR con detalle en español', async (entry) => {
     const res = await send(entry)
       .set(...auth(entry.token))
       .expect(400)
+
     expect(res.body.code).toBe('VALIDATION_ERROR')
+    expect(Array.isArray(res.body.details?.fields)).toBe(true)
+    expect(res.body.details.fields.length).toBeGreaterThan(0)
+    expect(res.body.message).not.toMatch(/\b(must|should|failed|invalid)\b/i)
+
+    const messages = res.body.details.fields
+      .map((field: { message?: string }) => field.message ?? '')
+      .join(' ')
+    expect(messages).not.toMatch(/\b(must|should|failed|invalid)\b/i)
   })
 })

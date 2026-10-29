@@ -28,6 +28,7 @@ const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): IngredientD
     _id: { toString: () => 'ing1' },
     name: 'Papa',
     unit: 'kg',
+    minQuantity: 0,
     active: true,
     ...overrides,
   }) as unknown as IngredientDocument
@@ -77,27 +78,34 @@ describe('IngredientRepository.findById / findByIds', () => {
 describe('IngredientRepository.create (RQ-CAT-09)', () => {
   it.each([
     {
-      name: 'sin estado, queda activo por defecto',
+      name: 'sin estado ni minQuantity, queda activo y minQuantity 0 por defecto',
       input: { name: 'Papa', unit: 'kg' },
       expected: true,
+      expectedMinQuantity: 0,
     },
     {
-      name: 'con active true',
-      input: { name: 'Papa', unit: 'kg', active: true },
+      name: 'con active true y minQuantity explícito',
+      input: { name: 'Papa', unit: 'kg', minQuantity: 10, active: true },
       expected: true,
+      expectedMinQuantity: 10,
     },
     {
       name: 'con active false',
       input: { name: 'Papa', unit: 'kg', active: false },
       expected: false,
+      expectedMinQuantity: 0,
     },
-  ])('$name', async ({ input, expected }) => {
+  ])('$name', async ({ input, expected, expectedMinQuantity }) => {
     const { model, repository } = makeRepository()
-    model.create.mockResolvedValue(buildDoc({ active: expected }))
+    model.create.mockResolvedValue(buildDoc({ active: expected, minQuantity: expectedMinQuantity }))
 
     await repository.create(input)
 
-    expect(model.create).toHaveBeenCalledWith({ ...input, active: expected })
+    expect(model.create).toHaveBeenCalledWith({
+      ...input,
+      minQuantity: expectedMinQuantity,
+      active: expected,
+    })
   })
 
   // Un nombre duplicado (E11000) se traduce a un error de dominio en lugar de filtrar el
@@ -171,13 +179,13 @@ describe('IngredientRepository.list (RQ-CAT-09)', () => {
 describe('IngredientRepository.update / setActive', () => {
   it('actualiza con $set y new: true', async () => {
     const { model, repository } = makeRepository()
-    model.findByIdAndUpdate.mockReturnValue(chainable(buildDoc({ unit: 'g' })))
+    model.findByIdAndUpdate.mockReturnValue(chainable(buildDoc({ unit: 'g', minQuantity: 5 })))
 
-    await repository.update('ing1', { unit: 'g' })
+    await repository.update('ing1', { unit: 'g', minQuantity: 5 })
 
     expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
       'ing1',
-      { $set: { unit: 'g' } },
+      { $set: { unit: 'g', minQuantity: 5 } },
       { new: true },
     )
   })

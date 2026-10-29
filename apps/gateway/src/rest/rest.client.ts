@@ -121,7 +121,7 @@ export class RestClient {
           message: body.message ?? `${this.serviceName} devolvió HTTP ${status}`,
           path: body.path ?? path,
           ...(body.details ? { details: body.details } : {}),
-          ...(body.requestId ?? requestId ? { requestId: body.requestId ?? requestId } : {}),
+          ...((body.requestId ?? requestId) ? { requestId: body.requestId ?? requestId } : {}),
         },
         status,
       )
@@ -154,12 +154,7 @@ export class RestClient {
     }
 
     return new GraphQLError(message, {
-      extensions: this.errorExtensions(
-        ERROR_CODES.serviceUnavailable,
-        503,
-        path,
-        requestId,
-      ),
+      extensions: this.errorExtensions(ERROR_CODES.serviceUnavailable, 503, path, requestId),
     })
   }
 

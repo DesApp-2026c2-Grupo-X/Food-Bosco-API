@@ -150,8 +150,8 @@ describe('UserRepository.list (filtros role/active/search + paginación)', () =>
 
     const result = await repository.list({ limit: 10, offset: 20 })
 
-    expect(model.find).toHaveBeenCalledWith({})
-    expect(model.countDocuments).toHaveBeenCalledWith({})
+    expect(model.find).toHaveBeenCalledWith({ deletedAt: null })
+    expect(model.countDocuments).toHaveBeenCalledWith({ deletedAt: null })
     expect(data.sort).toHaveBeenCalledWith({ createdAt: -1 })
     expect(data.skip).toHaveBeenCalledWith(20)
     expect(data.limit).toHaveBeenCalledWith(10)
@@ -178,7 +178,24 @@ describe('UserRepository.list (filtros role/active/search + paginación)', () =>
 
     await repository.list({ ...query, limit: 20, offset: 0 })
 
-    expect(model.find).toHaveBeenCalledWith(expected)
+    expect(model.find).toHaveBeenCalledWith({ deletedAt: null, ...expected })
+  })
+
+  it('filtra por varios roles con $in y descarta los eliminados', async () => {
+    const { model, repository } = makeRepository()
+    model.find.mockReturnValue(chainable([]))
+    model.countDocuments.mockReturnValue(chainable(0))
+
+    await repository.list({
+      roles: ['branch_admin', 'super_admin'],
+      limit: 20,
+      offset: 0,
+    })
+
+    expect(model.find).toHaveBeenCalledWith({
+      deletedAt: null,
+      role: { $in: ['branch_admin', 'super_admin'] },
+    })
   })
 
   it.each([
@@ -193,7 +210,7 @@ describe('UserRepository.list (filtros role/active/search + paginación)', () =>
 
       await repository.list({ active, limit: 20, offset: 0 })
 
-      expect(model.find).toHaveBeenCalledWith({ active })
+      expect(model.find).toHaveBeenCalledWith({ deletedAt: null, active })
     },
   )
 
@@ -253,7 +270,7 @@ describe('UserRepository.list (filtros role/active/search + paginación)', () =>
 
     await repository.list({ role: 'rider', limit: 20, offset: 0 })
 
-    const filter = { role: 'rider' }
+    const filter = { deletedAt: null, role: 'rider' }
     expect(model.find).toHaveBeenCalledWith(filter)
     expect(model.countDocuments).toHaveBeenCalledWith(filter)
   })
@@ -313,6 +330,10 @@ describe('UserRepository.update / setActive', () => {
       name: 'setActive',
       run: (repository: UserRepository) => repository.setActive('not-a-valid-object-id', true),
     },
+    {
+      name: 'softDelete',
+      run: (repository: UserRepository) => repository.softDelete('not-a-valid-object-id'),
+    },
   ])(
     '$name con un id no-ObjectId devuelve null sin consultar la base (apto para 404)',
     async ({ run }) => {
@@ -322,6 +343,70 @@ describe('UserRepository.update / setActive', () => {
       expect(model.findByIdAndUpdate).not.toHaveBeenCalled()
     },
   )
+})
+
+describe('UserRepository.softDelete (baja lógica)', () => {
+  it('marca deletedAt, desactiva al usuario y devuelve el documento actualizado', async () => {
+    const { model, repository } = makeRepository()
+    const doc = buildDoc({ active: false })
+    model.findByIdAndUpdate.mockReturnValue(chainable(doc))
+
+    const result = await repository.softDelete(VALID_ID)
+
+    expect(model.findByIdAndUpdate).toHaveBeenCalledWith(
+      VALID_ID,
+      { $set: { active: false, deletedAt: expect.any(Date) } },
+      { new: true },
+    )
+    expect(result).toBe(doc)
+  })
+
+  it('devuelve null cuando el usuario no existe', async () => {
+    const { model, repository } = makeRepository()
+    model.findByIdAndUpdate.mockReturnValue(chainable(null))
+
+    await expect(repository.softDelete(VALID_ID)).resolves.toBeNull()
+  })
+})
+
+describe('UserRepository.countCustomers (RQ-REP-CLIENTES)', () => {
+  const from = new Date('2026-10-01T00:00:00.000Z')
+  const to = new Date('2026-10-31T23:59:59.999Z')
+
+  it('cuenta clientes no eliminados y los registrados en el período', async () => {
+    const { model, repository } = makeRepository()
+    model.countDocuments.mockReturnValueOnce(chainable(40)).mockReturnValueOnce(chainable(5))
+
+    const result = await repository.countCustomers({ from, to })
+
+    expect(model.countDocuments).toHaveBeenNthCalledWith(1, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(model.countDocuments).toHaveBeenNthCalledWith(2, {
+      role: 'customer',
+      deletedAt: null,
+      createdAt: { $gte: from, $lte: to },
+    })
+    expect(result).toEqual({ total: 40, newInPeriod: 5 })
+  })
+
+  it('sin rango usa el mismo filtro para el total y el período', async () => {
+    const { model, repository } = makeRepository()
+    model.countDocuments.mockReturnValueOnce(chainable(12)).mockReturnValueOnce(chainable(12))
+
+    const result = await repository.countCustomers()
+
+    expect(model.countDocuments).toHaveBeenNthCalledWith(1, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(model.countDocuments).toHaveBeenNthCalledWith(2, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(result).toEqual({ total: 12, newInPeriod: 12 })
+  })
 })
 
 describe('UserRepository.updatePassword (RQ-AUTH-03)', () => {

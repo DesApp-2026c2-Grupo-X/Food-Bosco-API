@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { CommerceClient } from '../config/http/commerce.client'
+import { RefreshTokenModule } from '../refresh-token/refresh-token.module'
 import { MeController } from './me.controller'
 import { StaffOrchestrator } from './staff.orchestrator'
 import { UserController } from './user.controller'
@@ -9,7 +10,10 @@ import { UserRepository } from './user.repository'
 import { UserService } from './user.service'
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: User.name, schema: UserSchema }])],
+  imports: [
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    RefreshTokenModule,
+  ],
   controllers: [UserController, MeController],
   providers: [UserRepository, UserService, CommerceClient, StaffOrchestrator],
   exports: [UserService],

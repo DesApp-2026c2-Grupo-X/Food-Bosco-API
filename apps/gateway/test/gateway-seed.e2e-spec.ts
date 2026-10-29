@@ -36,10 +36,12 @@ const address = {
   userId: 'u-customer',
   id: 'a1',
   label: 'Casa',
-  text: 'Av. Vergara 1250',
-  latitude: -34.587,
-  longitude: -58.634,
+  text: 'Germán Argerich 1333, Hurlingham',
+  latitude: -34.5918429,
+  longitude: -58.6371925,
 }
+
+const customerWithAddresses = { ...customer, addresses: [address] }
 
 const branch = { id: 'b1', name: 'Centro' }
 
@@ -49,7 +51,17 @@ const readyOrder = {
   status: 'ready_for_delivery',
   branchId: 'b1',
   branchLocation: { latitude: -34.589, longitude: -58.636 },
-  deliveryAddress: { text: 'Av. Vergara 1250', latitude: -34.587, longitude: -58.634 },
+  deliveryAddress: { latitude: -34.587, longitude: -58.634, text: 'Calle 1' },
+}
+
+const demoSummary = {
+  enabled: true,
+  batchId: '20261027201511-73',
+  seed: 115,
+  orders: 150,
+  customers: 25,
+  resetDeleted: 0,
+  outOfStockRows: 2,
 }
 
 const startWith =
@@ -58,7 +70,36 @@ const startWith =
     call.url.startsWith(baseUrl)
 
 const isOrdersCall = (call: DownstreamCall): boolean =>
-  Boolean((call.body as { order?: unknown } | undefined)?.order)
+  Boolean((call.body as { customers?: unknown } | undefined)?.customers)
+
+const healthyDownstream = (): ((
+  call: DownstreamCall,
+) => ReturnType<typeof okResponse> | undefined) => {
+  return (call) => {
+    if (startWith(env.services.commerce)(call)) {
+      return isOrdersCall(call)
+        ? okResponse({
+            summary: { branches: 1, orders: 0, demoOrders: 150 },
+            branches: [],
+            orders: [readyOrder],
+            demo: demoSummary,
+          })
+        : okResponse({ summary: { branches: 1 }, branches: [branch] })
+    }
+    if (startWith(env.services.auth)(call)) {
+      return okResponse({
+        summary: { users: 27, addresses: 30 },
+        users: [customer, rider],
+        addresses: [address],
+        customers: [customerWithAddresses],
+      })
+    }
+    if (startWith(env.services.delivery)(call)) {
+      return okResponse({ summary: { riders: 1, readyOrderId: 'o-ready' } })
+    }
+    return undefined
+  }
+}
 
 describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
   let app: INestApplication<App>
@@ -83,58 +124,49 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
 
   beforeEach(() => downstream.reset())
 
-  const seed = (token?: string) => {
+  const seed = (token?: string, body?: Record<string, unknown>) => {
     const req = request(app.getHttpServer()).post('/seed')
     if (token !== undefined) req.set('x-internal-token', token)
+    if (body !== undefined) req.send(body)
     return req
-  }
-
-  const happyPath = (): void => {
-    downstream.setResponder((call) => {
-      if (startWith(env.services.commerce)(call)) {
-        return isOrdersCall(call)
-          ? okResponse({ summary: { branches: 1, orders: 5 }, branches: [], orders: [readyOrder] })
-          : okResponse({ summary: { branches: 1 }, branches: [branch] })
-      }
-      if (startWith(env.services.auth)(call)) {
-        return okResponse({
-          summary: { users: 5, addresses: 1 },
-          users: [customer, rider],
-          addresses: [address],
-        })
-      }
-      if (startWith(env.services.delivery)(call)) {
-        return okResponse({ summary: { riders: 1, readyOrderId: 'o-ready' } })
-      }
-      return undefined
-    })
   }
 
   describe('RQ-GW-12: autenticación con x-internal-token', () => {
     it('sin x-internal-token → 401 y no llama a ningún downstream', async () => {
       const res = await seed().expect(401)
 
-      expect(res.body).toEqual({ statusCode: 401, message: 'Unauthorized' })
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          statusCode: 401,
+          message: 'No autorizado. Se requiere un token interno válido.',
+        }),
+      )
       expect(downstream.calls).toHaveLength(0)
     })
 
     it('token incorrecto → 401 y no llama a ningún downstream', async () => {
       const res = await seed('token-invalido').expect(401)
 
-      expect(res.body).toEqual({ statusCode: 401, message: 'Unauthorized' })
+      expect(res.body).toEqual(
+        expect.objectContaining({
+          statusCode: 401,
+          message: 'No autorizado. Se requiere un token interno válido.',
+        }),
+      )
       expect(downstream.calls).toHaveLength(0)
     })
   })
 
-  describe('orquestación Commerce → Auth → Commerce(pedidos) → Delivery', () => {
+  describe('orquestación Commerce → Auth → Commerce(pedidos demo) → Delivery', () => {
     it('con token válido orquesta en orden y devuelve los resúmenes', async () => {
-      happyPath()
+      downstream.setResponder(healthyDownstream())
 
       const res = await seed(env.internalApiToken).expect(201)
 
       expect(res.body).toEqual({
         commerce: { branches: 1 },
-        auth: { users: 5, addresses: 1 },
+        auth: { users: 27, addresses: 30 },
+        demo: demoSummary,
         delivery: { riders: 1, readyOrderId: 'o-ready' },
       })
 
@@ -153,20 +185,25 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
       expect(commerceCall.headers['x-internal-token']).toBe(env.internalApiToken)
 
       expect(authCall.path).toBe('/v1/seed')
-      expect(authCall.body).toEqual({ branches: [branch] })
+      expect(authCall.body).toEqual({ branches: [branch], demoCustomers: true })
       expect(authCall.headers['x-internal-token']).toBe(env.internalApiToken)
 
       expect(ordersCall.path).toBe('/v1/seed')
       expect(ordersCall.body).toEqual({
-        order: {
-          clientId: 'u-customer',
-          address: {
-            id: 'a1',
-            text: 'Av. Vergara 1250',
-            latitude: -34.587,
-            longitude: -58.634,
+        customers: [
+          {
+            id: 'u-customer',
+            addresses: [
+              {
+                id: 'a1',
+                text: 'Germán Argerich 1333, Hurlingham',
+                latitude: -34.5918429,
+                longitude: -58.6371925,
+              },
+            ],
           },
-        },
+        ],
+        demo: {},
       })
 
       expect(deliveryCall.path).toBe('/v1/seed')
@@ -178,14 +215,61 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
         vehicle: 'Moto Honda CG Titan',
         available: true,
         location: { latitude: -34.589, longitude: -58.636 },
-        readyOrder: {
-          orderId: 'o-ready',
-          branchId: 'b1',
-          branchLocation: { latitude: -34.589, longitude: -58.636 },
-          deliveryAddress: { text: 'Av. Vergara 1250', latitude: -34.587, longitude: -58.634 },
-        },
+        readyOrders: [
+          {
+            orderId: 'o-ready',
+            branchId: 'b1',
+            branchLocation: { latitude: -34.589, longitude: -58.636 },
+            deliveryAddress: { text: 'Calle 1', latitude: -34.587, longitude: -58.634 },
+          },
+        ],
       })
       expect(deliveryCall.headers['x-internal-token']).toBe(env.internalApiToken)
+    })
+
+    it('con demo=false sólo siembra maestros', async () => {
+      downstream.setResponder((call) => {
+        if (startWith(env.services.commerce)(call)) {
+          return okResponse({ summary: { branches: 1 }, branches: [branch] })
+        }
+        if (startWith(env.services.auth)(call)) {
+          return okResponse({ summary: { users: 3 }, users: [customer, rider] })
+        }
+        if (startWith(env.services.delivery)(call)) {
+          return okResponse({ summary: { riders: 1 } })
+        }
+        return undefined
+      })
+
+      const res = await seed(env.internalApiToken, { demo: false }).expect(201)
+
+      expect(res.body).toMatchObject({
+        demo: { enabled: false, orders: 0 },
+        delivery: { riders: 1 },
+      })
+      expect(downstream.calls).toHaveLength(3)
+      expect((downstream.calls[1].body as { demoCustomers: boolean }).demoCustomers).toBe(false)
+    })
+
+    it('reenvía las opciones de demo al pedido de commerce', async () => {
+      downstream.setResponder(healthyDownstream())
+
+      await seed(env.internalApiToken, { orders: 120, days: 60, seed: 7, reset: true }).expect(201)
+
+      const ordersCall = downstream.calls[2]
+      expect((ordersCall.body as { demo: unknown }).demo).toEqual({
+        orders: 120,
+        days: 60,
+        seed: 7,
+        reset: true,
+      })
+    })
+
+    it('rechaza opciones inválidas con 400', async () => {
+      const res = await seed(env.internalApiToken, { orders: 99999 }).expect(400)
+
+      expect(res.body.message).toContain('orders')
+      expect(downstream.calls).toHaveLength(0)
     })
 
     it('sin rider en Auth siembra pedidos pero no Delivery, con { riders: 0 }', async () => {
@@ -193,17 +277,19 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
         if (startWith(env.services.commerce)(call)) {
           return isOrdersCall(call)
             ? okResponse({
-                summary: { branches: 1, orders: 5 },
+                summary: { branches: 1, orders: 0, demoOrders: 150 },
                 branches: [],
                 orders: [readyOrder],
+                demo: demoSummary,
               })
             : okResponse({ summary: { branches: 1 }, branches: [branch] })
         }
         if (startWith(env.services.auth)(call)) {
           return okResponse({
-            summary: { users: 4, addresses: 1 },
+            summary: { users: 25, addresses: 30 },
             users: [customer],
             addresses: [address],
+            customers: [customerWithAddresses],
           })
         }
         return errorResponse(500, 'UNEXPECTED', 'no debería llamarse', call.path)
@@ -211,22 +297,18 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
 
       const res = await seed(env.internalApiToken).expect(201)
 
-      expect(res.body).toEqual({
-        commerce: { branches: 1 },
-        auth: { users: 4, addresses: 1 },
-        delivery: { riders: 0 },
-      })
+      expect(res.body.delivery).toEqual({ riders: 0 })
       expect(downstream.calls).toHaveLength(3)
       expect(downstream.calls.every((call) => !startWith(env.services.delivery)(call))).toBe(true)
     })
 
-    it('sin sucursales reenvía Auth con branches vacío', async () => {
+    it('sin sucursales reenvía Auth con branches vacío y no pide pedidos', async () => {
       downstream.setResponder((call) => {
         if (startWith(env.services.commerce)(call)) {
           return okResponse({ summary: { branches: 0 }, branches: [] })
         }
         if (startWith(env.services.auth)(call)) {
-          return okResponse({ summary: { users: 1 }, users: [] })
+          return okResponse({ summary: { users: 1 }, users: [], customers: [] })
         }
         return undefined
       })
@@ -235,7 +317,8 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
 
       const authCall = downstream.calls[1]
       expect(authCall.url.startsWith(env.services.auth)).toBe(true)
-      expect(authCall.body).toEqual({ branches: [] })
+      expect(authCall.body).toEqual({ branches: [], demoCustomers: true })
+      expect(downstream.calls).toHaveLength(2)
     })
   })
 
@@ -282,17 +365,19 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
         if (startWith(env.services.commerce)(call)) {
           return isOrdersCall(call)
             ? okResponse({
-                summary: { branches: 1, orders: 5 },
+                summary: { branches: 1, orders: 0, demoOrders: 150 },
                 branches: [],
                 orders: [readyOrder],
+                demo: demoSummary,
               })
             : okResponse({ summary: { branches: 1 }, branches: [branch] })
         }
         if (startWith(env.services.auth)(call)) {
           return okResponse({
-            summary: { users: 5, addresses: 1 },
+            summary: { users: 27, addresses: 30 },
             users: [customer, rider],
             addresses: [address],
+            customers: [customerWithAddresses],
           })
         }
         if (startWith(env.services.delivery)(call)) {

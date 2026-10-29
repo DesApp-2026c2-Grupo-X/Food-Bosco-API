@@ -19,6 +19,7 @@ const makeService = (overrides: Partial<Record<string, jest.Mock>> = {}) => {
     list: jest.fn().mockResolvedValue([]),
     findOne: jest.fn().mockResolvedValue(null),
     setQuantity: jest.fn().mockResolvedValue(null),
+    ensureRows: jest.fn().mockResolvedValue(undefined),
     decrementIfAvailable: jest.fn(),
     increment: jest.fn(),
     createMovement: jest.fn().mockResolvedValue({}),
@@ -55,6 +56,16 @@ describe('StockService.list (RQ-STK-01/02/03)', () => {
     await service.list()
 
     expect(repository.list).toHaveBeenCalledWith(undefined)
+  })
+})
+
+describe('StockService.ensureStockRows', () => {
+  it('delega la inicialización de filas de stock en el repositorio', async () => {
+    const { repository, service } = makeService()
+
+    await service.ensureStockRows(['b1', 'b2'], ['i1'])
+
+    expect(repository.ensureRows).toHaveBeenCalledWith(['b1', 'b2'], ['i1'])
   })
 })
 
@@ -207,7 +218,11 @@ describe('StockService.discount (RQ-STK-07/08)', () => {
     expect(repository.increment).toHaveBeenCalledWith('b1', 'i1', 3)
     expect(repository.createMovement).toHaveBeenCalledTimes(1)
     expect(repository.createMovement).toHaveBeenCalledWith(
-      expect.objectContaining({ ingredientId: 'i1', delta: 3, reason: STOCK_MOVEMENT_REASON.adjust }),
+      expect.objectContaining({
+        ingredientId: 'i1',
+        delta: 3,
+        reason: STOCK_MOVEMENT_REASON.adjust,
+      }),
     )
   })
 

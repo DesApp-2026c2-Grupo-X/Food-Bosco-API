@@ -61,6 +61,7 @@ export interface SeedRiderInput {
   available?: boolean
   location?: SeedLocation
   readyOrder?: SeedReadyOrder
+  readyOrders?: SeedReadyOrder[]
 }
 
 export interface SeedResult {
@@ -71,6 +72,7 @@ export interface SeedResult {
   }
   rider: { id: string; userId: string } | null
   readyOrderId: string | null
+  readyOrderIds: string[]
 }
 
 @Injectable()
@@ -96,6 +98,7 @@ export class SeedService {
       },
       rider,
       readyOrderId: null,
+      readyOrderIds: [],
     }
   }
 
@@ -152,7 +155,12 @@ export class SeedService {
     }
 
     await this.applyPresence(input)
-    const readyOrderId = await this.seedReadyOrder(input.readyOrder)
+    const readyOrders = input.readyOrders?.length
+      ? input.readyOrders
+      : input.readyOrder
+        ? [input.readyOrder]
+        : []
+    const readyOrderIds = await this.seedReadyOrders(readyOrders)
 
     return {
       summary: {
@@ -164,7 +172,8 @@ export class SeedService {
         id: rider.id,
         userId: rider.userId,
       },
-      readyOrderId,
+      readyOrderId: readyOrderIds[0] ?? null,
+      readyOrderIds,
     }
   }
 
@@ -182,21 +191,24 @@ export class SeedService {
     }
   }
 
-  private async seedReadyOrder(readyOrder?: SeedReadyOrder): Promise<string | null> {
-    if (!readyOrder) return null
+  private async seedReadyOrders(readyOrders: SeedReadyOrder[]): Promise<string[]> {
+    const orderIds: string[] = []
 
-    const doc = await this.deliveryOrderRepository.upsertReady({
-      orderId: readyOrder.orderId,
-      branchId: readyOrder.branchId,
-      branchLocation: readyOrder.branchLocation,
-      deliveryAddress: readyOrder.deliveryAddress,
-    })
+    for (const readyOrder of readyOrders) {
+      const doc = await this.deliveryOrderRepository.upsertReady({
+        orderId: readyOrder.orderId,
+        branchId: readyOrder.branchId,
+        branchLocation: readyOrder.branchLocation,
+        deliveryAddress: readyOrder.deliveryAddress,
+      })
 
-    if (doc) {
-      Logger.log(`pedido listo para ofertas: ${readyOrder.orderId}`, 'Seed')
+      if (doc) {
+        orderIds.push(doc.orderId)
+        Logger.log(`pedido listo para ofertas: ${readyOrder.orderId}`, 'Seed')
+      }
     }
 
-    return doc?.orderId ?? null
+    return orderIds
   }
 
   private async seedRiderProfileFromAuth(): Promise<{

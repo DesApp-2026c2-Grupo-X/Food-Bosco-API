@@ -28,11 +28,13 @@ interface ServiceMock {
   list: jest.Mock
   createUser: jest.Mock
   setActive: jest.Mock
+  customerStats: jest.Mock
 }
 
 interface OrchestratorMock {
   createStaff: jest.Mock
   updateUser: jest.Mock
+  deleteUser: jest.Mock
 }
 
 const makeController = (
@@ -44,11 +46,13 @@ const makeController = (
     list: jest.fn().mockResolvedValue(emptyList),
     createUser: jest.fn(),
     setActive: jest.fn(),
+    customerStats: jest.fn(),
     ...overrides,
   }
   const orchestrator: OrchestratorMock = {
     createStaff: jest.fn(),
     updateUser: jest.fn(),
+    deleteUser: jest.fn(),
     ...orchestratorOverrides,
   }
   return {
@@ -70,6 +74,33 @@ const staffDto: CreateStaffDto = {
   branchId: 'branch-1',
 }
 
+describe('UserController.customerStats (RQ-REP-CLIENTES)', () => {
+  it('convierte las fechas ISO del query a Date', async () => {
+    const { service, controller } = makeController({
+      customerStats: jest.fn().mockResolvedValue({ total: 40, newInPeriod: 5 }),
+    })
+
+    const result = await controller.customerStats({
+      from: '2026-10-01T00:00:00.000Z',
+      to: '2026-10-31T23:59:59.999Z',
+    })
+
+    expect(service.customerStats).toHaveBeenCalledWith({
+      from: new Date('2026-10-01T00:00:00.000Z'),
+      to: new Date('2026-10-31T23:59:59.999Z'),
+    })
+    expect(result).toEqual({ total: 40, newInPeriod: 5 })
+  })
+
+  it('sin fechas delega un rango vacío', async () => {
+    const { service, controller } = makeController()
+
+    await controller.customerStats({})
+
+    expect(service.customerStats).toHaveBeenCalledWith({ from: undefined, to: undefined })
+  })
+})
+
 describe('UserController.list (RQ-AUTH: listado con filtros)', () => {
   it('aplica los defaults de paginación limit 20 / offset 0', async () => {
     const { service, controller } = makeController()
@@ -81,6 +112,7 @@ describe('UserController.list (RQ-AUTH: listado con filtros)', () => {
 
   it.each<{ name: string; query: UserQueryDto }>([
     { name: 'filtro por rol', query: { role: ROLES.rider } },
+    { name: 'filtro por varios roles', query: { roles: [ROLES.branchAdmin, ROLES.superAdmin] } },
     { name: 'filtro por active false', query: { active: false } },
     { name: 'búsqueda de texto', query: { search: 'juan' } },
   ])('reenvía $name al servicio', async ({ query }) => {
@@ -316,5 +348,31 @@ describe('UserController.setActive (RQ-AUTH-16)', () => {
       code: ERROR_CODES.userNotFound,
       status: 404,
     })
+  })
+})
+
+describe('UserController.remove (baja lógica de colaboradores)', () => {
+  it('delega la baja lógica en el StaffOrchestrator y responde ok', async () => {
+    const { orchestrator, controller } = makeController(
+      {},
+      { deleteUser: jest.fn().mockResolvedValue(undefined) },
+    )
+
+    await expect(controller.remove('u1')).resolves.toEqual({ ok: true })
+    expect(orchestrator.deleteUser).toHaveBeenCalledWith('u1')
+  })
+
+  it.each([
+    { name: 'usuario inexistente', code: ERROR_CODES.userNotFound, status: 404 },
+    { name: 'usuario no colaborador', code: ERROR_CODES.forbidden, status: 403 },
+  ])('propaga el error de $name', async ({ code, status }) => {
+    const { controller } = makeController(
+      {},
+      {
+        deleteUser: jest.fn().mockRejectedValue(new DomainException(code, 'No permitido', status)),
+      },
+    )
+
+    await expect(controller.remove('u1')).rejects.toMatchObject({ code, status })
   })
 })

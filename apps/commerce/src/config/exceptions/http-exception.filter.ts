@@ -4,8 +4,7 @@ import { ERROR_CODES, HEADERS } from '../constants'
 import { DomainException } from './domain.exception'
 
 type ErrorBody =
-  | string
-  | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
+  string | { code?: string; message?: string | string[]; details?: Record<string, unknown> }
 
 const STATUS_CODES: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: ERROR_CODES.validationError,
@@ -24,12 +23,36 @@ const codeForStatus = (status: number): string => STATUS_CODES[status] ?? ERROR_
 const isCastError = (exception: unknown): boolean =>
   exception instanceof Error && exception.name === 'CastError'
 
+const FALLBACK_MESSAGE = 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.'
+
 const extractMessage = (body: ErrorBody): string => {
   if (typeof body === 'string') return body
 
   const message = body.message
   if (Array.isArray(message)) return message.join('; ')
-  return message ?? 'Error'
+  return message ?? FALLBACK_MESSAGE
+}
+
+const translateDefaultMessage = (message: string, status: number): string => {
+  const normalized = message.trim()
+
+  if (status === HttpStatus.UNAUTHORIZED && /^unauthorized$/i.test(normalized)) {
+    return 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.'
+  }
+  if (status === HttpStatus.FORBIDDEN && /^forbidden$/i.test(normalized)) {
+    return 'No tenés permisos para realizar esta acción.'
+  }
+  if (status === HttpStatus.NOT_FOUND && /^not found$/i.test(normalized)) {
+    return 'Recurso no encontrado'
+  }
+  if (status === HttpStatus.INTERNAL_SERVER_ERROR && /^internal server error$/i.test(normalized)) {
+    return 'Error interno del servidor'
+  }
+  if (/^error$/i.test(normalized)) {
+    return FALLBACK_MESSAGE
+  }
+
+  return message
 }
 
 const extractCode = (body: ErrorBody, status: number): string =>
@@ -75,7 +98,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       response.status(status).json(
         withCorrelation({
           code: extractCode(body, status),
-          message: extractMessage(body),
+          message: translateDefaultMessage(extractMessage(body), status),
           ...(details ? { details } : {}),
           path,
         }),
@@ -88,7 +111,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (isCastError(exception)) {
       response
         .status(HttpStatus.NOT_FOUND)
-        .json(withCorrelation({ code: ERROR_CODES.notFound, message: 'Recurso no encontrado', path }))
+        .json(
+          withCorrelation({ code: ERROR_CODES.notFound, message: 'Recurso no encontrado', path }),
+        )
       return
     }
 

@@ -3,7 +3,13 @@ import { compare, hash } from 'bcryptjs'
 import { ERROR_CODES, Role } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { PublicUser, serializeUser } from './user.model'
-import { UpdateUserData, UserListQuery, UserRepository } from './user.repository'
+import {
+  CustomerStats,
+  CustomerStatsRange,
+  UpdateUserData,
+  UserListQuery,
+  UserRepository,
+} from './user.repository'
 
 export type { PublicUser } from './user.model'
 
@@ -62,7 +68,7 @@ export class UserService {
       throw new DomainException(ERROR_CODES.invalidCredentials, INVALID_CREDENTIALS_MESSAGE, 401)
     }
 
-    if (!doc.active) {
+    if (!doc.active || doc.deletedAt != null) {
       throw new DomainException(ERROR_CODES.userInactive, INACTIVE_USER_MESSAGE, 403)
     }
 
@@ -87,6 +93,10 @@ export class UserService {
     }
   }
 
+  customerStats(range: CustomerStatsRange = {}): Promise<CustomerStats> {
+    return this.repository.countCustomers(range)
+  }
+
   async update(id: string, patch: UpdateUserData): Promise<PublicUser | null> {
     const doc = await this.repository.update(id, patch)
     return doc ? serializeUser(doc) : null
@@ -94,6 +104,11 @@ export class UserService {
 
   async setActive(id: string, active: boolean): Promise<PublicUser | null> {
     const doc = await this.repository.setActive(id, active)
+    return doc ? serializeUser(doc) : null
+  }
+
+  async softDelete(id: string): Promise<PublicUser | null> {
+    const doc = await this.repository.softDelete(id)
     return doc ? serializeUser(doc) : null
   }
 

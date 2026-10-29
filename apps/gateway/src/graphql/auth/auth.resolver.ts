@@ -1,5 +1,5 @@
 import { Inject, UseGuards } from '@nestjs/common'
-import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { Throttle } from '@nestjs/throttler'
 import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
@@ -117,6 +117,7 @@ export class AuthResolver {
       context: toRestContext(ctx),
       query: {
         role: filter?.role ? roleToRest(filter.role) : undefined,
+        roles: filter?.roles?.length ? filter.roles.map(roleToRest).join(',') : undefined,
         active: filter?.active,
         search: filter?.search,
         limit: page?.limit,
@@ -132,7 +133,10 @@ export class AuthResolver {
 
   @Query(() => User)
   @Roles(ROLES.superAdmin)
-  async user(@Args('id') id: string, @Context() ctx: GraphQLContext): Promise<User> {
+  async user(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User> {
     const raw = await this.rest.get<RawRecord>(`/v1/users/${id}`, { context: toRestContext(ctx) })
     return mapUser(raw)
   }
@@ -179,7 +183,7 @@ export class AuthResolver {
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
   async updateUser(
-    @Args('id') id: string,
+    @Args('id', { type: () => ID }) id: string,
     @Args('input') input: UpdateUserInput,
     @Context() ctx: GraphQLContext,
   ): Promise<User> {
@@ -193,7 +197,7 @@ export class AuthResolver {
   @Mutation(() => User)
   @Roles(ROLES.superAdmin)
   async setUserActive(
-    @Args('id') id: string,
+    @Args('id', { type: () => ID }) id: string,
     @Args('active') active: boolean,
     @Context() ctx: GraphQLContext,
   ): Promise<User> {
@@ -202,6 +206,16 @@ export class AuthResolver {
       context: toRestContext(ctx),
     })
     return mapUser(raw)
+  }
+
+  @Mutation(() => Boolean)
+  @Roles(ROLES.superAdmin)
+  async deleteUser(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<boolean> {
+    await this.rest.delete(`/v1/users/${id}`, { context: toRestContext(ctx) })
+    return true
   }
 
   @Query(() => [Address])
@@ -215,7 +229,10 @@ export class AuthResolver {
 
   @Query(() => Address)
   @Roles(ROLES.customer)
-  async address(@Args('id') id: string, @Context() ctx: GraphQLContext): Promise<Address> {
+  async address(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Address> {
     const raw = await this.rest.get<RawRecord>(`/v1/addresses/${id}`, {
       context: toRestContext(ctx),
     })
@@ -238,7 +255,7 @@ export class AuthResolver {
   @Mutation(() => Address)
   @Roles(ROLES.customer)
   async updateAddress(
-    @Args('id') id: string,
+    @Args('id', { type: () => ID }) id: string,
     @Args('input') input: UpdateAddressInput,
     @Context() ctx: GraphQLContext,
   ): Promise<Address> {
@@ -251,7 +268,10 @@ export class AuthResolver {
 
   @Mutation(() => Boolean)
   @Roles(ROLES.customer)
-  async deleteAddress(@Args('id') id: string, @Context() ctx: GraphQLContext): Promise<boolean> {
+  async deleteAddress(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<boolean> {
     await this.rest.delete(`/v1/addresses/${id}`, { context: toRestContext(ctx) })
     return true
   }

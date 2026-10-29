@@ -177,15 +177,45 @@ describe('HttpExceptionFilter — HttpException (RQ-REST-07, NFR-05)', () => {
     expect(captured().body.message).toBe('objeto con mensaje')
   })
 
-  it('cae a "Error" cuando el body no tiene mensaje', () => {
+  it('usa un mensaje genérico en español cuando el body no tiene mensaje', () => {
     const { host, captured } = buildHost('/v1/x')
 
     filter.catch(new HttpException({}, 400), host)
 
     expect(captured().body).toEqual({
       code: ERROR_CODES.validationError,
-      message: 'Error',
+      message: 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
       path: '/v1/x',
+    })
+  })
+
+  it.each([
+    {
+      name: '401 Unauthorized por defecto',
+      error: new UnauthorizedException(),
+      status: HttpStatus.UNAUTHORIZED,
+      expected: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+    },
+    {
+      name: '403 Forbidden por defecto',
+      error: new ForbiddenException(),
+      status: HttpStatus.FORBIDDEN,
+      expected: 'No tenés permisos para realizar esta acción.',
+    },
+    {
+      name: '404 Not Found por defecto',
+      error: new NotFoundException(),
+      status: HttpStatus.NOT_FOUND,
+      expected: 'Recurso no encontrado',
+    },
+  ])('traduce $name al español', ({ error, status, expected }) => {
+    const { host, captured } = buildHost('/v1/x')
+
+    filter.catch(error, host)
+
+    expect(captured()).toEqual({
+      status,
+      body: expect.objectContaining({ message: expected }),
     })
   })
 

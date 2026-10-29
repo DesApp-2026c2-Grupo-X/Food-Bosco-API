@@ -28,14 +28,16 @@ Documentos canónicos y vigentes.
 
 Documentos de referencia actuales (no canónicos o derivados).
 
-| Documento                         | Qué es                                                                     | Fecha             | Link                                                                        |
-| --------------------------------- | -------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
-| Especificación funcional Frontend | Copia de referencia del alcance funcional de los frontends (v1.3).         | 2026-08-25 (repo) | [`requerimientos-frontend.md`](especificaciones/requerimientos-frontend.md) |
-| UI Manifesto                      | Copia de referencia del sistema visual y de producto del frontend.         | 2026-08-25 (repo) | [`ui-manifesto.md`](especificaciones/ui-manifesto.md)                       |
-| Recuperación de contraseña        | Implementación del flujo de recuperación y reset (Auth Service + Gateway). | 2026-09-23        | [`password-recovery.md`](implementacion/password-recovery.md)               |
-| Reporte de bugs                   | Hallazgos e inconsistencias documentados por la suite de tests.            | 2026-09-19        | [`bug-report.md`](testing/bug-report.md)                                    |
-| Matriz de cobertura               | Matriz capability → reglas → casos → tests.                                | 2026-09-19        | [`matriz-cobertura.md`](testing/matriz-cobertura.md)                        |
-| Guía de defensa/demo (Backend)    | Guía técnica de defensa/demo, reconstruida leyendo el código.              | 2026-10-20        | [`API_DEMO_GUIDE.md`](API_DEMO_GUIDE.md)                                    |
+| Documento                         | Qué es                                                                     | Fecha             | Link                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------ |
+| Especificación funcional Frontend | Copia de referencia del alcance funcional de los frontends (v1.3).         | 2026-08-25 (repo) | [`requerimientos-frontend.md`](especificaciones/requerimientos-frontend.md)    |
+| UI Manifesto                      | Copia de referencia del sistema visual y de producto del frontend.         | 2026-08-25 (repo) | [`ui-manifesto.md`](especificaciones/ui-manifesto.md)                          |
+| Recuperación de contraseña        | Implementación del flujo de recuperación y reset (Auth Service + Gateway). | 2026-09-23        | [`password-recovery.md`](implementacion/password-recovery.md)                  |
+| Reporte de bugs                   | Hallazgos e inconsistencias documentados por la suite de tests.            | 2026-09-19        | [`bug-report.md`](testing/bug-report.md)                                       |
+| Matriz de cobertura               | Matriz capability → reglas → casos → tests.                                | 2026-09-19        | [`matriz-cobertura.md`](testing/matriz-cobertura.md)                           |
+| Guía de defensa/demo (Backend)    | Guía técnica de defensa/demo, reconstruida leyendo el código.              | 2026-10-20        | [`API_DEMO_GUIDE.md`](API_DEMO_GUIDE.md)                                       |
+| Credenciales y uso del seed       | Usuarios, clientes demo, pedidos, comandos y verificación de direcciones.  | 2026-10-27        | [`credenciales-seed.md`](credenciales-seed.md)                                 |
+| Colección Postman — Seed          | Requests listas para generar los datos de demo desde Postman.              | 2026-10-27        | [`postman/seed.postman_collection.json`](postman/seed.postman_collection.json) |
 
 ## HISTÓRICO / OBSOLETO
 

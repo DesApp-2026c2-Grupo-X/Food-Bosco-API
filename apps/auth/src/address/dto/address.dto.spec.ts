@@ -124,6 +124,8 @@ describe('UpdateAddressDto (RQ-AUTH-20)', () => {
     { name: 'city de 101 caracteres', payload: { city: 'a'.repeat(101) }, valid: false },
     { name: 'postalCode de 21 caracteres', payload: { postalCode: 'a'.repeat(21) }, valid: false },
     { name: 'label numérico', payload: { label: 123 }, valid: false },
+    { name: 'label vacío', payload: { label: '' }, valid: false },
+    { name: 'text vacío', payload: { text: '' }, valid: false },
   ])('$name → válido=$valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateAddressDto, payload)
     expect(invalid.length === 0).toBe(valid)
@@ -145,9 +147,12 @@ describe('UpdateAddressDto (RQ-AUTH-20)', () => {
     expect(invalid.length === 0).toBe(valid)
   })
 
-  it('acepta label vacío porque no tiene @IsNotEmpty', async () => {
-    const { invalid } = await check(UpdateAddressDto, { label: '' })
-    expect(invalid).toEqual([])
+  it.each([
+    { name: 'label vacío', payload: { label: '' }, property: 'label' },
+    { name: 'text vacío', payload: { text: '' }, property: 'text' },
+  ])('rechaza $name', async ({ payload, property }) => {
+    const { invalid } = await check(UpdateAddressDto, payload)
+    expect(invalid).toContain(property)
   })
 
   it('con whitelist descarta userId inyectado', async () => {

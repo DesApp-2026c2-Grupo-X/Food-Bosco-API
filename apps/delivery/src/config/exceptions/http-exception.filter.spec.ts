@@ -96,7 +96,7 @@ describe('HttpExceptionFilter', () => {
     )
   })
 
-  it('usa un mensaje por defecto cuando el HttpException no trae message', () => {
+  it('usa un mensaje genérico en español cuando el HttpException no trae message', () => {
     const { host, json } = makeHost()
     const exception = new HttpException({}, 418)
 
@@ -104,9 +104,31 @@ describe('HttpExceptionFilter', () => {
 
     expect(json).toHaveBeenCalledWith({
       code: ERROR_CODES.internal,
-      message: 'Error',
+      message: 'Ocurrió un error inesperado. Intentá de nuevo en unos instantes.',
       path: '/v1/trips',
     })
+  })
+
+  it.each([
+    {
+      name: '401 Unauthorized por defecto',
+      exception: new UnauthorizedException(),
+      status: 401,
+      expected: 'Tu sesión expiró o no es válida. Iniciá sesión nuevamente.',
+    },
+    {
+      name: '403 Forbidden por defecto',
+      exception: new ForbiddenException(),
+      status: 403,
+      expected: 'No tenés permisos para realizar esta acción.',
+    },
+  ])('traduce $name al español', ({ exception, status, expected }) => {
+    const { host, status: statusFn, json } = makeHost()
+
+    filter.catch(exception, host)
+
+    expect(statusFn).toHaveBeenCalledWith(status)
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ message: expected }))
   })
 
   it('mapea HttpException no clasificadas a INTERNAL_SERVER_ERROR conservando el status', () => {

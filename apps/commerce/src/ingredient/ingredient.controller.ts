@@ -32,7 +32,7 @@ export class IngredientController {
   @Post()
   @Roles(ROLES.superAdmin)
   create(@Body() dto: CreateIngredientDto): Promise<PublicIngredient> {
-    return this.ingredientService.create(dto)
+    return this.orchestrator.create(dto)
   }
 
   @Get(':ingredientId')

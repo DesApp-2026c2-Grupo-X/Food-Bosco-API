@@ -7,6 +7,7 @@ import { ParameterService } from '../parameter/parameter.service'
 import { ProductService } from '../product/product.service'
 import { PromotionService } from '../promotion/promotion.service'
 import { StockService } from '../stock/stock.service'
+import { DemoOrdersRepository } from './demo/demo-orders.repository'
 import { SeedService } from './seed.service'
 
 const existingEntity = (overrides: Record<string, unknown> = {}) => overrides
@@ -24,12 +25,16 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
       id: `i-${seed.name}`,
       name: seed.name,
     })),
+    update: jest.fn().mockResolvedValue(null),
   },
   branchService: {
     list: jest.fn().mockResolvedValue({ data: [] }),
     upsertByName: jest.fn().mockImplementation(async (seed: { name: string }) => ({
       id: `b-${seed.name}`,
       name: seed.name,
+      latitude: -34.59,
+      longitude: -58.63,
+      active: true,
       hours: [],
     })),
     updateHours: jest.fn().mockResolvedValue(null),
@@ -62,6 +67,23 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
     })),
     applyTransition: jest.fn().mockResolvedValue({ changed: true }),
   },
+  demoOrdersRepository: {
+    count: jest.fn().mockResolvedValue(0),
+    insert: jest
+      .fn()
+      .mockImplementation(
+        async (planned: { status: string; branchId: string; createdAt: Date }[]) =>
+          planned.map((order, index) => ({
+            id: `demo-${index}`,
+            number: String(index + 1).padStart(6, '0'),
+            status: order.status,
+            branchId: order.branchId,
+            deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
+            createdAt: order.createdAt,
+          })),
+      ),
+    resetDemoData: jest.fn().mockResolvedValue(0),
+  },
   ...overrides,
 })
 
@@ -76,6 +98,7 @@ const instantiate = (mocks: ReturnType<typeof buildMocks>) =>
     mocks.promotionService as unknown as PromotionService,
     mocks.stockService as unknown as StockService,
     mocks.orderService as unknown as OrderService,
+    mocks.demoOrdersRepository as unknown as DemoOrdersRepository,
   )
 
 describe('SeedService (commerce)', () => {
@@ -122,7 +145,7 @@ describe('SeedService (commerce)', () => {
     expect(result.branches).toHaveLength(3)
   })
 
-  it('es idempotente: no vuelve a crear catálogo que ya existe', async () => {
+  it('es idempotente: no vuelve a crear catálogo que ya existe y actualiza minQuantity si estaba en 0', async () => {
     const mocks = buildMocks({
       categoryService: {
         list: jest.fn().mockResolvedValue({
@@ -134,11 +157,17 @@ describe('SeedService (commerce)', () => {
         upsertByName: jest.fn(),
       },
       ingredientService: {
-        list: jest.fn().mockResolvedValue({ data: [] }),
+        list: jest.fn().mockResolvedValue({
+          data: [
+            { id: 'i-papa', name: 'Papa', unit: 'kg', minQuantity: 0, active: true },
+            { id: 'i-agua', name: 'Agua', unit: 'botella', minQuantity: 25, active: true },
+          ],
+        }),
         upsertByName: jest.fn().mockImplementation(async (seed: { name: string }) => ({
           id: `i-${seed.name}`,
           name: seed.name,
         })),
+        update: jest.fn().mockResolvedValue(null),
       },
     })
     const service = instantiate(mocks)
@@ -146,6 +175,8 @@ describe('SeedService (commerce)', () => {
     const result = await service.seed()
 
     expect(mocks.categoryService.upsertByName).not.toHaveBeenCalled()
+    expect(mocks.ingredientService.update).toHaveBeenCalledWith('i-papa', { minQuantity: 5 })
+    expect(mocks.ingredientService.update).not.toHaveBeenCalledWith('i-agua', expect.anything())
     expect(result.summary.categories).toBe(5)
   })
 
@@ -256,6 +287,89 @@ describe('SeedService (commerce)', () => {
 
       expect(mocks.orderService.create).not.toHaveBeenCalled()
       expect(result.summary.orders).toBe(0)
+    })
+
+    const demoCustomers = [
+      {
+        id: 'c-1',
+        addresses: [
+          {
+            id: 'a-1',
+            text: 'Germán Argerich 1333, Hurlingham',
+            latitude: -34.5918429,
+            longitude: -58.6371925,
+          },
+        ],
+      },
+    ]
+
+    it('genera un lote histórico de pedidos cuando recibe clientes', async () => {
+      const mocks = withProducts()
+
+      const result = await instantiate(mocks).seed({
+        customers: demoCustomers,
+        demo: { orders: 25, days: 30, seed: 42 },
+      })
+
+      expect(mocks.demoOrdersRepository.insert).toHaveBeenCalledTimes(1)
+      const [planned, batchId] = mocks.demoOrdersRepository.insert.mock.calls[0] as [
+        { createdAt: Date; clientId: string; status: string }[],
+        string,
+      ]
+
+      expect(planned).toHaveLength(25)
+      expect(planned.every((order) => order.clientId === 'c-1')).toBe(true)
+      expect(planned.every((order) => order.createdAt.getTime() <= Date.now())).toBe(true)
+      expect(batchId).toMatch(/^\d{14}-/)
+      expect(result.demo).toMatchObject({ enabled: true, orders: 25, customers: 1, seed: 42 })
+      expect(result.summary.demoOrders).toBe(25)
+    })
+
+    it('es reproducible: la misma semilla genera el mismo lote', async () => {
+      const first = withProducts()
+      const second = withProducts()
+
+      await instantiate(first).seed({ customers: demoCustomers, demo: { orders: 10, seed: 99 } })
+      await instantiate(second).seed({ customers: demoCustomers, demo: { orders: 10, seed: 99 } })
+
+      const firstPlanned = first.demoOrdersRepository.insert.mock.calls[0][0] as {
+        status: string
+        items: { name: string; quantity: number }[]
+      }[]
+      const secondPlanned = second.demoOrdersRepository.insert.mock.calls[0][0] as {
+        status: string
+        items: { name: string; quantity: number }[]
+      }[]
+
+      const snapshot = (orders: typeof firstPlanned) =>
+        orders.map((order) => ({
+          status: order.status,
+          items: order.items.map((item) => [item.name, item.quantity]),
+        }))
+
+      expect(snapshot(firstPlanned)).toEqual(snapshot(secondPlanned))
+    })
+
+    it('resetea los lotes previos cuando se pide reset', async () => {
+      const mocks = withProducts()
+
+      const result = await instantiate(mocks).seed({
+        customers: demoCustomers,
+        demo: { orders: 3, seed: 7, reset: true },
+      })
+
+      expect(mocks.demoOrdersRepository.resetDemoData).toHaveBeenCalledTimes(1)
+      expect(result.demo.resetDeleted).toBe(0)
+    })
+
+    it('sin clientes no genera lote histórico', async () => {
+      const mocks = withProducts()
+
+      const result = await instantiate(mocks).seed({ demo: { orders: 10, seed: 1 } })
+
+      expect(mocks.demoOrdersRepository.insert).not.toHaveBeenCalled()
+      expect(result.demo.enabled).toBe(false)
+      expect(result.summary.demoOrders).toBe(0)
     })
   })
 })
