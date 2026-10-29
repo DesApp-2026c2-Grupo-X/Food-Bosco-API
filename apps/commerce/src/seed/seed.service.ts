@@ -87,16 +87,22 @@ interface ParameterSeed {
   unit: string
 }
 
+interface LowStockSeed {
+  branch: string
+  items: { ingredient: string; quantity: number }[]
+}
+
 interface DemoSeedConfig extends DemoOrderConfig {
   outOfStock: {
     branch: string
     ingredients: string[]
   }
+  lowStock?: LowStockSeed[]
 }
 
 interface CommerceSeedData {
   categories: string[]
-  ingredients: { name: string; unit: string }[]
+  ingredients: { name: string; unit: string; minQuantity?: number }[]
   hours: HoursSchedule
   branches: BranchSeed[]
   products: ProductSeed[]
@@ -406,25 +412,42 @@ export class SeedService {
     branches: { id: string; name: string }[],
     ingredients: Map<string, string>,
   ): Promise<number> {
-    const branch = branches.find((entry) => entry.name === config.outOfStock.branch)
-    if (!branch) return 0
-
-    const stock = await this.stockService.list(branch.id)
     let adjusted = 0
+    const outBranch = branches.find((entry) => entry.name === config.outOfStock.branch)
 
-    for (const name of config.outOfStock.ingredients) {
-      const ingredientId = ingredients.get(name)
-      if (!ingredientId) continue
+    if (outBranch) {
+      const stock = await this.stockService.list(outBranch.id)
 
-      const row = stock.find((entry) => entry.ingredientId === ingredientId)
-      if (!row || row.quantity <= 0) continue
+      for (const name of config.outOfStock.ingredients) {
+        const ingredientId = ingredients.get(name)
+        if (!ingredientId) continue
 
-      await this.stockService.adjust(branch.id, ingredientId, -row.quantity)
-      adjusted += 1
+        const row = stock.find((entry) => entry.ingredientId === ingredientId)
+        if (!row || row.quantity <= 0) continue
+
+        await this.stockService.adjust(outBranch.id, ingredientId, -row.quantity)
+        adjusted += 1
+      }
+
+      if (adjusted > 0) {
+        Logger.log(`stock agotado en ${outBranch.name}: ${adjusted} ingrediente(s)`, 'Seed')
+      }
     }
 
-    if (adjusted > 0) {
-      Logger.log(`stock agotado en ${branch.name}: ${adjusted} ingrediente(s)`, 'Seed')
+    for (const group of config.lowStock ?? []) {
+      const targetBranch = branches.find((entry) => entry.name === group.branch)
+      if (!targetBranch) continue
+
+      const stock = await this.stockService.list(targetBranch.id)
+      for (const item of group.items) {
+        const ingredientId = ingredients.get(item.ingredient)
+        if (!ingredientId) continue
+
+        const row = stock.find((entry) => entry.ingredientId === ingredientId)
+        if (!row || row.quantity <= item.quantity) continue
+
+        await this.stockService.adjust(targetBranch.id, ingredientId, item.quantity - row.quantity)
+      }
     }
 
     return adjusted
@@ -578,7 +601,7 @@ export class SeedService {
   }
 
   private async seedIngredients(
-    ingredients: { name: string; unit: string }[],
+    ingredients: { name: string; unit: string; minQuantity?: number }[],
   ): Promise<Map<string, string>> {
     const { data } = await this.ingredientService.list({ limit: 500, offset: 0 })
     const byName = new Map<string, string>()
@@ -586,6 +609,9 @@ export class SeedService {
     for (const seed of ingredients) {
       const existing = data.find((ingredient) => ingredient.name === seed.name)
       if (existing) {
+        if ((existing.minQuantity ?? 0) === 0 && (seed.minQuantity ?? 0) > 0) {
+          await this.ingredientService.update(existing.id, { minQuantity: seed.minQuantity })
+        }
         byName.set(existing.name, existing.id)
         continue
       }

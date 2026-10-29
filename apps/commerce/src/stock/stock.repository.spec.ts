@@ -19,6 +19,7 @@ const makeRepository = () => {
     find: jest.fn(),
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
+    bulkWrite: jest.fn().mockResolvedValue({}),
   }
   const movementModel = { create: jest.fn() }
   const repository = new StockRepository(
@@ -100,6 +101,43 @@ describe('StockRepository.setQuantity (RQ-STK-04)', () => {
     stockModel.findOneAndUpdate.mockReturnValue(execQuery(null))
 
     await expect(repository.setQuantity('b1', 'i1', 0)).resolves.toBeNull()
+  })
+})
+
+describe('StockRepository.ensureRows', () => {
+  it('ejecuta bulkWrite con $setOnInsert quantity 0 para el producto cartesiano de sucursales e ingredientes', async () => {
+    const { repository, stockModel } = makeRepository()
+
+    await repository.ensureRows(['b1', 'b2'], ['i1'])
+
+    expect(stockModel.bulkWrite).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { branchId: 'b1', ingredientId: 'i1' },
+            update: { $setOnInsert: { branchId: 'b1', ingredientId: 'i1', quantity: 0 } },
+            upsert: true,
+          },
+        },
+        {
+          updateOne: {
+            filter: { branchId: 'b2', ingredientId: 'i1' },
+            update: { $setOnInsert: { branchId: 'b2', ingredientId: 'i1', quantity: 0 } },
+            upsert: true,
+          },
+        },
+      ],
+      { ordered: false },
+    )
+  })
+
+  it('no invoca bulkWrite si alguna lista está vacía', async () => {
+    const { repository, stockModel } = makeRepository()
+
+    await repository.ensureRows([], ['i1'])
+    await repository.ensureRows(['b1'], [])
+
+    expect(stockModel.bulkWrite).not.toHaveBeenCalled()
   })
 })
 

@@ -8,12 +8,14 @@ import { INGREDIENT_ALREADY_EXISTS, Ingredient, IngredientDocument } from './ing
 export interface CreateIngredientData {
   name: string
   unit: string
+  minQuantity?: number
   active?: boolean
 }
 
 export interface UpdateIngredientData {
   name?: string
   unit?: string
+  minQuantity?: number
   active?: boolean
 }
 
@@ -40,7 +42,11 @@ export class IngredientRepository {
 
   async create(data: CreateIngredientData): Promise<IngredientDocument> {
     try {
-      return await this.model.create({ ...data, active: data.active ?? true })
+      return await this.model.create({
+        ...data,
+        minQuantity: data.minQuantity ?? 0,
+        active: data.active ?? true,
+      })
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         throw new DomainException(
@@ -57,7 +63,7 @@ export class IngredientRepository {
     return this.model
       .findOneAndUpdate(
         { name: data.name },
-        { $setOnInsert: { ...data, active: true } },
+        { $setOnInsert: { ...data, minQuantity: data.minQuantity ?? 0, active: true } },
         { new: true, upsert: true },
       )
       .exec()

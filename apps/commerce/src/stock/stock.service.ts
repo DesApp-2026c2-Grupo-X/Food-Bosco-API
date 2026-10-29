@@ -17,6 +17,10 @@ export class StockService {
     return docs.map(serializeBranchStock)
   }
 
+  async ensureStockRows(branchIds: string[], ingredientIds: string[]): Promise<void> {
+    await this.repository.ensureRows(branchIds, ingredientIds)
+  }
+
   async adjust(
     branchId: string,
     ingredientId: string,

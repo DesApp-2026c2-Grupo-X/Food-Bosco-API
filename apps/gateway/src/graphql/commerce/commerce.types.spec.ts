@@ -136,16 +136,19 @@ describe('mapRecipeItem', () => {
 
 describe('mapIngredient', () => {
   it('mapea un ingrediente completo', () => {
-    expect(mapIngredient({ id: 'i1', name: 'Carne', unit: 'g', active: true })).toEqual({
+    expect(
+      mapIngredient({ id: 'i1', name: 'Carne', unit: 'g', minQuantity: 10, active: true }),
+    ).toEqual({
       id: 'i1',
       name: 'Carne',
       unit: 'g',
+      minQuantity: 10,
       active: true,
     })
   })
 
   it('aplica defaults ante ausencia de datos', () => {
-    expect(mapIngredient({})).toEqual({ id: '', name: '', unit: '', active: false })
+    expect(mapIngredient({})).toEqual({ id: '', name: '', unit: '', minQuantity: 0, active: false })
   })
 })
 
@@ -616,7 +619,7 @@ describe('mapCustomerReportsOverview', () => {
     expect(result.ordersByStatus).toEqual([{ status: OrderStatus.DELIVERED, count: 2 }])
   })
 
-  it('tolera payloads vac�os', () => {
+  it('tolera payloads vacíos', () => {
     const result = mapCustomerReportsOverview({})
 
     expect(result.summary).toMatchObject({

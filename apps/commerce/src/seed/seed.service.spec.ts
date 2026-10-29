@@ -25,6 +25,7 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
       id: `i-${seed.name}`,
       name: seed.name,
     })),
+    update: jest.fn().mockResolvedValue(null),
   },
   branchService: {
     list: jest.fn().mockResolvedValue({ data: [] }),
@@ -144,7 +145,7 @@ describe('SeedService (commerce)', () => {
     expect(result.branches).toHaveLength(3)
   })
 
-  it('es idempotente: no vuelve a crear catálogo que ya existe', async () => {
+  it('es idempotente: no vuelve a crear catálogo que ya existe y actualiza minQuantity si estaba en 0', async () => {
     const mocks = buildMocks({
       categoryService: {
         list: jest.fn().mockResolvedValue({
@@ -156,11 +157,17 @@ describe('SeedService (commerce)', () => {
         upsertByName: jest.fn(),
       },
       ingredientService: {
-        list: jest.fn().mockResolvedValue({ data: [] }),
+        list: jest.fn().mockResolvedValue({
+          data: [
+            { id: 'i-papa', name: 'Papa', unit: 'kg', minQuantity: 0, active: true },
+            { id: 'i-agua', name: 'Agua', unit: 'botella', minQuantity: 25, active: true },
+          ],
+        }),
         upsertByName: jest.fn().mockImplementation(async (seed: { name: string }) => ({
           id: `i-${seed.name}`,
           name: seed.name,
         })),
+        update: jest.fn().mockResolvedValue(null),
       },
     })
     const service = instantiate(mocks)
@@ -168,6 +175,8 @@ describe('SeedService (commerce)', () => {
     const result = await service.seed()
 
     expect(mocks.categoryService.upsertByName).not.toHaveBeenCalled()
+    expect(mocks.ingredientService.update).toHaveBeenCalledWith('i-papa', { minQuantity: 5 })
+    expect(mocks.ingredientService.update).not.toHaveBeenCalledWith('i-agua', expect.anything())
     expect(result.summary.categories).toBe(5)
   })
 

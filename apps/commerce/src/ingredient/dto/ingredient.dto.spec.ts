@@ -26,6 +26,16 @@ describe('CreateIngredientDto (RQ-CAT-09)', () => {
   it.each([
     { name: 'nombre y unidad válidos', payload: { name: 'Papa', unit: 'kg' }, valid: true },
     {
+      name: 'con minQuantity 0',
+      payload: { name: 'Papa', unit: 'kg', minQuantity: 0 },
+      valid: true,
+    },
+    {
+      name: 'con minQuantity entero positivo',
+      payload: { name: 'Papa', unit: 'kg', minQuantity: 10 },
+      valid: true,
+    },
+    {
       name: 'con active false',
       payload: { name: 'Papa', unit: 'kg', active: false },
       valid: true,
@@ -47,6 +57,21 @@ describe('CreateIngredientDto (RQ-CAT-09)', () => {
     {
       name: 'unidad de 51 caracteres',
       payload: { name: 'Papa', unit: 'u'.repeat(51) },
+      valid: false,
+    },
+    {
+      name: 'minQuantity negativo',
+      payload: { name: 'Papa', unit: 'kg', minQuantity: -1 },
+      valid: false,
+    },
+    {
+      name: 'minQuantity decimal',
+      payload: { name: 'Papa', unit: 'kg', minQuantity: 2.5 },
+      valid: false,
+    },
+    {
+      name: 'minQuantity no numérico',
+      payload: { name: 'Papa', unit: 'kg', minQuantity: 'diez' },
       valid: false,
     },
     {
@@ -76,11 +101,14 @@ describe('UpdateIngredientDto', () => {
     { name: 'payload vacío (todo opcional)', payload: {}, valid: true },
     { name: 'sólo nombre', payload: { name: 'Queso' }, valid: true },
     { name: 'sólo unidad', payload: { unit: 'g' }, valid: true },
+    { name: 'sólo minQuantity', payload: { minQuantity: 5 }, valid: true },
     { name: 'sólo active', payload: { active: false }, valid: true },
     { name: 'nombre vacío', payload: { name: '' }, valid: false },
     { name: 'nombre de 101 caracteres', payload: { name: 'a'.repeat(101) }, valid: false },
     { name: 'unidad vacía', payload: { unit: '' }, valid: false },
     { name: 'unidad de 51 caracteres', payload: { unit: 'u'.repeat(51) }, valid: false },
+    { name: 'minQuantity negativo', payload: { minQuantity: -1 }, valid: false },
+    { name: 'minQuantity decimal', payload: { minQuantity: 1.5 }, valid: false },
     { name: 'active no booleano', payload: { active: 'no' }, valid: false },
   ])('$name → $valid', async ({ payload, valid }) => {
     const { invalid } = await check(UpdateIngredientDto, payload)

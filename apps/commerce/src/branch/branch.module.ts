@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common'
+import { forwardRef, Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
+import { IngredientModule } from '../ingredient/ingredient.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
+import { StockModule } from '../stock/stock.module'
 import { BranchController } from './branch.controller'
 import { BranchOrchestrator } from './branch.orchestrator'
 import { Branch, BranchSchema } from './branch.model'
@@ -20,6 +22,8 @@ import { BranchService } from './branch.service'
     ]),
     ParameterModule,
     ProductModule,
+    forwardRef(() => IngredientModule),
+    StockModule,
   ],
   controllers: [BranchController],
   providers: [BranchRepository, BranchService, BranchOrchestrator],

@@ -23,6 +23,7 @@ const ingredient = (id: string): PublicIngredient => ({
   id,
   name: `Ingrediente ${id}`,
   unit: 'un',
+  minQuantity: 0,
   active: true,
 })
 

@@ -59,6 +59,9 @@ export class IngredientInput {
   @Field()
   unit!: string
 
+  @Field(() => Int, { nullable: true })
+  minQuantity?: number
+
   @Field({ nullable: true })
   active?: boolean
 }
