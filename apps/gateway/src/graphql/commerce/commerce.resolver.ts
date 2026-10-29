@@ -39,6 +39,7 @@ import {
   Category,
   ConfigGroup,
   ConfigOption,
+  CustomerReportsOverview,
   Ingredient,
   Order,
   OrderState,
@@ -57,6 +58,7 @@ import {
   mapCategory,
   mapConfigGroup,
   mapConfigOption,
+  mapCustomerReportsOverview,
   mapIngredient,
   mapOrder,
   mapOrderState,
@@ -361,6 +363,20 @@ export class CommerceResolver {
       query: this.reportQuery(filter),
     })
     return mapReportsOverview(raw)
+  }
+
+  @Query(() => CustomerReportsOverview)
+  @Roles(ROLES.customer)
+  async myReportsOverview(
+    @Args('filter', { type: () => ReportFilterInput, nullable: true })
+    filter: ReportFilterInput | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<CustomerReportsOverview> {
+    const raw = await this.rest.get<RawRecord>('/v1/reporting/customer/overview', {
+      context: toRestContext(ctx),
+      query: this.customerReportQuery(filter),
+    })
+    return mapCustomerReportsOverview(raw)
   }
 
   @Query(() => [ProductReportRow])
@@ -986,6 +1002,16 @@ export class CommerceResolver {
       groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
       categoryId: filter?.categoryId ?? undefined,
       status: filter?.status ? orderStatusToRest(filter.status) : undefined,
+    }
+  }
+
+  private customerReportQuery(
+    filter: ReportFilterInput | null,
+  ): Record<string, string | undefined> {
+    return {
+      from: filter?.from ?? undefined,
+      to: filter?.to ?? undefined,
+      groupBy: filter?.groupBy ? reportGroupByToRest(filter.groupBy) : undefined,
     }
   }
 

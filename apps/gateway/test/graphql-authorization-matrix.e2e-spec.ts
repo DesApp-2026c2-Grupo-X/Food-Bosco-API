@@ -211,6 +211,11 @@ const reportQueryOps: ProtectedOperation[] = [
     query: 'query { bestSellingProducts { position } }',
     wrongRole: 'customer',
   },
+  {
+    name: 'myReportsOverview',
+    query: 'query { myReportsOverview { summary { totalOrders } } }',
+    wrongRole: 'branch_admin',
+  },
   { name: 'promotions', query: 'query { promotions { id } }', wrongRole: 'branch_admin' },
   { name: 'promotion', query: 'query { promotion(id: "pr1") { id } }', wrongRole: 'branch_admin' },
   { name: 'branches', query: 'query { branches { id } }', wrongRole: 'branch_admin' },

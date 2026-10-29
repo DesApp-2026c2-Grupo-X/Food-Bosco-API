@@ -77,3 +77,52 @@ export interface ReportsOverview {
   topProducts: ProductSalesRow[]
   branchPerformance: BranchPerformanceRow[]
 }
+
+export const CUSTOMER_REPORT_DEFAULT_DAYS = 365
+export const CUSTOMER_FREQUENT_PRODUCTS_LIMIT = 5
+
+export interface CustomerReportFilter {
+  from: Date
+  to: Date
+  groupBy?: ReportGroupBy
+}
+
+export interface CustomerBranchRow {
+  branchId: string
+  branchName: string
+  orders: number
+  totalSpent: number
+}
+
+export interface CustomerReportSummary {
+  totalOrders: number
+  completedOrders: number
+  cancelledOrders: number
+  activeOrders: number
+  totalSpent: number
+  averageTicket: number
+  favoriteBranch: CustomerBranchRow | null
+}
+
+export interface CustomerActivityPoint {
+  bucket: string
+  orders: number
+  completedOrders: number
+  totalSpent: number
+}
+
+export interface CustomerProductRow {
+  productId: string
+  name: string
+  quantity: number
+  orders: number
+  totalSpent: number
+}
+
+export interface CustomerReportsOverview {
+  period: ReportPeriod
+  summary: CustomerReportSummary
+  activitySeries: CustomerActivityPoint[]
+  frequentProducts: CustomerProductRow[]
+  ordersByStatus: OrderStatusCount[]
+}

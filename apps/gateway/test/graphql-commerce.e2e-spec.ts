@@ -513,6 +513,57 @@ describe('Gateway commerce (e2e) — frontend → GraphQL → REST', () => {
       expect(params.get('groupBy')).toBe('month')
       expect(params.get('status')).toBe('delivered')
     })
+
+    it('myReportsOverview consulta el reporte del cliente sin enviar identidad ni filtros ajenos', async () => {
+      downstream.setResponder(
+        respondWith({
+          'GET /v1/reporting/customer/overview': {
+            period: { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+            summary: {
+              totalOrders: 4,
+              completedOrders: 2,
+              cancelledOrders: 1,
+              activeOrders: 1,
+              totalSpent: 500,
+              averageTicket: 250,
+              favoriteBranch: { branchId: 'b1', branchName: 'Centro', orders: 2, totalSpent: 500 },
+            },
+            activitySeries: [{ bucket: '2026-03', orders: 4, completedOrders: 2, totalSpent: 500 }],
+            frequentProducts: [
+              { productId: 'p1', name: 'Burger', quantity: 6, orders: 3, totalSpent: 900 },
+            ],
+            ordersByStatus: [{ status: 'delivered', count: 2 }],
+          },
+        }),
+      )
+
+      const res = await run(
+        'query { myReportsOverview(filter: { from: "2026-03-01T00:00:00.000Z", to: "2026-03-31T23:59:59.999Z", groupBy: MONTH, branchId: "b9", status: DELIVERED }) { summary { totalOrders completedOrders totalSpent averageTicket favoriteBranch { branchName } } activitySeries { bucket orders completedOrders totalSpent } frequentProducts { productId name quantity } ordersByStatus { status count } } }',
+        'customer',
+      ).expect(200)
+
+      expect((res.body as GraphQLBody).data).toEqual({
+        myReportsOverview: {
+          summary: {
+            totalOrders: 4,
+            completedOrders: 2,
+            totalSpent: 500,
+            averageTicket: 250,
+            favoriteBranch: { branchName: 'Centro' },
+          },
+          activitySeries: [{ bucket: '2026-03', orders: 4, completedOrders: 2, totalSpent: 500 }],
+          frequentProducts: [{ productId: 'p1', name: 'Burger', quantity: 6 }],
+          ordersByStatus: [{ status: 'DELIVERED', count: 2 }],
+        },
+      })
+
+      const params = queryParams(callFor('GET', '/v1/reporting/customer/overview').url)
+      expect(params.get('from')).toBe('2026-03-01T00:00:00.000Z')
+      expect(params.get('groupBy')).toBe('month')
+      expect(params.has('branchId')).toBe(false)
+      expect(params.has('status')).toBe(false)
+      expect(params.has('clientId')).toBe(false)
+    })
   })
 
   describe('carrito y pedidos (queries)', () => {

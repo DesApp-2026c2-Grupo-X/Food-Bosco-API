@@ -5,6 +5,8 @@ import { Category, CategorySchema } from '../category/category.model'
 import { Order, OrderSchema } from '../order/order.model'
 import { Product, ProductSchema } from '../product/product.model'
 import { BranchStock, BranchStockSchema } from '../stock/branch-stock.model'
+import { CustomerReportingController } from './customer-reporting.controller'
+import { CustomerReportingService } from './customer-reporting.service'
 import { ReportingController } from './reporting.controller'
 import { ReportingRepository } from './reporting.repository'
 import { ReportingService } from './reporting.service'
@@ -19,7 +21,7 @@ import { ReportingService } from './reporting.service'
       { name: Branch.name, schema: BranchSchema },
     ]),
   ],
-  controllers: [ReportingController],
-  providers: [ReportingRepository, ReportingService],
+  controllers: [ReportingController, CustomerReportingController],
+  providers: [ReportingRepository, ReportingService, CustomerReportingService],
 })
 export class ReportingModule {}

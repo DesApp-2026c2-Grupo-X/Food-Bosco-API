@@ -1142,3 +1142,66 @@ describe('CommerceResolver — reportes', () => {
     })
   })
 })
+
+describe('CommerceResolver - reportes de cliente', () => {
+  const rawCustomerOverview = {
+    period: { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+    summary: {
+      totalOrders: 4,
+      completedOrders: 2,
+      cancelledOrders: 1,
+      activeOrders: 1,
+      totalSpent: 500,
+      averageTicket: 250,
+      favoriteBranch: {
+        branchId: 'b1',
+        branchName: 'Centro',
+        orders: 2,
+        totalSpent: 500,
+      },
+    },
+    activitySeries: [{ bucket: '2026-03', orders: 4, completedOrders: 2, totalSpent: 500 }],
+    frequentProducts: [
+      { productId: 'p1', name: 'Hamburguesa', quantity: 6, orders: 3, totalSpent: 900 },
+    ],
+    ordersByStatus: [{ status: 'delivered', count: 2 }],
+  }
+
+  it('myReportsOverview -> GET /v1/reporting/customer/overview sin filtros', async () => {
+    restMock.get.mockResolvedValue(rawCustomerOverview)
+
+    const result = await resolver.myReportsOverview(null, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/customer/overview', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: { from: undefined, to: undefined, groupBy: undefined },
+    })
+    expect(result.summary.totalSpent).toBe(500)
+    expect(result.summary.favoriteBranch?.branchName).toBe('Centro')
+  })
+
+  it('myReportsOverview traduce fechas y agrupaci�n sin sucursal, categor�a ni estado', async () => {
+    restMock.get.mockResolvedValue(rawCustomerOverview)
+
+    await resolver.myReportsOverview(
+      {
+        from: '2026-03-01T00:00:00.000Z',
+        to: '2026-03-31T23:59:59.999Z',
+        groupBy: ReportGroupBy.MONTH,
+        branchId: 'b1',
+        categoryId: 'c1',
+        status: OrderStatus.DELIVERED,
+      },
+      ctx,
+    )
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/customer/overview', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        from: '2026-03-01T00:00:00.000Z',
+        to: '2026-03-31T23:59:59.999Z',
+        groupBy: 'month',
+      },
+    })
+  })
+})
