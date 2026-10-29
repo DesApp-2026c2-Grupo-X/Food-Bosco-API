@@ -41,6 +41,7 @@ interface RepositoryMock {
   setActive: jest.Mock
   softDelete: jest.Mock
   updatePassword: jest.Mock
+  countCustomers: jest.Mock
 }
 
 const makeService = (overrides: Partial<RepositoryMock> = {}) => {
@@ -54,6 +55,7 @@ const makeService = (overrides: Partial<RepositoryMock> = {}) => {
     setActive: jest.fn(),
     softDelete: jest.fn(),
     updatePassword: jest.fn(),
+    countCustomers: jest.fn(),
     ...overrides,
   }
   return { repository, service: new UserService(repository as unknown as UserRepository) }
@@ -359,6 +361,20 @@ describe('UserService.update / setActive / findById (RQ-AUTH-16)', () => {
     repository.softDelete.mockResolvedValue(null)
 
     await expect(service.softDelete('missing')).resolves.toBeNull()
+  })
+})
+
+describe('UserService.customerStats (RQ-REP-CLIENTES)', () => {
+  it('delega el rango de fechas al repositorio', async () => {
+    const { repository, service } = makeService()
+    const from = new Date('2026-10-01T00:00:00.000Z')
+    const to = new Date('2026-10-31T23:59:59.999Z')
+    repository.countCustomers.mockResolvedValue({ total: 40, newInPeriod: 5 })
+
+    const result = await service.customerStats({ from, to })
+
+    expect(repository.countCustomers).toHaveBeenCalledWith({ from, to })
+    expect(result).toEqual({ total: 40, newInPeriod: 5 })
   })
 })
 

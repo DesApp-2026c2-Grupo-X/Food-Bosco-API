@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { isValidObjectId, Model } from 'mongoose'
-import { Role } from '../config/constants'
+import { Role, ROLES } from '../config/constants'
 import { User, UserDocument } from './user.model'
 
 export interface CreateUserData {
@@ -29,6 +29,16 @@ export interface UserListQuery {
   search?: string
   limit: number
   offset: number
+}
+
+export interface CustomerStatsRange {
+  from?: Date
+  to?: Date
+}
+
+export interface CustomerStats {
+  total: number
+  newInPeriod: number
 }
 
 const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -76,6 +86,24 @@ export class UserRepository {
     ])
 
     return { data, total }
+  }
+
+  async countCustomers(range: CustomerStatsRange = {}): Promise<CustomerStats> {
+    const baseFilter: Record<string, unknown> = { role: ROLES.customer, deletedAt: null }
+    const createdAt: Record<string, Date> = {}
+
+    if (range.from) createdAt.$gte = range.from
+    if (range.to) createdAt.$lte = range.to
+
+    const periodFilter =
+      Object.keys(createdAt).length > 0 ? { ...baseFilter, createdAt } : baseFilter
+
+    const [total, newInPeriod] = await Promise.all([
+      this.model.countDocuments(baseFilter).exec(),
+      this.model.countDocuments(periodFilter).exec(),
+    ])
+
+    return { total, newInPeriod }
   }
 
   async update(id: string, patch: UpdateUserData): Promise<UserDocument | null> {

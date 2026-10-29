@@ -3,7 +3,13 @@ import { compare, hash } from 'bcryptjs'
 import { ERROR_CODES, Role } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { PublicUser, serializeUser } from './user.model'
-import { UpdateUserData, UserListQuery, UserRepository } from './user.repository'
+import {
+  CustomerStats,
+  CustomerStatsRange,
+  UpdateUserData,
+  UserListQuery,
+  UserRepository,
+} from './user.repository'
 
 export type { PublicUser } from './user.model'
 
@@ -85,6 +91,10 @@ export class UserService {
       data: data.map(serializeUser),
       meta: { total, limit: query.limit, offset: query.offset },
     }
+  }
+
+  customerStats(range: CustomerStatsRange = {}): Promise<CustomerStats> {
+    return this.repository.countCustomers(range)
   }
 
   async update(id: string, patch: UpdateUserData): Promise<PublicUser | null> {
