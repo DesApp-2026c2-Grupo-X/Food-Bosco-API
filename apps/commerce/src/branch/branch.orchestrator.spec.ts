@@ -1,7 +1,9 @@
 import { ERROR_CODES } from '../config/constants'
 import type { DomainException } from '../config/exceptions/domain.exception'
+import type { IngredientService } from '../ingredient/ingredient.service'
 import type { PublicProduct } from '../product/product.model'
 import type { ProductService } from '../product/product.service'
+import type { StockService } from '../stock/stock.service'
 import { BranchOrchestrator } from './branch.orchestrator'
 import type { PublicBranch } from './branch.model'
 import type { BranchService } from './branch.service'
@@ -32,17 +34,22 @@ const branch = (id: string): PublicBranch => ({
 
 const makeOrchestrator = () => {
   const branchService = {
+    create: jest.fn(),
     findById: jest.fn().mockResolvedValue(branch('b1')),
     getAvailabilityMap: jest.fn(),
     findAvailable: jest.fn(),
     setProductAvailability: jest.fn(),
   }
   const productService = { findAll: jest.fn(), findById: jest.fn() }
+  const ingredientService = { list: jest.fn().mockResolvedValue({ data: [] }) }
+  const stockService = { ensureStockRows: jest.fn().mockResolvedValue(undefined) }
   const orchestrator = new BranchOrchestrator(
     branchService as unknown as BranchService,
     productService as unknown as ProductService,
+    ingredientService as unknown as IngredientService,
+    stockService as unknown as StockService,
   )
-  return { orchestrator, branchService, productService }
+  return { orchestrator, branchService, productService, ingredientService, stockService }
 }
 
 const captureError = async (promise: Promise<unknown>): Promise<DomainException> => {
@@ -57,6 +64,23 @@ const captureError = async (promise: Promise<unknown>): Promise<DomainException>
   }
   return error as unknown as DomainException
 }
+
+describe('BranchOrchestrator.create', () => {
+  it('crea la sucursal e inicializa stock en 0 para los ingredientes existentes', async () => {
+    const { orchestrator, branchService, ingredientService, stockService } = makeOrchestrator()
+    const created = branch('b-new')
+    branchService.create.mockResolvedValue(created)
+    ingredientService.list.mockResolvedValue({ data: [{ id: 'i1' }, { id: 'i2' }] })
+    const dto = { name: 'Nueva', addressText: 'Calle 1', latitude: -34.6, longitude: -58.4 }
+
+    const result = await orchestrator.create(dto)
+
+    expect(branchService.create).toHaveBeenCalledWith(dto)
+    expect(ingredientService.list).toHaveBeenCalledWith({ limit: 500, offset: 0 })
+    expect(stockService.ensureStockRows).toHaveBeenCalledWith(['b-new'], ['i1', 'i2'])
+    expect(result).toEqual(created)
+  })
+})
 
 describe('BranchOrchestrator.listProducts (RQ-CAT-16)', () => {
   it.each([

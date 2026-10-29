@@ -8,6 +8,7 @@ const buildDoc = (overrides: Partial<Record<string, unknown>> = {}): IngredientD
     _id: { toString: () => 'ing1' },
     name: 'Papa',
     unit: 'kg',
+    minQuantity: 0,
     active: true,
     ...overrides,
   }) as unknown as IngredientDocument
@@ -34,7 +35,10 @@ describe('IngredientService.list (RQ-CAT-09)', () => {
   it('serializa los ingredientes y devuelve meta con total, limit y offset', async () => {
     const { service } = makeService({
       list: jest.fn().mockResolvedValue({
-        data: [buildDoc(), buildDoc({ _id: { toString: () => 'ing2' }, unit: 'unidad' })],
+        data: [
+          buildDoc({ minQuantity: 5 }),
+          buildDoc({ _id: { toString: () => 'ing2' }, unit: 'unidad', minQuantity: 10 }),
+        ],
         total: 4,
       }),
     })
@@ -43,8 +47,8 @@ describe('IngredientService.list (RQ-CAT-09)', () => {
 
     expect(result.meta).toEqual({ total: 4, limit: 20, offset: 0 })
     expect(result.data).toEqual<PublicIngredient[]>([
-      { id: 'ing1', name: 'Papa', unit: 'kg', active: true },
-      { id: 'ing2', name: 'Papa', unit: 'unidad', active: true },
+      { id: 'ing1', name: 'Papa', unit: 'kg', minQuantity: 5, active: true },
+      { id: 'ing2', name: 'Papa', unit: 'unidad', minQuantity: 10, active: true },
     ])
   })
 
@@ -77,6 +81,7 @@ describe('IngredientService.findById', () => {
       id: 'ing1',
       name: 'Papa',
       unit: 'kg',
+      minQuantity: 0,
       active: true,
     })
   })
@@ -91,26 +96,39 @@ describe('IngredientService.findById', () => {
 describe('IngredientService.create (RQ-CAT-09)', () => {
   it('crea el ingrediente y devuelve la representación pública', async () => {
     const { repository, service } = makeService({
-      create: jest.fn().mockResolvedValue(buildDoc({ name: 'Queso', unit: 'laminas' })),
+      create: jest
+        .fn()
+        .mockResolvedValue(buildDoc({ name: 'Queso', unit: 'laminas', minQuantity: 8 })),
     })
 
-    const result = await service.create({ name: 'Queso', unit: 'laminas' })
+    const result = await service.create({ name: 'Queso', unit: 'laminas', minQuantity: 8 })
 
-    expect(repository.create).toHaveBeenCalledWith({ name: 'Queso', unit: 'laminas' })
-    expect(result).toEqual({ id: 'ing1', name: 'Queso', unit: 'laminas', active: true })
+    expect(repository.create).toHaveBeenCalledWith({
+      name: 'Queso',
+      unit: 'laminas',
+      minQuantity: 8,
+    })
+    expect(result).toEqual({
+      id: 'ing1',
+      name: 'Queso',
+      unit: 'laminas',
+      minQuantity: 8,
+      active: true,
+    })
   })
 })
 
 describe('IngredientService.update', () => {
   it('actualiza y serializa cuando el ingrediente existe', async () => {
     const { repository, service } = makeService({
-      update: jest.fn().mockResolvedValue(buildDoc({ unit: 'g' })),
+      update: jest.fn().mockResolvedValue(buildDoc({ unit: 'g', minQuantity: 15 })),
     })
 
-    const result = await service.update('ing1', { unit: 'g' })
+    const result = await service.update('ing1', { unit: 'g', minQuantity: 15 })
 
-    expect(repository.update).toHaveBeenCalledWith('ing1', { unit: 'g' })
+    expect(repository.update).toHaveBeenCalledWith('ing1', { unit: 'g', minQuantity: 15 })
     expect(result?.unit).toBe('g')
+    expect(result?.minQuantity).toBe(15)
   })
 
   it('devuelve null si el ingrediente a actualizar no existe', async () => {

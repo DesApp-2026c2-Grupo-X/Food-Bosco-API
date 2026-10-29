@@ -10,7 +10,7 @@ const makeController = (
   overrides: Partial<
     Record<'list' | 'findById' | 'create' | 'update' | 'setActive', jest.Mock>
   > = {},
-  orchestratorOverrides: Partial<Record<'setActive', jest.Mock>> = {},
+  orchestratorOverrides: Partial<Record<'create' | 'setActive', jest.Mock>> = {},
 ) => {
   const service = {
     list: jest.fn().mockResolvedValue(emptyList),
@@ -21,6 +21,7 @@ const makeController = (
     ...overrides,
   }
   const orchestrator = {
+    create: jest.fn(),
     setActive: jest.fn(),
     ...orchestratorOverrides,
   }
@@ -57,22 +58,40 @@ describe('IngredientController.list (RQ-CAT-09)', () => {
 })
 
 describe('IngredientController.create (RQ-CAT-09)', () => {
-  it('delega en el servicio con el DTO recibido', async () => {
-    const { service, controller } = makeController({
-      create: jest.fn().mockResolvedValue({ id: 'ing1', name: 'Queso', unit: 'kg', active: true }),
-    })
+  it('delega en el orchestrator con el DTO recibido', async () => {
+    const { orchestrator, controller } = makeController(
+      {},
+      {
+        create: jest.fn().mockResolvedValue({
+          id: 'ing1',
+          name: 'Queso',
+          unit: 'kg',
+          minQuantity: 10,
+          active: true,
+        }),
+      },
+    )
 
-    await expect(controller.create({ name: 'Queso', unit: 'kg' })).resolves.toMatchObject({
+    await expect(
+      controller.create({ name: 'Queso', unit: 'kg', minQuantity: 10 }),
+    ).resolves.toMatchObject({
       id: 'ing1',
+      minQuantity: 10,
     })
-    expect(service.create).toHaveBeenCalledWith({ name: 'Queso', unit: 'kg' })
+    expect(orchestrator.create).toHaveBeenCalledWith({
+      name: 'Queso',
+      unit: 'kg',
+      minQuantity: 10,
+    })
   })
 })
 
 describe('IngredientController.get — error de dominio', () => {
   it('devuelve el ingrediente cuando existe', async () => {
     const { controller } = makeController({
-      findById: jest.fn().mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: true }),
+      findById: jest
+        .fn()
+        .mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', minQuantity: 0, active: true }),
     })
 
     await expect(controller.get('ing1')).resolves.toMatchObject({ id: 'ing1' })
@@ -114,9 +133,13 @@ describe('IngredientController.update / setActive — error de dominio', () => {
     const { orchestrator, controller } = makeController(
       {},
       {
-        setActive: jest
-          .fn()
-          .mockResolvedValue({ id: 'ing1', name: 'Papa', unit: 'kg', active: false }),
+        setActive: jest.fn().mockResolvedValue({
+          id: 'ing1',
+          name: 'Papa',
+          unit: 'kg',
+          minQuantity: 0,
+          active: false,
+        }),
       },
     )
 

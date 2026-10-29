@@ -46,6 +46,7 @@ const FIELD_LABELS: Record<string, string> = {
   longitude: 'longitud',
   max: 'máximo',
   min: 'mínimo',
+  minQuantity: 'cantidad mínima',
   model: 'modelo',
   name: 'nombre',
   newPassword: 'nueva contraseña',

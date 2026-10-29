@@ -45,7 +45,7 @@ export class BranchController {
   @Post()
   @Roles(ROLES.superAdmin)
   create(@Body() dto: CreateBranchDto): Promise<PublicBranch> {
-    return this.branchService.create(dto)
+    return this.orchestrator.create(dto)
   }
 
   @Get('available')

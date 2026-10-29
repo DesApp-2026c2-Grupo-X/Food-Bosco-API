@@ -42,6 +42,7 @@ const makeController = () => {
     setProductAvailability: jest.fn(),
   }
   const orchestrator = {
+    create: jest.fn(),
     listProducts: jest.fn(),
     listZoneProducts: jest.fn(),
     setProductAvailability: jest.fn(),
@@ -138,13 +139,13 @@ describe('BranchController — CRUD exitoso (RQ-BRN-01/02)', () => {
     await expect(controller.get('b1')).resolves.toMatchObject({ id: 'b1', name: 'Centro' })
   })
 
-  it('create delega el DTO y devuelve la sucursal', async () => {
-    const { controller, branchService } = makeController()
+  it('create delega el DTO al orchestrator y devuelve la sucursal', async () => {
+    const { controller, orchestrator } = makeController()
     const dto = { name: 'Nueva', addressText: 'Calle 2', latitude: -34.6, longitude: -58.4 }
-    branchService.create.mockResolvedValue(branch({ name: 'Nueva' }))
+    orchestrator.create.mockResolvedValue(branch({ name: 'Nueva' }))
 
     await expect(controller.create(dto)).resolves.toMatchObject({ name: 'Nueva' })
-    expect(branchService.create).toHaveBeenCalledWith(dto)
+    expect(orchestrator.create).toHaveBeenCalledWith(dto)
   })
 
   it('update delega el patch y devuelve la sucursal', async () => {

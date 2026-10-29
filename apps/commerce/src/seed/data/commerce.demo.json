@@ -31,5 +31,18 @@
   "outOfStock": {
     "branch": "Oeste",
     "ingredients": ["Helado", "Cerveza"]
-  }
+  },
+  "lowStock": [
+    {
+      "branch": "Centro",
+      "items": [
+        { "ingredient": "Papa", "quantity": 3 },
+        { "ingredient": "Lechuga", "quantity": 2 }
+      ]
+    },
+    {
+      "branch": "Norte",
+      "items": [{ "ingredient": "Pan de hamburguesa", "quantity": 4 }]
+    }
+  ]
 }

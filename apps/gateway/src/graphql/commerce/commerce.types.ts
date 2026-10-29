@@ -76,6 +76,9 @@ export class Ingredient {
   @Field()
   unit!: string
 
+  @Field(() => Int)
+  minQuantity!: number
+
   @Field()
   active!: boolean
 }
@@ -725,6 +728,7 @@ export const mapIngredient = (raw: RawRecord): Ingredient => ({
   id: idOf(raw),
   name: asString(raw.name),
   unit: asString(raw.unit),
+  minQuantity: asNumber(raw.minQuantity),
   active: asBoolean(raw.active),
 })
 
