@@ -1,6 +1,7 @@
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { ConfigGroupType } from '../common/config-group-type.enum'
+import { CustomerInsightsSort } from '../common/customer-insights-sort.enum'
 import { OrderStatus } from '../common/order-status.enum'
 import { ReportGroupBy } from '../common/report-group.enum'
 import { CommerceResolver } from './commerce.resolver'
@@ -1203,5 +1204,107 @@ describe('CommerceResolver - reportes de cliente', () => {
         groupBy: 'month',
       },
     })
+  })
+})
+
+describe('CommerceResolver - reportes administrativos de clientes', () => {
+  const rawInsights = {
+    period: { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+    kpis: {
+      totalBuyers: 2,
+      newBuyers: 1,
+      returningBuyers: 1,
+      recurringBuyers: 1,
+      totalOrders: 3,
+      totalSpent: 700,
+      averageTicket: 233.33,
+      averageOrdersPerBuyer: 1.5,
+    },
+    buyerSeries: [{ bucket: '2026-03', buyers: 2 }],
+    frequency: [{ bucket: '1', label: '1 pedido', buyers: 1 }],
+    recency: [{ bucket: '0-7', label: 'Últimos 7 días', buyers: 2 }],
+    branchActivity: [
+      { branchId: 'b1', branchName: 'Centro', buyers: 2, orders: 3, totalSpent: 700 },
+    ],
+    customers: [
+      {
+        clientId: 'c1',
+        orders: 2,
+        totalSpent: 600,
+        firstPurchaseAt: '2026-03-02T00:00:00.000Z',
+        lastPurchaseAt: '2026-03-20T00:00:00.000Z',
+        daysSinceLastPurchase: 5,
+        isNew: true,
+        isNewOnPlatform: true,
+        isRecurring: true,
+      },
+    ],
+  }
+
+  it('customerInsights -> GET /v1/reporting/customers/insights con filtros traducidos', async () => {
+    restMock.get.mockResolvedValue(rawInsights)
+
+    const result = await resolver.customerInsights(
+      {
+        from: '2026-03-01T00:00:00.000Z',
+        to: '2026-03-31T23:59:59.999Z',
+        branchId: 'b1',
+        groupBy: ReportGroupBy.MONTH,
+        sortBy: CustomerInsightsSort.ORDERS,
+        limit: 50,
+      },
+      ctx,
+    )
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/customers/insights', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        from: '2026-03-01T00:00:00.000Z',
+        to: '2026-03-31T23:59:59.999Z',
+        branchId: 'b1',
+        groupBy: 'month',
+        sortBy: 'orders',
+        limit: 50,
+      },
+    })
+    expect(result.kpis.totalBuyers).toBe(2)
+    expect(result.kpis.averageOrdersPerBuyer).toBe(1.5)
+    expect(result.customers[0].clientId).toBe('c1')
+    expect(result.customers[0].isNew).toBe(true)
+    expect(result.frequency[0].label).toBe('1 pedido')
+    expect(result.branchActivity[0].branchName).toBe('Centro')
+  })
+
+  it('customerInsights sin filtro envía todos los parámetros vacíos', async () => {
+    restMock.get.mockResolvedValue(rawInsights)
+
+    await resolver.customerInsights(null, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/reporting/customers/insights', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: {
+        from: undefined,
+        to: undefined,
+        branchId: undefined,
+        groupBy: undefined,
+        sortBy: undefined,
+        limit: undefined,
+      },
+    })
+  })
+
+  it('customerRegistrationStats -> consulta Auth y mapea totales', async () => {
+    authMock.get.mockResolvedValue({ total: 40, newInPeriod: 5 })
+
+    const result = await resolver.customerRegistrationStats(
+      { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+      ctx,
+    )
+
+    expect(authMock.get).toHaveBeenCalledWith('/v1/users/customers/stats', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: { from: '2026-03-01T00:00:00.000Z', to: '2026-03-31T23:59:59.999Z' },
+    })
+    expect(result).toEqual({ total: 40, newInPeriod: 5 })
   })
 })

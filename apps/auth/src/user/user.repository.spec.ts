@@ -369,6 +369,46 @@ describe('UserRepository.softDelete (baja lógica)', () => {
   })
 })
 
+describe('UserRepository.countCustomers (RQ-REP-CLIENTES)', () => {
+  const from = new Date('2026-10-01T00:00:00.000Z')
+  const to = new Date('2026-10-31T23:59:59.999Z')
+
+  it('cuenta clientes no eliminados y los registrados en el período', async () => {
+    const { model, repository } = makeRepository()
+    model.countDocuments.mockReturnValueOnce(chainable(40)).mockReturnValueOnce(chainable(5))
+
+    const result = await repository.countCustomers({ from, to })
+
+    expect(model.countDocuments).toHaveBeenNthCalledWith(1, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(model.countDocuments).toHaveBeenNthCalledWith(2, {
+      role: 'customer',
+      deletedAt: null,
+      createdAt: { $gte: from, $lte: to },
+    })
+    expect(result).toEqual({ total: 40, newInPeriod: 5 })
+  })
+
+  it('sin rango usa el mismo filtro para el total y el período', async () => {
+    const { model, repository } = makeRepository()
+    model.countDocuments.mockReturnValueOnce(chainable(12)).mockReturnValueOnce(chainable(12))
+
+    const result = await repository.countCustomers()
+
+    expect(model.countDocuments).toHaveBeenNthCalledWith(1, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(model.countDocuments).toHaveBeenNthCalledWith(2, {
+      role: 'customer',
+      deletedAt: null,
+    })
+    expect(result).toEqual({ total: 12, newInPeriod: 12 })
+  })
+})
+
 describe('UserRepository.updatePassword (RQ-AUTH-03)', () => {
   it('actualiza el hash con updateOne atómico por _id', async () => {
     const { model, repository } = makeRepository()

@@ -19,6 +19,7 @@ import {
   CartItem,
   Category,
   ConfigOption,
+  CustomerInsightsRow,
   Ingredient,
   Order,
   Product,
@@ -156,6 +157,28 @@ export class OrderFieldResolver {
     } catch {
       return null
     }
+  }
+}
+
+@Resolver(() => CustomerInsightsRow)
+export class CustomerInsightsRowFieldResolver {
+  constructor(
+    @Inject(COMMERCE_REST_CLIENT) private readonly commerce: RestClient,
+    @Inject(AUTH_REST_CLIENT) private readonly auth: RestClient,
+  ) {}
+
+  @ResolveField('client', () => User, { nullable: true })
+  async client(
+    @Parent() row: CustomerInsightsRow,
+    @Context() ctx: GraphQLContext,
+  ): Promise<User | null> {
+    const raw = await getCommerceLoaders(
+      ctx.req,
+      this.commerce,
+      this.auth,
+      toRestContext(ctx),
+    ).user.load(row.clientId)
+    return raw ? mapUser(raw as RawRecord) : null
   }
 }
 

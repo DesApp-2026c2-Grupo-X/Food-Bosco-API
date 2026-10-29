@@ -653,6 +653,138 @@ export class CustomerReportsOverview {
   ordersByStatus!: OrderStatusCount[]
 }
 
+@ObjectType()
+export class CustomerInsightsKpis {
+  @Field(() => Int)
+  totalBuyers!: number
+
+  @Field(() => Int)
+  newBuyers!: number
+
+  @Field(() => Int)
+  returningBuyers!: number
+
+  @Field(() => Int)
+  recurringBuyers!: number
+
+  @Field(() => Int)
+  totalOrders!: number
+
+  @Field(() => Float)
+  totalSpent!: number
+
+  @Field(() => Float)
+  averageTicket!: number
+
+  @Field(() => Float)
+  averageOrdersPerBuyer!: number
+}
+
+@ObjectType()
+export class CustomerBuyerSeriesPoint {
+  @Field()
+  bucket!: string
+
+  @Field(() => Int)
+  buyers!: number
+}
+
+@ObjectType()
+export class CustomerDistributionRow {
+  @Field()
+  bucket!: string
+
+  @Field()
+  label!: string
+
+  @Field(() => Int)
+  buyers!: number
+}
+
+@ObjectType()
+export class CustomerBranchActivityRow {
+  @Field(() => ID)
+  branchId!: string
+
+  @Field()
+  branchName!: string
+
+  @Field(() => Int)
+  buyers!: number
+
+  @Field(() => Int)
+  orders!: number
+
+  @Field(() => Float)
+  totalSpent!: number
+}
+
+@ObjectType()
+export class CustomerInsightsRow {
+  @Field(() => ID)
+  clientId!: string
+
+  @Field(() => User, { nullable: true })
+  client?: User | null
+
+  @Field(() => Int)
+  orders!: number
+
+  @Field(() => Float)
+  totalSpent!: number
+
+  @Field()
+  firstPurchaseAt!: string
+
+  @Field()
+  lastPurchaseAt!: string
+
+  @Field(() => Int)
+  daysSinceLastPurchase!: number
+
+  @Field()
+  isNew!: boolean
+
+  @Field()
+  isNewOnPlatform!: boolean
+
+  @Field()
+  isRecurring!: boolean
+}
+
+@ObjectType()
+export class CustomerInsightsOverview {
+  @Field(() => ReportPeriod)
+  period!: ReportPeriod
+
+  @Field(() => CustomerInsightsKpis)
+  kpis!: CustomerInsightsKpis
+
+  @Field(() => [CustomerBuyerSeriesPoint])
+  buyerSeries!: CustomerBuyerSeriesPoint[]
+
+  @Field(() => [CustomerDistributionRow])
+  frequency!: CustomerDistributionRow[]
+
+  @Field(() => [CustomerDistributionRow])
+  recency!: CustomerDistributionRow[]
+
+  @Field(() => [CustomerBranchActivityRow])
+  branchActivity!: CustomerBranchActivityRow[]
+
+  @Field(() => [CustomerInsightsRow])
+  customers!: CustomerInsightsRow[]
+}
+
+@ObjectType()
+export class CustomerRegistrationStats {
+  @Field(() => Int)
+  total!: number
+
+  @Field(() => Int)
+  newInPeriod!: number
+}
+
 const asStatusList = (value: unknown): OrderStatus[] =>
   Array.isArray(value) ? value.map((entry) => orderStatusFromRest(asString(entry))) : []
 
@@ -889,6 +1021,62 @@ export const mapCustomerBranchRow = (raw: RawRecord): CustomerBranchRow => ({
   branchName: asString(raw.branchName),
   orders: asNumber(raw.orders),
   totalSpent: asNumber(raw.totalSpent),
+})
+
+export const mapCustomerInsightsOverview = (raw: RawRecord): CustomerInsightsOverview => {
+  const period = (raw.period as RawRecord | undefined) ?? {}
+  const kpis = (raw.kpis as RawRecord | undefined) ?? {}
+
+  return {
+    period: { from: asString(period.from), to: asString(period.to) },
+    kpis: {
+      totalBuyers: asNumber(kpis.totalBuyers),
+      newBuyers: asNumber(kpis.newBuyers),
+      returningBuyers: asNumber(kpis.returningBuyers),
+      recurringBuyers: asNumber(kpis.recurringBuyers),
+      totalOrders: asNumber(kpis.totalOrders),
+      totalSpent: asNumber(kpis.totalSpent),
+      averageTicket: asNumber(kpis.averageTicket),
+      averageOrdersPerBuyer: asNumber(kpis.averageOrdersPerBuyer),
+    },
+    buyerSeries: asRecordList(raw.buyerSeries).map((entry) => ({
+      bucket: asString(entry.bucket),
+      buyers: asNumber(entry.buyers),
+    })),
+    frequency: asRecordList(raw.frequency).map((entry) => ({
+      bucket: asString(entry.bucket),
+      label: asString(entry.label),
+      buyers: asNumber(entry.buyers),
+    })),
+    recency: asRecordList(raw.recency).map((entry) => ({
+      bucket: asString(entry.bucket),
+      label: asString(entry.label),
+      buyers: asNumber(entry.buyers),
+    })),
+    branchActivity: asRecordList(raw.branchActivity).map((entry) => ({
+      branchId: asString(entry.branchId),
+      branchName: asString(entry.branchName),
+      buyers: asNumber(entry.buyers),
+      orders: asNumber(entry.orders),
+      totalSpent: asNumber(entry.totalSpent),
+    })),
+    customers: asRecordList(raw.customers).map((entry) => ({
+      clientId: asString(entry.clientId),
+      orders: asNumber(entry.orders),
+      totalSpent: asNumber(entry.totalSpent),
+      firstPurchaseAt: asString(entry.firstPurchaseAt),
+      lastPurchaseAt: asString(entry.lastPurchaseAt),
+      daysSinceLastPurchase: asNumber(entry.daysSinceLastPurchase),
+      isNew: asBoolean(entry.isNew),
+      isNewOnPlatform: asBoolean(entry.isNewOnPlatform),
+      isRecurring: asBoolean(entry.isRecurring),
+    })),
+  }
+}
+
+export const mapCustomerRegistrationStats = (raw: RawRecord): CustomerRegistrationStats => ({
+  total: asNumber(raw.total),
+  newInPeriod: asNumber(raw.newInPeriod),
 })
 
 export const mapCustomerReportsOverview = (raw: RawRecord): CustomerReportsOverview => {

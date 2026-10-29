@@ -9,7 +9,12 @@ import { Order, OrderDocument } from '../order/order.model'
 import { Product, ProductDocument } from '../product/product.model'
 import { BranchStock, BranchStockDocument } from '../stock/branch-stock.model'
 import { CUSTOMER_FREQUENT_PRODUCTS_LIMIT } from './reporting.model'
-import type { CustomerReportFilter, ReportFilter, ReportGroupBy } from './reporting.model'
+import type {
+  CustomerInsightsFilter,
+  CustomerReportFilter,
+  ReportFilter,
+  ReportGroupBy,
+} from './reporting.model'
 
 export interface SalesAggregate {
   quantity: number
@@ -42,6 +47,20 @@ export interface CustomerOverviewAggregateRaw {
     totalSpent: number
   }>
   branches: Array<{ _id: string; orders: number; totalSpent: number }>
+}
+
+export interface CustomerInsightsAggregateRaw {
+  buyers: Array<{
+    _id: string
+    orders: number
+    totalSpent: number
+    firstPurchaseAt: Date
+    lastPurchaseAt: Date
+  }>
+  series: Array<{ _id: string; buyers: number }>
+  branchActivity: Array<{ _id: string; buyers: number; orders: number; totalSpent: number }>
+  firstPurchases: Array<{ _id: string; firstPurchaseAt: Date }>
+  platformFirstPurchases: Array<{ _id: string; firstPurchaseAt: Date }>
 }
 
 const TOP_PRODUCTS_LIMIT = 10
@@ -116,6 +135,14 @@ const emptyCustomerOverview = (): CustomerOverviewAggregateRaw => ({
   series: [],
   frequentProducts: [],
   branches: [],
+})
+
+const emptyCustomerInsights = (): CustomerInsightsAggregateRaw => ({
+  buyers: [],
+  series: [],
+  branchActivity: [],
+  firstPurchases: [],
+  platformFirstPurchases: [],
 })
 
 @Injectable()
@@ -315,6 +342,98 @@ export class ReportingRepository {
 
     const [result] = await this.orderModel.aggregate<CustomerOverviewAggregateRaw>(pipeline).exec()
     return result ?? emptyCustomerOverview()
+  }
+
+  async aggregateCustomerInsights(
+    filter: CustomerInsightsFilter,
+  ): Promise<CustomerInsightsAggregateRaw> {
+    const groupFormat = GROUP_FORMATS[filter.groupBy ?? 'month']
+    const scopeMatch: Record<string, unknown> = { status: ORDER_STATUS.delivered }
+
+    if (filter.branchId) {
+      scopeMatch.branchId = filter.branchId
+    }
+
+    const periodMatch: Record<string, unknown> = {
+      ...scopeMatch,
+      createdAt: { $gte: filter.from, $lte: filter.to },
+    }
+
+    const firstPurchasePipeline = (
+      match: Record<string, unknown>,
+    ): PipelineStage.FacetPipelineStage[] => [
+      { $match: match },
+      { $group: { _id: '$clientId', firstPurchaseAt: { $min: '$createdAt' } } },
+    ]
+
+    const pipeline: PipelineStage[] = [
+      {
+        $facet: {
+          buyers: [
+            { $match: periodMatch },
+            {
+              $group: {
+                _id: '$clientId',
+                orders: { $sum: 1 },
+                totalSpent: { $sum: '$total' },
+                firstPurchaseAt: { $min: '$createdAt' },
+                lastPurchaseAt: { $max: '$createdAt' },
+              },
+            },
+            { $sort: { lastPurchaseAt: -1 } },
+          ],
+          series: [
+            { $match: periodMatch },
+            {
+              $group: {
+                _id: {
+                  clientId: '$clientId',
+                  bucket: {
+                    $dateToString: {
+                      format: groupFormat,
+                      date: '$createdAt',
+                      timezone: BUSINESS_TIME_ZONE,
+                    },
+                  },
+                },
+              },
+            },
+            { $group: { _id: '$_id.bucket', buyers: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+          ],
+          branchActivity: [
+            { $match: periodMatch },
+            {
+              $group: {
+                _id: { branchId: '$branchId', clientId: '$clientId' },
+                orders: { $sum: 1 },
+                totalSpent: { $sum: '$total' },
+              },
+            },
+            {
+              $group: {
+                _id: '$_id.branchId',
+                buyers: { $sum: 1 },
+                orders: { $sum: '$orders' },
+                totalSpent: { $sum: '$totalSpent' },
+              },
+            },
+            { $sort: { buyers: -1, orders: -1 } },
+          ],
+          firstPurchases: firstPurchasePipeline({
+            ...scopeMatch,
+            createdAt: { $lte: filter.to },
+          }),
+          platformFirstPurchases: firstPurchasePipeline({
+            status: ORDER_STATUS.delivered,
+            createdAt: { $lte: filter.to },
+          }),
+        },
+      },
+    ]
+
+    const [result] = await this.orderModel.aggregate<CustomerInsightsAggregateRaw>(pipeline).exec()
+    return result ?? emptyCustomerInsights()
   }
 
   private async findProductIdsByCategory(categoryId?: string): Promise<string[] | null> {

@@ -9,6 +9,7 @@ import type { PublicUser, UserListResponse } from './user.service'
 import { CreateAdminDto } from './dto/create-admin.dto'
 import { CreateRiderDto } from './dto/create-rider.dto'
 import { CreateStaffDto } from './dto/create-staff.dto'
+import { CustomerStatsQueryDto } from './dto/customer-stats-query.dto'
 import { SetActiveDto } from './dto/set-active.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { UserQueryDto } from './dto/user-query.dto'
@@ -44,6 +45,15 @@ export class UserController {
       search: query.search,
       limit: query.limit ?? 20,
       offset: query.offset ?? 0,
+    })
+  }
+
+  @Get('customers/stats')
+  @Roles(ROLES.superAdmin)
+  customerStats(@Query() query: CustomerStatsQueryDto) {
+    return this.userService.customerStats({
+      from: query.from ? new Date(query.from) : undefined,
+      to: query.to ? new Date(query.to) : undefined,
     })
   }
 
