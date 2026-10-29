@@ -342,12 +342,48 @@ export class Order {
 }
 
 @ObjectType()
+export class RepeatSkippedItem {
+  @Field(() => ID)
+  productId!: string
+
+  @Field()
+  name!: string
+
+  @Field()
+  reason!: string
+}
+
+@ObjectType()
+export class RepeatPriceChange {
+  @Field(() => ID)
+  productId!: string
+
+  @Field()
+  name!: string
+
+  @Field(() => Float)
+  quantity!: number
+
+  @Field(() => Float)
+  previousUnitPrice!: number
+
+  @Field(() => Float)
+  currentUnitPrice!: number
+}
+
+@ObjectType()
 export class RepeatOrderResult {
   @Field(() => Cart)
   cart!: Cart
 
   @Field(() => [Product])
   skippedProducts!: Product[]
+
+  @Field(() => [RepeatSkippedItem])
+  skippedItems!: RepeatSkippedItem[]
+
+  @Field(() => [RepeatPriceChange])
+  priceChanges!: RepeatPriceChange[]
 }
 
 @ObjectType()
