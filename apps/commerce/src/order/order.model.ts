@@ -1,7 +1,30 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
 import { ORDER_STATUS, ORDER_STATUS_VALUES, ORDER_TRANSITIONS } from '../config/constants'
-import type { OrderStatus } from '../config/constants'
+import type { OrderStatus, PromotionScope, PromotionType } from '../config/constants'
+
+@Schema({ _id: false })
+export class AppliedPromotion {
+  @Prop({ required: true })
+  promotionId!: string
+
+  @Prop({ required: true })
+  name!: string
+
+  @Prop({ required: true, type: String })
+  type!: PromotionType
+
+  @Prop({ required: true, type: String })
+  scope!: PromotionScope
+
+  @Prop({ default: null, type: String })
+  code!: string | null
+
+  @Prop({ required: true })
+  amount!: number
+}
+
+export const AppliedPromotionSchema = SchemaFactory.createForClass(AppliedPromotion)
 
 @Schema({ _id: false })
 export class OrderItemOption {
@@ -91,8 +114,20 @@ export class Order {
   @Prop({ required: true, enum: ORDER_STATUS_VALUES, type: String, default: ORDER_STATUS.pending })
   status!: OrderStatus
 
+  @Prop({ default: 0 })
+  subtotal!: number
+
+  @Prop({ default: 0 })
+  discountTotal!: number
+
   @Prop({ required: true })
   total!: number
+
+  @Prop({ default: null, type: String, uppercase: true })
+  promotionCode!: string | null
+
+  @Prop({ type: [AppliedPromotionSchema], default: [] })
+  appliedPromotions!: AppliedPromotion[]
 
   @Prop({ default: null, type: Date })
   estimatedDeliveryAt!: Date | null
@@ -143,6 +178,15 @@ export interface PublicOrderStatusHistory {
   changedAt: string
 }
 
+export interface PublicAppliedPromotion {
+  promotionId: string
+  name: string
+  type: PromotionType
+  scope: PromotionScope
+  code: string | null
+  amount: number
+}
+
 export interface PublicOrder {
   id: string
   number: string
@@ -151,7 +195,11 @@ export interface PublicOrder {
   addressId: string
   deliveryAddress: { text: string; latitude: number; longitude: number }
   status: OrderStatus
+  subtotal: number
+  discountTotal: number
   total: number
+  promotionCode: string | null
+  appliedPromotions: PublicAppliedPromotion[]
   estimatedDeliveryAt: string | null
   riderId: string | null
   tripId: string | null
@@ -183,6 +231,15 @@ const serializeHistory = (entry: OrderStatusHistory): PublicOrderStatusHistory =
   changedAt: entry.changedAt.toISOString(),
 })
 
+const serializeAppliedPromotion = (entry: AppliedPromotion): PublicAppliedPromotion => ({
+  promotionId: entry.promotionId,
+  name: entry.name,
+  type: entry.type,
+  scope: entry.scope,
+  code: entry.code ?? null,
+  amount: entry.amount,
+})
+
 export const serializeOrder = (doc: OrderDocument): PublicOrder => ({
   id: doc._id.toString(),
   number: doc.number,
@@ -195,7 +252,11 @@ export const serializeOrder = (doc: OrderDocument): PublicOrder => ({
     longitude: doc.deliveryAddress.longitude,
   },
   status: doc.status,
+  subtotal: doc.subtotal ?? doc.total,
+  discountTotal: doc.discountTotal ?? 0,
   total: doc.total,
+  promotionCode: doc.promotionCode ?? null,
+  appliedPromotions: (doc.appliedPromotions ?? []).map(serializeAppliedPromotion),
   estimatedDeliveryAt: doc.estimatedDeliveryAt?.toISOString() ?? null,
   riderId: doc.riderId ?? null,
   tripId: doc.tripId ?? null,

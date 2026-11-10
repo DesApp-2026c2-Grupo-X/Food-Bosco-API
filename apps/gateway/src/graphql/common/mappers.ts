@@ -22,6 +22,9 @@ export const idOf = (raw: RawRecord): string => asString(raw.id ?? raw._id)
 export const asStringList = (value: unknown): string[] =>
   Array.isArray(value) ? value.map((entry) => asString(entry)) : []
 
+export const asNumberList = (value: unknown): number[] =>
+  Array.isArray(value) ? value.map((entry) => asNumber(entry)) : []
+
 export const asRecordList = (value: unknown): RawRecord[] =>
   Array.isArray(value)
     ? value.filter((entry): entry is RawRecord => typeof entry === 'object' && entry !== null)

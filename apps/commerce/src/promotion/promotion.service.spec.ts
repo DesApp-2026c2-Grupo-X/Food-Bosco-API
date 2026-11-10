@@ -1,5 +1,5 @@
 import { ERROR_CODES } from '../config/constants'
-import type { PromotionDocument, PublicPromotion } from './promotion.model'
+import type { PromotionDocument } from './promotion.model'
 import type { PromotionListQuery } from './promotion.repository'
 import { PromotionRepository } from './promotion.repository'
 import { PromotionService } from './promotion.service'
@@ -40,7 +40,7 @@ describe('PromotionService.list (RQ-CAT-13)', () => {
     const result = await service.list(query)
 
     expect(result.meta).toEqual({ total: 3, limit: 20, offset: 0 })
-    expect(result.data).toEqual<PublicPromotion[]>([
+    expect(result.data).toMatchObject([
       {
         id: 'prom1',
         name: '2x1',

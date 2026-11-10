@@ -6,7 +6,7 @@
 
 ## Prompt
 
-> podes ejecuarlo , habian msjs en ingles  , quisiera pasarlos en español y analisar si quedaron validaciones pendienttes  y si es asi implementarlas
+> podes ejecuarlo , habian msjs en ingles , quisiera pasarlos en español y analisar si quedaron validaciones pendienttes y si es asi implementarlas
 
 ## Informe
 

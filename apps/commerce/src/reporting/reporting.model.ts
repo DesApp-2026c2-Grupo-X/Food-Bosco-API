@@ -39,6 +39,7 @@ export interface ReportKpis {
   totalRevenue: number
   totalOrders: number
   averageTicket: number
+  totalDiscounts: number
   cancelledOrders: number
   bestSellingProduct: ProductSalesRow | null
   topBranch: BranchPerformanceRow | null

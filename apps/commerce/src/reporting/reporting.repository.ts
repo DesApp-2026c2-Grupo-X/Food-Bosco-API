@@ -22,7 +22,7 @@ export interface SalesAggregate {
 }
 
 export interface OverviewAggregateRaw {
-  sales: Array<{ revenue: number; orders: number }>
+  sales: Array<{ revenue: number; orders: number; subtotal?: number; discountTotal?: number }>
   status: Array<{ _id: OrderStatus; count: number }>
   series: Array<{ _id: string; revenue: number; orders: number }>
   topProducts: Array<{ _id: string; name: string; quantity: number; revenue: number }>
@@ -211,7 +211,15 @@ export class ReportingRepository {
         $facet: {
           sales: [
             { $match: salesStatusMatch(filter) },
-            { $group: { _id: null, revenue: { $sum: '$total' }, orders: { $sum: 1 } } },
+            {
+              $group: {
+                _id: null,
+                revenue: { $sum: '$total' },
+                subtotal: { $sum: { $ifNull: ['$subtotal', '$total'] } },
+                discountTotal: { $sum: { $ifNull: ['$discountTotal', 0] } },
+                orders: { $sum: 1 },
+              },
+            },
           ],
           status: [
             { $match: filter.status ? { status: filter.status } : {} },

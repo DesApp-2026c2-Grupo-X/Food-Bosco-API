@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { isValidObjectId, Model } from 'mongoose'
 import { OrderStatus } from '../config/constants'
-import { Order, OrderDocument, OrderItem, OrderStatusHistory } from './order.model'
+import {
+  Order,
+  OrderDocument,
+  OrderItem,
+  OrderStatusHistory,
+  AppliedPromotion,
+} from './order.model'
 
 export interface CreateOrderData {
   number: string
@@ -10,7 +16,11 @@ export interface CreateOrderData {
   branchId: string
   addressId: string
   deliveryAddress: { text: string; latitude: number; longitude: number }
+  subtotal?: number
+  discountTotal?: number
   total: number
+  promotionCode?: string | null
+  appliedPromotions?: AppliedPromotion[]
   estimatedDeliveryAt: Date | null
   items: OrderItem[]
 }
@@ -41,6 +51,10 @@ export class OrderRepository {
   create(data: CreateOrderData, initialHistory: OrderStatusHistory): Promise<OrderDocument> {
     return this.model.create({
       ...data,
+      subtotal: data.subtotal ?? data.total,
+      discountTotal: data.discountTotal ?? 0,
+      promotionCode: data.promotionCode ?? null,
+      appliedPromotions: data.appliedPromotions ?? [],
       status: 'pending',
       statusHistory: [initialHistory],
     })
