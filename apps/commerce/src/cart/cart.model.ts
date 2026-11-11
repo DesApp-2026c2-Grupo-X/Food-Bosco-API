@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument, Types } from 'mongoose'
-import { CART_STATUS, CART_STATUS_VALUES } from '../config/constants'
+import { CART_STATUS, CART_STATUS_VALUES, PromotionScope, PromotionType } from '../config/constants'
 import type { CartStatus } from '../config/constants'
 
 @Schema()
@@ -33,8 +33,14 @@ export class Cart {
   @Prop({ type: [CartItemSchema], default: [] })
   items!: CartItem[]
 
+  @Prop({ default: 0 })
+  subtotal!: number
+
   @Prop({ required: true, default: 0 })
   total!: number
+
+  @Prop({ default: null, type: String, uppercase: true })
+  promotionCode!: string | null
 
   createdAt!: Date
   updatedAt!: Date
@@ -54,12 +60,32 @@ export interface PublicCartItem {
   optionIds: string[]
 }
 
+export interface AppliedPromotionPreview {
+  promotionId: string
+  name: string
+  type: PromotionType
+  scope: PromotionScope
+  code: string | null
+  amount: number
+}
+
+export interface CartPricingSnapshot {
+  subtotal: number
+  discountTotal: number
+  total: number
+  appliedPromotions: AppliedPromotionPreview[]
+}
+
 export interface PublicCart {
   id: string
   clientId: string
   status: CartStatus
   items: PublicCartItem[]
+  subtotal: number
+  discountTotal: number
   total: number
+  promotionCode: string | null
+  appliedPromotions: AppliedPromotionPreview[]
 }
 
 const serializeItem = (item: CartItem): PublicCartItem => ({
@@ -70,10 +96,14 @@ const serializeItem = (item: CartItem): PublicCartItem => ({
   optionIds: item.optionIds,
 })
 
-export const serializeCart = (doc: CartDocument): PublicCart => ({
+export const serializeCart = (doc: CartDocument, pricing?: CartPricingSnapshot): PublicCart => ({
   id: doc._id.toString(),
   clientId: doc.clientId,
   status: doc.status,
   items: doc.items.map(serializeItem),
-  total: doc.total,
+  subtotal: pricing ? pricing.subtotal : (doc.subtotal ?? doc.total),
+  discountTotal: pricing ? pricing.discountTotal : 0,
+  total: pricing ? pricing.total : doc.total,
+  promotionCode: doc.promotionCode ?? null,
+  appliedPromotions: pricing ? pricing.appliedPromotions : [],
 })

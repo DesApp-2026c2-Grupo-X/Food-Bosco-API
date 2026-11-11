@@ -42,6 +42,7 @@ describe('CartRepository.setItemsAndTotal (RQ-CART-04/05)', () => {
             { _id: 'i1', productId: 'p1', quantity: 2, observations: null, optionIds: [] },
             { productId: 'p2', quantity: 1, observations: null, optionIds: [] },
           ],
+          subtotal: 300,
           total: 300,
         },
       },

@@ -74,6 +74,47 @@ export const STOCK_MOVEMENT_REASON = {
 
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASON)[keyof typeof STOCK_MOVEMENT_REASON]
 
+export const PROMOTION_TYPE = {
+  percentage: 'PERCENTAGE',
+  fixedAmount: 'FIXED_AMOUNT',
+  buyXGetY: 'BUY_X_GET_Y',
+} as const
+
+export type PromotionType = (typeof PROMOTION_TYPE)[keyof typeof PROMOTION_TYPE]
+
+export const PROMOTION_TYPE_VALUES: PromotionType[] = [
+  PROMOTION_TYPE.percentage,
+  PROMOTION_TYPE.fixedAmount,
+  PROMOTION_TYPE.buyXGetY,
+]
+
+export const PROMOTION_SCOPE = {
+  order: 'ORDER',
+  category: 'CATEGORY',
+  product: 'PRODUCT',
+} as const
+
+export type PromotionScope = (typeof PROMOTION_SCOPE)[keyof typeof PROMOTION_SCOPE]
+
+export const PROMOTION_SCOPE_VALUES: PromotionScope[] = [
+  PROMOTION_SCOPE.order,
+  PROMOTION_SCOPE.category,
+  PROMOTION_SCOPE.product,
+]
+
+export const PROMOTION_REDEMPTION_STATUS = {
+  active: 'ACTIVE',
+  released: 'RELEASED',
+} as const
+
+export type PromotionRedemptionStatus =
+  (typeof PROMOTION_REDEMPTION_STATUS)[keyof typeof PROMOTION_REDEMPTION_STATUS]
+
+export const PROMOTION_REDEMPTION_STATUS_VALUES: PromotionRedemptionStatus[] = [
+  PROMOTION_REDEMPTION_STATUS.active,
+  PROMOTION_REDEMPTION_STATUS.released,
+]
+
 export const PARAMETER_KEYS = {
   maxDistanceKm: 'MAX_DISTANCE_KM',
   basePrepMin: 'BASE_PREP_MIN',
@@ -89,6 +130,13 @@ export const ERROR_CODES = {
   ingredientNotFound: 'INGREDIENT_NOT_FOUND',
   ingredientInUse: 'INGREDIENT_IN_USE',
   promotionNotFound: 'PROMOTION_NOT_FOUND',
+  promotionAlreadyExists: 'PROMOTION_ALREADY_EXISTS',
+  promotionCodeInvalid: 'PROMOTION_CODE_INVALID',
+  promotionCodeAlreadyExists: 'PROMOTION_CODE_ALREADY_EXISTS',
+  promotionLimitReached: 'PROMOTION_LIMIT_REACHED',
+  promotionNotApplicable: 'PROMOTION_NOT_APPLICABLE',
+  promotionReferenceNotFound: 'PROMOTION_REFERENCE_NOT_FOUND',
+  invalidPromotionRules: 'INVALID_PROMOTION_RULES',
   branchNotFound: 'BRANCH_NOT_FOUND',
   noBranchAvailable: 'NO_BRANCH_AVAILABLE',
   cartNotFound: 'CART_NOT_FOUND',

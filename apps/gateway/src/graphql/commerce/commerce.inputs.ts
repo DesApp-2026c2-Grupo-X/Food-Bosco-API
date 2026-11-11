@@ -2,6 +2,8 @@ import { Field, Float, ID, InputType, Int } from '@nestjs/graphql'
 import { ConfigGroupType } from '../common/config-group-type.enum'
 import { CustomerInsightsSort } from '../common/customer-insights-sort.enum'
 import { OrderStatus } from '../common/order-status.enum'
+import { PromotionScope } from '../common/promotion-scope.enum'
+import { PromotionType } from '../common/promotion-type.enum'
 import { ReportGroupBy } from '../common/report-group.enum'
 
 @InputType()
@@ -104,6 +106,63 @@ export class PromotionInput {
 
   @Field({ nullable: true })
   active?: boolean
+
+  @Field(() => PromotionType, { nullable: true })
+  type?: PromotionType
+
+  @Field(() => Float, { nullable: true })
+  discountValue?: number
+
+  @Field(() => Float, { nullable: true })
+  maxDiscount?: number
+
+  @Field(() => Int, { nullable: true })
+  buyQuantity?: number
+
+  @Field(() => Int, { nullable: true })
+  payQuantity?: number
+
+  @Field(() => PromotionScope, { nullable: true })
+  scope?: PromotionScope
+
+  @Field(() => [ID], { nullable: true })
+  categoryIds?: string[]
+
+  @Field(() => [ID], { nullable: true })
+  productIds?: string[]
+
+  @Field(() => [ID], { nullable: true })
+  branchIds?: string[]
+
+  @Field(() => Float, { nullable: true })
+  minSubtotal?: number
+
+  @Field(() => Int, { nullable: true })
+  minQuantity?: number
+
+  @Field(() => [Int], { nullable: true })
+  daysOfWeek?: number[]
+
+  @Field({ nullable: true })
+  startTime?: string
+
+  @Field({ nullable: true })
+  endTime?: string
+
+  @Field({ nullable: true })
+  code?: string
+
+  @Field({ nullable: true })
+  stackable?: boolean
+
+  @Field(() => Int, { nullable: true })
+  priority?: number
+
+  @Field(() => Int, { nullable: true })
+  maxUsesTotal?: number
+
+  @Field(() => Int, { nullable: true })
+  maxUsesPerCustomer?: number
 }
 
 @InputType()

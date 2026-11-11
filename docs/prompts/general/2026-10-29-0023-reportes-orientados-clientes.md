@@ -53,6 +53,7 @@
 > Estos puntos son posibilidades a evaluar, no requisitos que deban implementarse automáticamente. Determinar cuáles aportan valor, cuáles son viables con los datos existentes y cuáles requieren aclaraciones.
 >
 > Para cada indicador, definir:
+>
 > - Qué representa.
 > - Qué datos necesita.
 > - Cómo se calcula.
@@ -158,12 +159,14 @@
 > Trabajar por etapas:
 >
 > **Etapa A — Diagnóstico**
+>
 > - Leer las instrucciones y skills.
 > - Inspeccionar frontend y backend.
 > - Identificar datos, operaciones, componentes y permisos existentes.
 > - Documentar los hallazgos relevantes.
 >
 > **Etapa B — Propuesta**
+>
 > - Definir el alcance funcional recomendado.
 > - Especificar indicadores, reglas de cálculo y estados de pedido.
 > - Identificar archivos que deben modificarse o crearse.
@@ -173,12 +176,14 @@
 > Si quedan decisiones de negocio indispensables sin resolver, formular preguntas concretas antes de implementar esas partes.
 >
 > **Etapa C — Implementación**
+>
 > - Desarrollar la solución siguiendo la propuesta.
 > - Reutilizar la arquitectura existente.
 > - Mantener los cambios acotados y coherentes.
 > - Incorporar las pruebas correspondientes.
 >
 > **Etapa D — Validación**
+>
 > - Ejecutar las verificaciones disponibles.
 > - Revisar seguridad, cálculos y aislamiento de datos.
 > - Verificar la integración frontend-backend.
@@ -199,7 +204,7 @@
 >
 > ## Criterio de aceptación
 >
-> La tarea se considera terminada cuando el cliente puede acceder a reportes útiles sobre su propia actividad, consultar información obtenida de datos reales, comprender los indicadores mostrados y utilizar la funcionalidad de manera segura, sin afectar los reportes administrativos ni las demás aplicaciones de Food-Bosco.  asegurate de tener en cuenta agents.md y las skills del proyecto , e inspecciona tanto foodbosco api como foodbosco frontend , una vez terminado arma un informe de los cambios y mejoras realizadas
+> La tarea se considera terminada cuando el cliente puede acceder a reportes útiles sobre su propia actividad, consultar información obtenida de datos reales, comprender los indicadores mostrados y utilizar la funcionalidad de manera segura, sin afectar los reportes administrativos ni las demás aplicaciones de Food-Bosco. asegurate de tener en cuenta agents.md y las skills del proyecto , e inspecciona tanto foodbosco api como foodbosco frontend , una vez terminado arma un informe de los cambios y mejoras realizadas
 
 ## Informe
 

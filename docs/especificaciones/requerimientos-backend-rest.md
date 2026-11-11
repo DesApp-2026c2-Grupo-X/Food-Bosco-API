@@ -24,8 +24,11 @@
 >   configuran las contraseñas (`SEED_*_PASSWORD`).
 > - **Fuera del alcance actual (documentado, no implementado):** paquete de contratos/OpenAPI +
 >   codegen, idempotencia/DLQ/retry del bus de eventos, DataLoader con batch real (solo deduplica por
->   request), separación de base por servicio y motor de promociones. Promociones y stock se
->   administran como **datos generales** (ABM), sin reglas automáticas.
+>   request) y separación de base por servicio.
+> - **Motor de promociones (Alcance C - Completo):** implementado con cálculo autoritativo en Commerce,
+>   evaluación pura de reglas (`PERCENTAGE`, `FIXED_AMOUNT`, `BUY_X_GET_Y`), alcances (`ORDER`, `CATEGORY`, `PRODUCT`),
+>   cupones, control de días/horarios/sucursales, ledger de redenciones (`promotionRedemptions`) con liberación
+>   en cancelaciones, y snapshot congelado en carrito y pedidos. Ver [`docs/implementacion/promociones.md`](../implementacion/promociones.md).
 > - Endpoints implementados no listados en el catálogo original: `GET /v1/branches/available/products`,
 >   `GET /v1/reporting/overview`, `GET /v1/riders/by-user/:id`,
 >   `PATCH /v1/riders/me/vehicle`, `/v1/zones`, `/v1/shifts`, `POST /seed` (gateway, requiere

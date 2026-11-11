@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument } from 'mongoose'
-import { BUSINESS_TIME_ZONE } from '../config/constants'
+import { getArgentinaClock, timeToMinutes } from '../config/time/business-clock'
 
 export interface BranchHour {
   dayOfWeek: number
@@ -92,43 +92,6 @@ export const serializeBranch = (doc: BranchDocument): PublicBranch => ({
   active: doc.active,
   hours: doc.hours.map(serializeHour),
 })
-
-const timeToMinutes = (value: string | null | undefined): number | null => {
-  if (!value) return null
-  const [hours, minutes] = value.split(':').map((part) => Number(part))
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
-  return hours * 60 + minutes
-}
-
-const argentinaClockFormatter = new Intl.DateTimeFormat('en-US', {
-  timeZone: BUSINESS_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-})
-
-interface ArgentinaClock {
-  dayOfWeek: number
-  minutes: number
-}
-
-const getArgentinaClock = (instant: Date): ArgentinaClock => {
-  const parts = argentinaClockFormatter.formatToParts(instant)
-  const read = (type: Intl.DateTimeFormatPartTypes): number =>
-    Number(parts.find((part) => part.type === type)?.value ?? 0)
-
-  const year = read('year')
-  const month = read('month')
-  const day = read('day')
-  const hour = read('hour')
-  const minute = read('minute')
-
-  const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-  return { dayOfWeek, minutes: hour * 60 + minute }
-}
 
 const isOpenDuringEntryDay = (entry: PublicBranchHour | undefined, minutes: number): boolean => {
   if (!entry || entry.closed) {

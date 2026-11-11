@@ -39,4 +39,9 @@ export class CartService {
   async release(id: string): Promise<void> {
     await this.repository.release(id)
   }
+
+  async setPromotionCode(id: string, code: string | null): Promise<PublicCart | null> {
+    const doc = await this.repository.setPromotionCode(id, code)
+    return doc ? serializeCart(doc) : null
+  }
 }

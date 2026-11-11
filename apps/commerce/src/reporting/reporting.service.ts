@@ -153,8 +153,8 @@ export class ReportingService {
       revenue: row.revenue,
     }))
 
-    const currentSales = current.sales[0] ?? { revenue: 0, orders: 0 }
-    const previousSales = previous.sales[0] ?? { revenue: 0, orders: 0 }
+    const currentSales = current.sales[0] ?? { revenue: 0, orders: 0, discountTotal: 0 }
+    const previousSales = previous.sales[0] ?? { revenue: 0, orders: 0, discountTotal: 0 }
     const averageTicket = currentSales.orders > 0 ? currentSales.revenue / currentSales.orders : 0
     const previousAverageTicket =
       previousSales.orders > 0 ? previousSales.revenue / previousSales.orders : 0
@@ -165,6 +165,7 @@ export class ReportingService {
         totalRevenue: currentSales.revenue,
         totalOrders: currentSales.orders,
         averageTicket: roundTo(averageTicket, 2),
+        totalDiscounts: currentSales.discountTotal ?? 0,
         cancelledOrders: this.countStatus(current, ORDER_STATUS.cancelled),
         bestSellingProduct: topProducts[0] ?? null,
         topBranch: branchPerformance[0] ?? null,

@@ -33,8 +33,13 @@ export class CartRepository {
       itemId ? { _id: itemId, ...item } : item,
     )
     return this.model
-      .findByIdAndUpdate(id, { $set: { items: documents, total } }, { new: true })
+      .findByIdAndUpdate(id, { $set: { items: documents, subtotal: total, total } }, { new: true })
       .exec()
+  }
+
+  setPromotionCode(id: string, promotionCode: string | null): Promise<CartDocument | null> {
+    const code = promotionCode ? promotionCode.trim().toUpperCase() : null
+    return this.model.findByIdAndUpdate(id, { $set: { promotionCode: code } }, { new: true }).exec()
   }
 
   confirm(id: string): Promise<CartDocument | null> {

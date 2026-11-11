@@ -4,6 +4,7 @@ import { ConfigGroupType, configGroupTypeFromRest } from '../common/config-group
 import {
   asBoolean,
   asNumber,
+  asNumberList,
   asRecordList,
   asString,
   asStringList,
@@ -13,6 +14,8 @@ import {
 } from '../common/mappers'
 import type { RawRecord } from '../common/mappers'
 import { OrderStatus, orderStatusFromRest } from '../common/order-status.enum'
+import { PromotionScope, promotionScopeFromRest } from '../common/promotion-scope.enum'
+import { PromotionType, promotionTypeFromRest } from '../common/promotion-type.enum'
 
 @ObjectType()
 export class Category {
@@ -132,6 +135,21 @@ export class Product {
 }
 
 @ObjectType()
+export class AppliedPromotion {
+  @Field(() => ID)
+  promotionId!: string
+
+  @Field()
+  name!: string
+
+  @Field(() => String, { nullable: true })
+  code!: string | null
+
+  @Field(() => Float)
+  amount!: number
+}
+
+@ObjectType()
 export class Promotion {
   @Field(() => ID)
   id!: string
@@ -150,6 +168,66 @@ export class Promotion {
 
   @Field()
   active!: boolean
+
+  @Field(() => PromotionType, { nullable: true })
+  type!: PromotionType | null
+
+  @Field(() => Float, { nullable: true })
+  discountValue!: number | null
+
+  @Field(() => Float, { nullable: true })
+  maxDiscount!: number | null
+
+  @Field(() => Int, { nullable: true })
+  buyQuantity!: number | null
+
+  @Field(() => Int, { nullable: true })
+  payQuantity!: number | null
+
+  @Field(() => PromotionScope, { nullable: true })
+  scope!: PromotionScope | null
+
+  @Field(() => [ID])
+  categoryIds!: string[]
+
+  @Field(() => [ID])
+  productIds!: string[]
+
+  @Field(() => [ID])
+  branchIds!: string[]
+
+  @Field(() => Float)
+  minSubtotal!: number
+
+  @Field(() => Int)
+  minQuantity!: number
+
+  @Field(() => [Int])
+  daysOfWeek!: number[]
+
+  @Field(() => String, { nullable: true })
+  startTime!: string | null
+
+  @Field(() => String, { nullable: true })
+  endTime!: string | null
+
+  @Field(() => String, { nullable: true })
+  code!: string | null
+
+  @Field()
+  stackable!: boolean
+
+  @Field(() => Int)
+  priority!: number
+
+  @Field(() => Int, { nullable: true })
+  maxUsesTotal!: number | null
+
+  @Field(() => Int, { nullable: true })
+  maxUsesPerCustomer!: number | null
+
+  @Field(() => Int)
+  usedCount!: number
 }
 
 @ObjectType()
@@ -233,7 +311,19 @@ export class Cart {
   items!: CartItem[]
 
   @Field(() => Float)
+  subtotal!: number
+
+  @Field(() => Float)
+  discountTotal!: number
+
+  @Field(() => Float)
   total!: number
+
+  @Field(() => String, { nullable: true })
+  promotionCode!: string | null
+
+  @Field(() => [AppliedPromotion])
+  appliedPromotions!: AppliedPromotion[]
 }
 
 @ObjectType()
@@ -326,7 +416,19 @@ export class Order {
   status!: OrderStatus
 
   @Field(() => Float)
+  subtotal!: number
+
+  @Field(() => Float)
+  discountTotal!: number
+
+  @Field(() => Float)
   total!: number
+
+  @Field(() => String, { nullable: true })
+  promotionCode!: string | null
+
+  @Field(() => [AppliedPromotion])
+  appliedPromotions!: AppliedPromotion[]
 
   @Field(() => String, { nullable: true })
   estimatedDeliveryAt!: string | null
@@ -534,6 +636,9 @@ export class ReportKpis {
 
   @Field(() => Float)
   averageTicket!: number
+
+  @Field(() => Float)
+  totalDiscounts!: number
 
   @Field(() => Int)
   cancelledOrders!: number
@@ -876,6 +981,13 @@ export const mapProduct = (raw: RawRecord): Product => ({
   recipe: asRecordList(raw.recipe).map(mapRecipeItem),
 })
 
+export const mapAppliedPromotion = (raw: RawRecord): AppliedPromotion => ({
+  promotionId: asString(raw.promotionId),
+  name: asString(raw.name),
+  code: nullableString(raw.code),
+  amount: asNumber(raw.amount),
+})
+
 export const mapPromotion = (raw: RawRecord): Promotion => ({
   id: idOf(raw),
   name: asString(raw.name),
@@ -883,6 +995,26 @@ export const mapPromotion = (raw: RawRecord): Promotion => ({
   startDate: asString(raw.startDate),
   endDate: asString(raw.endDate),
   active: asBoolean(raw.active),
+  type: promotionTypeFromRest(nullableString(raw.type)),
+  discountValue: nullableNumber(raw.discountValue),
+  maxDiscount: nullableNumber(raw.maxDiscount),
+  buyQuantity: nullableNumber(raw.buyQuantity),
+  payQuantity: nullableNumber(raw.payQuantity),
+  scope: promotionScopeFromRest(nullableString(raw.scope)),
+  categoryIds: asStringList(raw.categoryIds),
+  productIds: asStringList(raw.productIds),
+  branchIds: asStringList(raw.branchIds),
+  minSubtotal: asNumber(raw.minSubtotal),
+  minQuantity: asNumber(raw.minQuantity),
+  daysOfWeek: asNumberList(raw.daysOfWeek),
+  startTime: nullableString(raw.startTime),
+  endTime: nullableString(raw.endTime),
+  code: nullableString(raw.code),
+  stackable: asBoolean(raw.stackable),
+  priority: asNumber(raw.priority),
+  maxUsesTotal: nullableNumber(raw.maxUsesTotal),
+  maxUsesPerCustomer: nullableNumber(raw.maxUsesPerCustomer),
+  usedCount: asNumber(raw.usedCount),
 })
 
 export const mapBranchHour = (raw: RawRecord): BranchHours => ({
@@ -912,13 +1044,23 @@ export const mapCartItem = (raw: RawRecord): CartItem => ({
   options: [],
 })
 
-export const mapCart = (raw: RawRecord): Cart => ({
-  id: idOf(raw),
-  clientId: asString(raw.clientId),
-  status: asString(raw.status),
-  items: asRecordList(raw.items).map(mapCartItem),
-  total: asNumber(raw.total),
-})
+export const mapCart = (raw: RawRecord): Cart => {
+  const total = asNumber(raw.total)
+  const subtotal = raw.subtotal != null ? asNumber(raw.subtotal) : total
+  const discountTotal = asNumber(raw.discountTotal)
+
+  return {
+    id: idOf(raw),
+    clientId: asString(raw.clientId),
+    status: asString(raw.status),
+    items: asRecordList(raw.items).map(mapCartItem),
+    subtotal,
+    discountTotal,
+    total,
+    promotionCode: nullableString(raw.promotionCode),
+    appliedPromotions: asRecordList(raw.appliedPromotions).map(mapAppliedPromotion),
+  }
+}
 
 export const mapOrderItemOption = (raw: RawRecord): OrderItemOption => ({
   optionId: asString(raw.optionId),
@@ -942,25 +1084,35 @@ export const mapOrderStatusHistory = (raw: RawRecord): OrderStatusHistory => ({
   changedAt: asString(raw.changedAt),
 })
 
-export const mapOrder = (raw: RawRecord): Order => ({
-  id: idOf(raw),
-  number: asString(raw.number),
-  clientId: asString(raw.clientId),
-  riderId: nullableString(raw.riderId),
-  branchId: asString(raw.branchId),
-  deliveryAddress: {
-    text: asString((raw.deliveryAddress as RawRecord | undefined)?.text),
-    latitude: asNumber((raw.deliveryAddress as RawRecord | undefined)?.latitude),
-    longitude: asNumber((raw.deliveryAddress as RawRecord | undefined)?.longitude),
-  },
-  status: orderStatusFromRest(asString(raw.status)),
-  total: asNumber(raw.total),
-  estimatedDeliveryAt: nullableString(raw.estimatedDeliveryAt),
-  createdAt: asString(raw.createdAt),
-  items: asRecordList(raw.items).map(mapOrderItem),
-  statusHistory: asRecordList(raw.statusHistory).map(mapOrderStatusHistory),
-  availableTransitions: asStatusList(raw.availableTransitions),
-})
+export const mapOrder = (raw: RawRecord): Order => {
+  const total = asNumber(raw.total)
+  const subtotal = raw.subtotal != null ? asNumber(raw.subtotal) : total
+  const discountTotal = asNumber(raw.discountTotal)
+
+  return {
+    id: idOf(raw),
+    number: asString(raw.number),
+    clientId: asString(raw.clientId),
+    riderId: nullableString(raw.riderId),
+    branchId: asString(raw.branchId),
+    deliveryAddress: {
+      text: asString((raw.deliveryAddress as RawRecord | undefined)?.text),
+      latitude: asNumber((raw.deliveryAddress as RawRecord | undefined)?.latitude),
+      longitude: asNumber((raw.deliveryAddress as RawRecord | undefined)?.longitude),
+    },
+    status: orderStatusFromRest(asString(raw.status)),
+    subtotal,
+    discountTotal,
+    total,
+    promotionCode: nullableString(raw.promotionCode),
+    appliedPromotions: asRecordList(raw.appliedPromotions).map(mapAppliedPromotion),
+    estimatedDeliveryAt: nullableString(raw.estimatedDeliveryAt),
+    createdAt: asString(raw.createdAt),
+    items: asRecordList(raw.items).map(mapOrderItem),
+    statusHistory: asRecordList(raw.statusHistory).map(mapOrderStatusHistory),
+    availableTransitions: asStatusList(raw.availableTransitions),
+  }
+}
 
 export const mapBranchStock = (raw: RawRecord): BranchStock => ({
   ingredientId: asString(raw.ingredientId),
@@ -1035,6 +1187,7 @@ export const mapReportsOverview = (raw: RawRecord): ReportsOverview => {
       totalRevenue: asNumber(kpis.totalRevenue),
       totalOrders: asNumber(kpis.totalOrders),
       averageTicket: asNumber(kpis.averageTicket),
+      totalDiscounts: asNumber(kpis.totalDiscounts),
       cancelledOrders: asNumber(kpis.cancelledOrders),
       bestSellingProduct: kpis.bestSellingProduct
         ? mapProductSalesRow(kpis.bestSellingProduct as RawRecord)

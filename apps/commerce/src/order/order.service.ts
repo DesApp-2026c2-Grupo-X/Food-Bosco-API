@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, ORDER_STATUS, ORDER_TRANSITIONS, OrderStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
-import { OrderStatusHistory, PublicOrder, serializeOrder } from './order.model'
+import { AppliedPromotion, OrderStatusHistory, PublicOrder, serializeOrder } from './order.model'
 import { CreateOrderData, OrderListQuery, OrderRepository } from './order.repository'
 
 export interface OrderListResponse {
@@ -14,7 +14,11 @@ export interface CreateOrderInput {
   branchId: string
   addressId: string
   deliveryAddress: { text: string; latitude: number; longitude: number }
+  subtotal?: number
+  discountTotal?: number
   total: number
+  promotionCode?: string | null
+  appliedPromotions?: AppliedPromotion[]
   estimatedDeliveryAt: Date | null
   items: CreateOrderData['items']
 }
