@@ -387,6 +387,18 @@ export class OrderAddress {
 }
 
 @ObjectType()
+export class OrderCourier {
+  @Field(() => ID)
+  id!: string
+
+  @Field(() => String, { nullable: true })
+  firstName!: string | null
+
+  @Field(() => String, { nullable: true })
+  lastName!: string | null
+}
+
+@ObjectType()
 export class Order {
   @Field(() => ID)
   id!: string
@@ -402,6 +414,9 @@ export class Order {
 
   @Field(() => User, { nullable: true })
   client?: User | null
+
+  @Field(() => OrderCourier, { nullable: true })
+  rider?: OrderCourier | null
 
   @Field(() => ID)
   branchId!: string

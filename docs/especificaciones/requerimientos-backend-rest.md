@@ -1726,3 +1726,35 @@ Mapa pantalla (`requerimientos-frontend.md`) → endpoints REST que invoca el ga
 | 1   | Catálogo público vs stock/pausa (RQ-CAT-05) | La sucursal se asigna al **confirmar** (§1.4), así que al navegar (T-05/T-06) no hay sucursal definida. Decisión actual: catálogo **global** al navegar; pausa + stock se validan al confirmar (RQ-ORD-01/03, RQ-STK-06). Si se quiere disponibilidad real por sucursal en la Tienda, agregar `GET /v1/branches/{branchId}/catalog`. |
 | 2   | Validación de token de recuperación (T-04)  | Se resuelve con el error de `POST /v1/auth/reset-password` (token vencido/inválido). Opcional: `GET /v1/auth/reset-password/validate?token=` para validar antes de mostrar el formulario.                                                                                                                                            |
 | 3   | Orden de "pedidos recientes" (S-02/S-05)    | `GET /v1/orders` deberá ordenar por fecha desc por defecto (o aceptar `sort`). Definir explícito en el contrato.                                                                                                                                                                                                                     |
+
+---
+
+## Extensión — Calificaciones (2026-11-15)
+
+Se agrega el dominio `order-review` en Commerce y los contratos GraphQL correspondientes.
+
+Reglas:
+
+- Solo el cliente dueño puede calificar un pedido propio en estado `delivered`.
+- La calificación de sucursal es obligatoria.
+- Si el pedido tiene `riderId`, la calificación del repartidor es obligatoria.
+- Los comentarios son opcionales, independientes y de hasta 500 caracteres.
+- Una sola reseña por pedido (índice único sobre `orderId`).
+- `branchId`, `riderId` y `customerId` se derivan del pedido y del usuario autenticado.
+- Estadísticas separadas por sucursal y repartidor.
+
+Endpoints REST internos:
+
+| Método | Ruta | Rol |
+| --- | --- | --- |
+| `POST` | `/v1/reviews/orders/{orderId}` | `customer` |
+| `GET` | `/v1/reviews/orders/{orderId}` | `customer` |
+| `GET` | `/v1/reviews/mine` | `customer` |
+| `GET` | `/v1/reviews/pending` | `customer` |
+| `GET` | `/v1/reviews/branches/{branchId}/stats` | `branch_admin`, `super_admin` |
+| `GET` | `/v1/reviews/couriers/{courierId}/stats` | `rider`, `super_admin` |
+| `GET` | `/v1/reviews/branches/ranking` | `super_admin` |
+| `GET` | `/v1/reviews/couriers/ranking` | `super_admin` |
+| `GET` | `/v1/reviews/summary` | `super_admin` |
+
+Detalle completo en [`../feature-calificaciones/`](../feature-calificaciones/relevamiento.md).
