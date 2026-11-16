@@ -2928,3 +2928,16 @@ Al finalizar el diseño, el equipo deberá contar con:
 - todas las pantallas con estados normales, vacíos, loading y error;
 - una definición clara de qué dato solicita cada página y qué operación ejecuta;
 - una interfaz estrictamente limitada a las funcionalidades base de la consigna.
+
+---
+
+## Extensión — Calificaciones (2026-11-15)
+
+- **Store**: detalle e historial de pedidos entregados muestran `Calificar pedido` si aún no hay reseña y `Pedido calificado` si ya existe.
+- **Pantalla**: "¿Cómo estuvo tu pedido?" con bloque de sucursal obligatorio y bloque de repartidor solo para pedidos con delivery.
+- **Estrellas**: componente accesible reutilizable, con interacción por mouse y teclado.
+- **Comentarios**: independientes y opcionales, hasta 500 caracteres.
+- **Branch**: apartado de calificaciones de la propia sucursal con promedio, distribución, comentarios y filtro por período.
+- **Admin**: resumen global y rankings de sucursales y repartidores.
+- **Rider**: reputación personal sin exponer datos personales de los clientes.
+- El frontend consume exclusivamente el gateway GraphQL.

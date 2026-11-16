@@ -10,11 +10,21 @@ import {
   TripOrderFieldResolver,
 } from './commerce.fields.resolver'
 import { CommerceResolver } from './commerce.resolver'
+import {
+  BranchRatingRowFieldResolver,
+  CourierRatingRowFieldResolver,
+  OrderReviewFieldResolver,
+  ReviewsResolver,
+} from './reviews.resolver'
 
 @Module({
   imports: [RestModule],
   providers: [
     CommerceResolver,
+    ReviewsResolver,
+    OrderReviewFieldResolver,
+    BranchRatingRowFieldResolver,
+    CourierRatingRowFieldResolver,
     ProductFieldResolver,
     RecipeItemFieldResolver,
     CartItemFieldResolver,

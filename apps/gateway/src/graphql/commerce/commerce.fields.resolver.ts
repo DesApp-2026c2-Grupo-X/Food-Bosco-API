@@ -22,6 +22,7 @@ import {
   CustomerInsightsRow,
   Ingredient,
   Order,
+  OrderCourier,
   Product,
   RecipeItem,
   mapBranch,
@@ -141,6 +142,26 @@ export class OrderFieldResolver {
       toRestContext(ctx),
     ).branch.load(order.branchId)
     return raw ? mapBranch(raw) : null
+  }
+
+  @ResolveField('rider', () => OrderCourier, { nullable: true })
+  async rider(@Parent() order: Order): Promise<OrderCourier | null> {
+    if (!order.riderId) {
+      return null
+    }
+
+    try {
+      const raw = await this.delivery.get<RawRecord>(`/v1/riders/by-user/${order.riderId}`, {
+        context: { internalToken: env.internalApiToken },
+      })
+      return {
+        id: order.riderId,
+        firstName: raw.firstName == null ? null : String(raw.firstName),
+        lastName: raw.lastName == null ? null : String(raw.lastName),
+      }
+    } catch {
+      return null
+    }
   }
 
   @ResolveField('riderLocation', () => GeoPoint, { nullable: true })
