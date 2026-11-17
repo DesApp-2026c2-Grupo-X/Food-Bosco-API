@@ -15,6 +15,7 @@ export interface CommerceLoaders {
 }
 
 const LOADERS_KEY = '__commerceLoaders'
+const RIDER_LOADER_KEY = '__riderLoader'
 
 const buildByIdLoader = (
   rest: RestClient,
@@ -68,4 +69,38 @@ export const getCommerceLoaders = (
 
   store[LOADERS_KEY] = loaders
   return loaders
+}
+
+const buildRiderLoader = (delivery: RestClient): DataLoader<string, RawRecord | null> =>
+  new DataLoader<string, RawRecord | null>(async (keys) =>
+    Promise.all(
+      keys.map(async (id) => {
+        try {
+          return await delivery.get<RawRecord>(`/v1/riders/by-user/${id}`, {
+            context: { internalToken: env.internalApiToken },
+          })
+        } catch {
+          return null
+        }
+      }),
+    ),
+  )
+
+export const getRiderLoader = (
+  req: Request | undefined,
+  delivery: RestClient,
+): DataLoader<string, RawRecord | null> => {
+  if (!req) {
+    return buildRiderLoader(delivery)
+  }
+
+  const store = req as unknown as Record<string, unknown>
+  const existing = store[RIDER_LOADER_KEY] as DataLoader<string, RawRecord | null> | undefined
+  if (existing) {
+    return existing
+  }
+
+  const loader = buildRiderLoader(delivery)
+  store[RIDER_LOADER_KEY] = loader
+  return loader
 }

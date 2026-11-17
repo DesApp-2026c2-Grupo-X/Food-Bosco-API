@@ -1,6 +1,5 @@
 import { Inject } from '@nestjs/common'
 import { Context, Parent, ResolveField, Resolver } from '@nestjs/graphql'
-import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import {
@@ -12,7 +11,7 @@ import { GeoPoint, mapGeoPoint } from '../common/geo-point'
 import { toRestContext } from '../common/rest-context'
 import { mapUser, User } from '../auth/auth.types'
 import { TripOrder } from '../delivery/delivery.types'
-import { getCommerceLoaders } from './commerce.dataloaders'
+import { getCommerceLoaders, getRiderLoader } from './commerce.dataloaders'
 import {
   Branch,
   BranchStock,
@@ -145,39 +144,37 @@ export class OrderFieldResolver {
   }
 
   @ResolveField('rider', () => OrderCourier, { nullable: true })
-  async rider(@Parent() order: Order): Promise<OrderCourier | null> {
+  async rider(
+    @Parent() order: Order,
+    @Context() ctx?: GraphQLContext,
+  ): Promise<OrderCourier | null> {
     if (!order.riderId) {
       return null
     }
 
-    try {
-      const raw = await this.delivery.get<RawRecord>(`/v1/riders/by-user/${order.riderId}`, {
-        context: { internalToken: env.internalApiToken },
-      })
-      return {
-        id: order.riderId,
-        firstName: raw.firstName == null ? null : String(raw.firstName),
-        lastName: raw.lastName == null ? null : String(raw.lastName),
-      }
-    } catch {
+    const raw = await getRiderLoader(ctx?.req, this.delivery).load(order.riderId)
+    if (!raw) {
       return null
+    }
+
+    return {
+      id: order.riderId,
+      firstName: raw.firstName == null ? null : String(raw.firstName),
+      lastName: raw.lastName == null ? null : String(raw.lastName),
     }
   }
 
   @ResolveField('riderLocation', () => GeoPoint, { nullable: true })
-  async riderLocation(@Parent() order: Order): Promise<GeoPoint | null> {
+  async riderLocation(
+    @Parent() order: Order,
+    @Context() ctx?: GraphQLContext,
+  ): Promise<GeoPoint | null> {
     if (!order.riderId) {
       return null
     }
 
-    try {
-      const raw = await this.delivery.get<RawRecord>(`/v1/riders/by-user/${order.riderId}`, {
-        context: { internalToken: env.internalApiToken },
-      })
-      return mapGeoPoint(raw.currentLocation as RawRecord | undefined)
-    } catch {
-      return null
-    }
+    const raw = await getRiderLoader(ctx?.req, this.delivery).load(order.riderId)
+    return raw ? mapGeoPoint(raw.currentLocation as RawRecord | undefined) : null
   }
 }
 
