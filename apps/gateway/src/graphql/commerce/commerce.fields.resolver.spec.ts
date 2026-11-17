@@ -370,6 +370,62 @@ describe('OrderFieldResolver.riderLocation', () => {
 
     await expect(resolver.riderLocation(asOrder({ riderId: 'r1' }))).resolves.toBeNull()
   })
+
+  it('deduplica en el mismo tick entre OrderFieldResolver.rider y OrderFieldResolver.riderLocation', async () => {
+    const { delivery, resolver } = build()
+    delivery.get.mockResolvedValue({
+      firstName: 'Marcos',
+      lastName: 'Peralta',
+      currentLocation: { latitude: -34.6, longitude: -58.4 },
+    })
+    const ctx = makeCtx()
+    const order = asOrder({ riderId: 'r1' })
+
+    const [rider, location] = await Promise.all([
+      resolver.rider(order, ctx),
+      resolver.riderLocation(order, ctx),
+    ])
+
+    expect(delivery.get).toHaveBeenCalledTimes(1)
+    expect(rider).toEqual({ id: 'r1', firstName: 'Marcos', lastName: 'Peralta' })
+    expect(location).toEqual({ latitude: -34.6, longitude: -58.4 })
+  })
+})
+
+describe('OrderFieldResolver.rider', () => {
+  const build = () => {
+    const commerce = makeRest()
+    const auth = makeRest()
+    const delivery = makeRest()
+    const resolver = new OrderFieldResolver(asClient(commerce), asClient(auth), asClient(delivery))
+    return { delivery, resolver }
+  }
+
+  it('resuelve nombre y apellido del repartidor contra Delivery con token interno', async () => {
+    const { delivery, resolver } = build()
+    delivery.get.mockResolvedValue({ firstName: 'Marcos', lastName: 'Peralta' })
+
+    const result = await resolver.rider(asOrder({ riderId: 'r1' }), makeCtx())
+
+    expect(delivery.get).toHaveBeenCalledWith('/v1/riders/by-user/r1', {
+      context: { internalToken: env.internalApiToken },
+    })
+    expect(result).toEqual({ id: 'r1', firstName: 'Marcos', lastName: 'Peralta' })
+  })
+
+  it('devuelve null sin consultar si el pedido no tiene rider', async () => {
+    const { delivery, resolver } = build()
+
+    await expect(resolver.rider(asOrder({ riderId: null }), makeCtx())).resolves.toBeNull()
+    expect(delivery.get).not.toHaveBeenCalled()
+  })
+
+  it('devuelve null cuando Delivery falla', async () => {
+    const { delivery, resolver } = build()
+    delivery.get.mockRejectedValue(new Error('503'))
+
+    await expect(resolver.rider(asOrder({ riderId: 'r1' }), makeCtx())).resolves.toBeNull()
+  })
 })
 
 describe('BranchStockFieldResolver.ingredient', () => {

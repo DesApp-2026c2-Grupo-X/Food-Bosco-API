@@ -1,11 +1,14 @@
 import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Context, ID, Mutation, Parent, Query, ResolveField, Resolver } from '@nestjs/graphql'
 import { GraphQLError } from 'graphql'
-import { env } from '../../config/env'
 import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
-import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT, DELIVERY_REST_CLIENT } from '../../rest/rest.module'
+import {
+  AUTH_REST_CLIENT,
+  COMMERCE_REST_CLIENT,
+  DELIVERY_REST_CLIENT,
+} from '../../rest/rest.module'
 import { AuthGuard } from '../../security/auth.guard'
 import { Roles } from '../../security/roles.decorator'
 import { toRestContext } from '../common/rest-context'
@@ -27,9 +30,8 @@ import {
   mapOrderReviewStatus,
   mapReviewsSummary,
 } from './reviews.types'
-import { getCommerceLoaders } from './commerce.dataloaders'
+import { getCommerceLoaders, getRiderLoader } from './commerce.dataloaders'
 import { Rider, mapRider } from '../delivery/delivery.types'
-
 
 type RawRecord = Record<string, unknown>
 
@@ -39,7 +41,9 @@ const forbidden = (message: string): GraphQLError =>
 const badRequest = (message: string): GraphQLError =>
   new GraphQLError(message, { extensions: { code: 'BAD_REQUEST', httpStatus: 400 } })
 
-const reviewQuery = (filter: ReviewFilterInput | null): Record<string, string | number | undefined> => ({
+const reviewQuery = (
+  filter: ReviewFilterInput | null,
+): Record<string, string | number | undefined> => ({
   from: filter?.from ?? undefined,
   to: filter?.to ?? undefined,
   limit: filter?.limit ?? undefined,
@@ -236,14 +240,11 @@ export class CourierRatingRowFieldResolver {
   constructor(@Inject(DELIVERY_REST_CLIENT) private readonly delivery: RestClient) {}
 
   @ResolveField('rider', () => Rider, { nullable: true })
-  async rider(@Parent() row: CourierRatingRow): Promise<Rider | null> {
-    try {
-      const raw = await this.delivery.get<RawRecord>(`/v1/riders/by-user/${row.courierId}`, {
-        context: { internalToken: env.internalApiToken },
-      })
-      return mapRider(raw)
-    } catch {
-      return null
-    }
+  async rider(
+    @Parent() row: CourierRatingRow,
+    @Context() ctx?: GraphQLContext,
+  ): Promise<Rider | null> {
+    const raw = await getRiderLoader(ctx?.req, this.delivery).load(row.courierId)
+    return raw ? mapRider(raw) : null
   }
 }
