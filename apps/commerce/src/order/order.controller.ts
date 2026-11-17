@@ -43,7 +43,7 @@ export class OrderController {
       branchId: branchId || undefined,
       status: query.status,
       search: query.search,
-      limit: query.limit ?? 20,
+      limit: query.limit ?? 2000,
       offset: query.offset ?? 0,
     })
   }
