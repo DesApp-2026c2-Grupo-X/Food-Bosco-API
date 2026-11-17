@@ -94,6 +94,11 @@ class SeedBody {
   customers?: SeedCustomerDto[]
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  riderIds?: string[]
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => SeedDemoDto)
   demo?: SeedDemoDto
@@ -119,6 +124,7 @@ export class SeedController {
         id: customer.id,
         addresses: customer.addresses,
       })),
+      riderIds: body.riderIds,
       demo: body.demo,
     })
   }

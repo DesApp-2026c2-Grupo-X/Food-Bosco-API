@@ -10,6 +10,8 @@ import { env } from '../src/config/env'
 import { HttpExceptionFilter } from '../src/config/exceptions/http-exception.filter'
 import { SecurityModule } from '../src/config/security/security.module'
 import { Order, OrderDocument } from '../src/order/order.model'
+import { OrderReview, OrderReviewDocument } from '../src/order-review/order-review.model'
+import { OrderReviewModule } from '../src/order-review/order-review.module'
 import { ReportingModule } from '../src/reporting/reporting.module'
 import { SeedModule } from '../src/seed/seed.module'
 import { createMongoServer } from './mongo'
@@ -59,13 +61,14 @@ describe('Commerce — seed demo E2E (reportes)', () => {
   let connection: Connection
   let app: INestApplication<App>
   let orderModel: Model<OrderDocument>
+  let reviewModel: Model<OrderReviewDocument>
 
   beforeAll(async () => {
     mongod = await createMongoServer()
     connection = await mongoose.createConnection(mongod.getUri()).asPromise()
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [SecurityModule, ReportingModule, SeedModule],
+      imports: [SecurityModule, ReportingModule, OrderReviewModule, SeedModule],
     })
       .overrideProvider(getConnectionToken())
       .useValue(connection)
@@ -84,6 +87,7 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     await app.listen(0)
 
     orderModel = app.get<Model<OrderDocument>>(getModelToken(Order.name))
+    reviewModel = app.get<Model<OrderReviewDocument>>(getModelToken(OrderReview.name))
   })
 
   afterAll(async () => {
@@ -111,8 +115,12 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     await expect(orderModel.countDocuments().exec()).resolves.toBe(0)
   })
 
-  it('genera un lote histórico que alimenta todos los reportes', async () => {
-    const res = await seed({ customers, demo: { orders: 80, days: 60, seed: 123 } }).expect(201)
+  it('genera un lote histórico que alimenta todos los reportes y calificaciones', async () => {
+    const res = await seed({
+      customers,
+      riderIds: ['rider-1', 'rider-2'],
+      demo: { orders: 80, days: 60, seed: 123 },
+    }).expect(201)
 
     expect(res.body.demo).toMatchObject({
       enabled: true,
@@ -121,6 +129,7 @@ describe('Commerce — seed demo E2E (reportes)', () => {
       seed: 123,
       outOfStockRows: 2,
     })
+    expect(res.body.demo.reviews).toBeGreaterThan(0)
     expect(res.body.summary.demoOrders).toBe(80)
 
     const docs = await orderModel.find().lean().exec()
@@ -129,6 +138,10 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     expect(docs.every((doc) => typeof doc.demoBatchId === 'string')).toBe(true)
     expect(docs.every((doc) => doc.items.length > 0 && doc.total > 0)).toBe(true)
     expect(new Set(docs.map((doc) => doc.status)).size).toBe(7)
+    expect(docs.some((doc) => doc.status === 'delivered' && doc.riderId !== null)).toBe(true)
+
+    const reviewCount = await reviewModel.countDocuments().exec()
+    expect(reviewCount).toBe(res.body.demo.reviews)
 
     const timestamps = docs.map((doc) => doc.createdAt.getTime())
     expect(Math.max(...timestamps) - Math.min(...timestamps)).toBeGreaterThan(30 * DAY_MS)
@@ -147,6 +160,27 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     expect(
       (report.body.ordersByStatus as { count: number }[]).filter((row) => row.count > 0),
     ).toHaveLength(7)
+
+    const reviewsSummary = await request(app.getHttpServer())
+      .get('/v1/reviews/summary')
+      .set('Authorization', `Bearer ${superToken}`)
+      .expect(200)
+    expect(reviewsSummary.body.branchAverageRating).toBeGreaterThan(0)
+    expect(reviewsSummary.body.branchReviews).toBeGreaterThan(0)
+    expect(reviewsSummary.body.courierAverageRating).toBeGreaterThan(0)
+    expect(reviewsSummary.body.courierReviews).toBeGreaterThan(0)
+
+    const branchesRanking = await request(app.getHttpServer())
+      .get('/v1/reviews/branches/ranking')
+      .set('Authorization', `Bearer ${superToken}`)
+      .expect(200)
+    expect(branchesRanking.body.length).toBeGreaterThan(0)
+
+    const couriersRanking = await request(app.getHttpServer())
+      .get('/v1/reviews/couriers/ranking')
+      .set('Authorization', `Bearer ${superToken}`)
+      .expect(200)
+    expect(couriersRanking.body.length).toBe(2)
   })
 
   it('el reporte de productos sin stock devuelve las filas agotadas', async () => {
@@ -158,8 +192,8 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     expect((res.body as unknown[]).length).toBeGreaterThan(0)
   })
 
-  it('reset borra sólo los lotes demo previos', async () => {
-    await orderModel.create({
+  it('reset borra sólo los lotes demo previos y sus reseñas', async () => {
+    const realOrder = await orderModel.create({
       number: '999999',
       clientId: 'cliente-real',
       branchId: 'branch-real',
@@ -171,8 +205,19 @@ describe('Commerce — seed demo E2E (reportes)', () => {
       items: [],
       statusHistory: [],
     })
+    await reviewModel.create({
+      orderId: realOrder._id.toString(),
+      customerId: 'cliente-real',
+      branchId: 'branch-real',
+      branchRating: 5,
+      branchComment: 'Reseña real',
+    })
 
-    const res = await seed({ customers, demo: { orders: 10, seed: 5, reset: true } }).expect(201)
+    const res = await seed({
+      customers,
+      riderIds: ['rider-1'],
+      demo: { orders: 10, seed: 5, reset: true },
+    }).expect(201)
 
     expect(res.body.demo).toMatchObject({ enabled: true, orders: 10, resetDeleted: 80 })
 
@@ -180,5 +225,9 @@ describe('Commerce — seed demo E2E (reportes)', () => {
     expect(docs).toHaveLength(11)
     expect(docs.filter((doc) => doc.demoBatchId !== null)).toHaveLength(10)
     expect(docs.some((doc) => doc.number === '999999')).toBe(true)
+
+    const reviews = await reviewModel.find().lean().exec()
+    expect(reviews).toHaveLength(1 + (res.body.demo.reviews as number))
+    expect(reviews.some((review) => review.orderId === realOrder._id.toString())).toBe(true)
   })
 })

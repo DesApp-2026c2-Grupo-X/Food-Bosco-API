@@ -126,6 +126,7 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
               ],
             },
           ],
+          riderIds: ['u-rider'],
           demo: {},
         },
       }),
@@ -226,6 +227,47 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
 
     expect(delivery.post).not.toHaveBeenCalled()
     expect(result.delivery).toEqual({ riders: 0 })
+  })
+
+  it('soporta múltiples riders enviando todos los riderIds a commerce y creando perfiles en delivery', async () => {
+    const { controller, commerce, auth, delivery } = makeController()
+    wireCommerce(commerce)
+    const rider2 = {
+      id: 'u-rider-2',
+      email: 'repartidor.norte@foodbosco.local',
+      role: 'rider',
+      firstName: 'Lucía',
+      lastName: 'Giménez',
+      phone: '3333000002',
+      vehicle: 'Bicicleta rodado 29',
+    }
+    auth.post.mockResolvedValue({
+      summary: { users: 4 },
+      users: [customer, rider, rider2],
+      customers: [customer],
+    })
+    delivery.post.mockResolvedValue({ summary: { riders: 1, readyOrderId: 'o-ready' } })
+
+    const result = await controller.seed({})
+
+    const [, ordersCall] = commerce.post.mock.calls
+    expect(ordersCall[1].body.riderIds).toEqual(['u-rider', 'u-rider-2'])
+    expect(delivery.post).toHaveBeenCalledTimes(2)
+    expect(delivery.post).toHaveBeenNthCalledWith(
+      1,
+      '/v1/seed',
+      expect.objectContaining({
+        body: expect.objectContaining({ userId: 'u-rider', readyOrders: expect.any(Array) }),
+      }),
+    )
+    expect(delivery.post).toHaveBeenNthCalledWith(
+      2,
+      '/v1/seed',
+      expect.objectContaining({
+        body: expect.objectContaining({ userId: 'u-rider-2', readyOrders: [] }),
+      }),
+    )
+    expect(result.delivery).toEqual({ riders: 2, readyOrderId: 'o-ready' })
   })
 
   it.each([

@@ -8,15 +8,17 @@ Usuarios creados por el seed (dominio `@foodbosco.local`).
 | --------------------------------- | -------------- | ---------------- | ------------- |
 | `admin@foodbosco.local`           | `super_admin`  | `Admin123!`      | —             |
 | `cliente@foodbosco.local`         | `customer`     | `Cliente123!`    | —             |
-| `repartidor@foodbosco.local`      | `rider`        | `Repartidor123!` | —             |
+| `repartidor@foodbosco.local`       | `rider`        | `Repartidor123!` | —             |
+| `repartidor.norte@foodbosco.local` | `rider`        | `Repartidor123!` | —             |
+| `repartidor.oeste@foodbosco.local` | `rider`        | `Repartidor123!` | —             |
 | `sucursal@foodbosco.local`        | `branch_admin` | `Sucursal123!`   | (sin asignar) |
 | `sucursal.centro@foodbosco.local` | `branch_admin` | `Sucursal123!`   | **Centro**    |
 | `sucursal.norte@foodbosco.local`  | `branch_admin` | `Sucursal123!`   | **Norte**     |
 | `sucursal.oeste@foodbosco.local`  | `branch_admin` | `Sucursal123!`   | **Oeste**     |
 
 - El `customer` tiene **2 direcciones** sembradas.
-- El `rider` arranca con vehículo `Moto Honda CG Titan`.
-- El seed también crea categorías, ingredientes, productos, sucursales, parámetros, órdenes de ejemplo y (si hay pedido listo) un pool de delivery.
+- Los 3 `rider` arrancan con vehículos asignados (`Moto Honda CG Titan`, `Bicicleta rodado 29`, `Moto Yamaha YBR 125`).
+- El seed también crea categorías, ingredientes, productos, sucursales, parámetros, órdenes de ejemplo, reseñas demo en `orderReviews` y (si hay pedido listo) un pool de delivery.
 
 ## Clientes demo (vía gateway)
 
