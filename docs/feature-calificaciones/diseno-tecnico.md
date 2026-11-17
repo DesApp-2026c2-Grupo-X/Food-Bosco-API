@@ -19,14 +19,14 @@
 
 ## Responsabilidades
 
-| Pieza | Responsabilidad |
-| --- | --- |
-| `OrderReviewController` | HTTP, roles, usuario autenticado, DTOs |
-| `OrderReviewOrchestrator` | Caso de uso: pedido + sucursal + reseña |
-| `OrderReviewService` | Reglas de la reseña y estadísticas |
-| `OrderReviewRepository` | Mongoose y agregaciones |
-| `ReviewsResolver` (gateway) | Contratos GraphQL y traducción REST |
-| `OrderReviewFieldResolver` | Composición de sucursal |
+| Pieza                           | Responsabilidad                                    |
+| ------------------------------- | -------------------------------------------------- |
+| `OrderReviewController`         | HTTP, roles, usuario autenticado, DTOs             |
+| `OrderReviewOrchestrator`       | Caso de uso: pedido + sucursal + reseña            |
+| `OrderReviewService`            | Reglas de la reseña y estadísticas                 |
+| `OrderReviewRepository`         | Mongoose y agregaciones                            |
+| `ReviewsResolver` (gateway)     | Contratos GraphQL y traducción REST                |
+| `OrderReviewFieldResolver`      | Composición de sucursal                            |
 | `CourierRatingRowFieldResolver` | Composición del nombre del repartidor vía Delivery |
 
 ## Por qué no hay llamadas Commerce → Delivery
@@ -35,29 +35,29 @@ Commerce ya recibe `riderId` en el pedido cuando Delivery publica `trip.accepted
 
 ## Seguridad
 
-| Rol | Crear reseña | Ver estado propio | Estadísticas | Rankings |
-| --- | --- | --- | --- | --- |
-| `customer` | Sí, solo pedidos propios entregados | Sí | No | No |
-| `branch_admin` | No | No | Solo su sucursal | No |
-| `super_admin` | No | No | Todas las sucursales y repartidores | Sí |
-| `rider` | No | No | Solo su propia reputación | No |
+| Rol            | Crear reseña                        | Ver estado propio | Estadísticas                        | Rankings |
+| -------------- | ----------------------------------- | ----------------- | ----------------------------------- | -------- |
+| `customer`     | Sí, solo pedidos propios entregados | Sí                | No                                  | No       |
+| `branch_admin` | No                                  | No                | Solo su sucursal                    | No       |
+| `super_admin`  | No                                  | No                | Todas las sucursales y repartidores | Sí       |
+| `rider`        | No                                  | No                | Solo su propia reputación           | No       |
 
 El backend valida roles y pertenencia. Los guards del frontend son solo experiencia de usuario; no son la fuente de verdad.
 
 ## Errores de dominio
 
-| Código | HTTP | Cuándo |
-| --- | --- | --- |
-| `ORDER_NOT_FOUND` | 404 | Pedido inexistente |
-| `ORDER_NOT_OWNED` | 403 | Pedido de otro cliente |
-| `ORDER_NOT_DELIVERED` | 409 | Pedido aún no entregado |
-| `REVIEW_ALREADY_EXISTS` | 409 | Pedido ya calificado (incluye concurrencia) |
-| `INVALID_REVIEW_BRANCH` | 409 | Sucursal del pedido inexistente |
-| `COURIER_NOT_ASSIGNED` | 400 | Se enviaron datos de repartidor en un pedido sin delivery |
-| `COURIER_RATING_REQUIRED` | 400 | Pedido con repartidor sin calificación de repartidor |
-| `INVALID_REVIEW_RATING` | 400 | Puntaje fuera de rango o no entero |
-| `VALIDATION_ERROR` | 400 | DTO inválido o comentario demasiado largo |
-| `FORBIDDEN` | 403 | Rol o alcance insuficiente |
-| `SERVICE_UNAVAILABLE` | 503 | Falla de comunicación entre servicios |
+| Código                    | HTTP | Cuándo                                                    |
+| ------------------------- | ---- | --------------------------------------------------------- |
+| `ORDER_NOT_FOUND`         | 404  | Pedido inexistente                                        |
+| `ORDER_NOT_OWNED`         | 403  | Pedido de otro cliente                                    |
+| `ORDER_NOT_DELIVERED`     | 409  | Pedido aún no entregado                                   |
+| `REVIEW_ALREADY_EXISTS`   | 409  | Pedido ya calificado (incluye concurrencia)               |
+| `INVALID_REVIEW_BRANCH`   | 409  | Sucursal del pedido inexistente                           |
+| `COURIER_NOT_ASSIGNED`    | 400  | Se enviaron datos de repartidor en un pedido sin delivery |
+| `COURIER_RATING_REQUIRED` | 400  | Pedido con repartidor sin calificación de repartidor      |
+| `INVALID_REVIEW_RATING`   | 400  | Puntaje fuera de rango o no entero                        |
+| `VALIDATION_ERROR`        | 400  | DTO inválido o comentario demasiado largo                 |
+| `FORBIDDEN`               | 403  | Rol o alcance insuficiente                                |
+| `SERVICE_UNAVAILABLE`     | 503  | Falla de comunicación entre servicios                     |
 
 El formato de error es el existente: `{ code, message, details?, path, requestId? }`.

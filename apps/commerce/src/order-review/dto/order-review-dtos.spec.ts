@@ -34,10 +34,26 @@ describe('CreateOrderReviewDto', () => {
     { name: 'puntaje 6', payload: { branchRating: 6 }, valid: false },
     { name: 'puntaje decimal', payload: { branchRating: 4.5 }, valid: false },
     { name: 'puntaje como texto', payload: { branchRating: '4' }, valid: false },
-    { name: 'comentario de 501 caracteres', payload: { branchRating: 4, branchComment: 'a'.repeat(501) }, valid: false },
-    { name: 'repartidor con puntaje 0', payload: { branchRating: 4, courierRating: 0 }, valid: false },
-    { name: 'repartidor con puntaje 6', payload: { branchRating: 4, courierRating: 6 }, valid: false },
-    { name: 'comentario de repartidor no textual', payload: { branchRating: 4, courierComment: 123 }, valid: false },
+    {
+      name: 'comentario de 501 caracteres',
+      payload: { branchRating: 4, branchComment: 'a'.repeat(501) },
+      valid: false,
+    },
+    {
+      name: 'repartidor con puntaje 0',
+      payload: { branchRating: 4, courierRating: 0 },
+      valid: false,
+    },
+    {
+      name: 'repartidor con puntaje 6',
+      payload: { branchRating: 4, courierRating: 6 },
+      valid: false,
+    },
+    {
+      name: 'comentario de repartidor no textual',
+      payload: { branchRating: 4, courierComment: 123 },
+      valid: false,
+    },
   ]
 
   it.each(cases)('$name → validez $valid', async ({ payload, valid }) => {
@@ -49,7 +65,11 @@ describe('CreateOrderReviewDto', () => {
 describe('ReviewQueryDto', () => {
   const cases: Array<{ name: string; payload: Record<string, unknown>; valid: boolean }> = [
     { name: 'sin filtros', payload: {}, valid: true },
-    { name: 'rango ISO válido', payload: { from: '2026-01-01T00:00:00.000Z', to: '2026-02-01T00:00:00.000Z' }, valid: true },
+    {
+      name: 'rango ISO válido',
+      payload: { from: '2026-01-01T00:00:00.000Z', to: '2026-02-01T00:00:00.000Z' },
+      valid: true,
+    },
     { name: 'límite 100 (máximo)', payload: { limit: 100 }, valid: true },
     { name: 'límite 0', payload: { limit: 0 }, valid: false },
     { name: 'límite 101', payload: { limit: 101 }, valid: false },

@@ -1,5 +1,9 @@
 import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
-import { REVIEW_COMMENT_MAX_LENGTH, REVIEW_MAX_RATING, REVIEW_MIN_RATING } from '../order-review.model'
+import {
+  REVIEW_COMMENT_MAX_LENGTH,
+  REVIEW_MAX_RATING,
+  REVIEW_MIN_RATING,
+} from '../order-review.model'
 
 export class CreateOrderReviewDto {
   @IsInt()

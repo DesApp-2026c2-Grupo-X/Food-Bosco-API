@@ -45,11 +45,13 @@ const review = (overrides: Partial<PublicOrderReview> = {}): PublicOrderReview =
   ...overrides,
 })
 
-const makeOrchestrator = (deps: {
-  orderService?: Partial<OrderService>
-  reviewService?: Partial<OrderReviewService>
-  branchService?: Partial<BranchService>
-} = {}) => {
+const makeOrchestrator = (
+  deps: {
+    orderService?: Partial<OrderService>
+    reviewService?: Partial<OrderReviewService>
+    branchService?: Partial<BranchService>
+  } = {},
+) => {
   const orderService = {
     findById: jest.fn().mockResolvedValue(order()),
     list: jest.fn().mockResolvedValue({ data: [], meta: { total: 0, limit: 100, offset: 0 } }),
@@ -124,8 +126,18 @@ describe('OrderReviewOrchestrator.create', () => {
       dto,
       code: ERROR_CODES.orderNotDelivered,
     },
-    { name: 'sucursal inexistente', dto, branchMissing: true, code: ERROR_CODES.invalidReviewBranch },
-    { name: 'pedido ya calificado', dto, existing: review(), code: ERROR_CODES.reviewAlreadyExists },
+    {
+      name: 'sucursal inexistente',
+      dto,
+      branchMissing: true,
+      code: ERROR_CODES.invalidReviewBranch,
+    },
+    {
+      name: 'pedido ya calificado',
+      dto,
+      existing: review(),
+      code: ERROR_CODES.reviewAlreadyExists,
+    },
     {
       name: 'pedido sin repartidor con datos de repartidor',
       order: { riderId: null, tripId: null },
@@ -144,34 +156,39 @@ describe('OrderReviewOrchestrator.create', () => {
     },
   ]
 
-  it.each(cases)('$name → $code', async ({ order: orderPatch, dto: payload, existing, branchMissing, code }) => {
-    const { orchestrator, orderService, reviewService, branchService } = makeOrchestrator({
-      orderService: { findById: jest.fn().mockResolvedValue(order(orderPatch)) },
-      reviewService: { findByOrderId: jest.fn().mockResolvedValue(existing ?? null) },
-      branchService: {
-        findById: jest.fn().mockResolvedValue(branchMissing ? null : { id: 'b1' }),
-      },
-    })
+  it.each(cases)(
+    '$name → $code',
+    async ({ order: orderPatch, dto: payload, existing, branchMissing, code }) => {
+      const { orchestrator, orderService, reviewService, branchService } = makeOrchestrator({
+        orderService: { findById: jest.fn().mockResolvedValue(order(orderPatch)) },
+        reviewService: { findByOrderId: jest.fn().mockResolvedValue(existing ?? null) },
+        branchService: {
+          findById: jest.fn().mockResolvedValue(branchMissing ? null : { id: 'b1' }),
+        },
+      })
 
-    if (orderPatch && Object.keys(orderPatch).length === 0) {
-      ;(orderService.findById as jest.Mock).mockResolvedValue(null)
-    }
+      if (orderPatch && Object.keys(orderPatch).length === 0) {
+        ;(orderService.findById as jest.Mock).mockResolvedValue(null)
+      }
 
-    const result = await catchCode(orchestrator.create('c1', 'o1', payload))
-    expect(result).toBe(code)
-    expect(reviewService.create).toHaveBeenCalledTimes(code ? 0 : 1)
-    expect(branchService.findById).toHaveBeenCalledTimes(
-      code === ERROR_CODES.orderNotFound ||
-        code === ERROR_CODES.orderNotOwned ||
-        code === ERROR_CODES.orderNotDelivered
-        ? 0
-        : 1,
-    )
-  })
+      const result = await catchCode(orchestrator.create('c1', 'o1', payload))
+      expect(result).toBe(code)
+      expect(reviewService.create).toHaveBeenCalledTimes(code ? 0 : 1)
+      expect(branchService.findById).toHaveBeenCalledTimes(
+        code === ERROR_CODES.orderNotFound ||
+          code === ERROR_CODES.orderNotOwned ||
+          code === ERROR_CODES.orderNotDelivered
+          ? 0
+          : 1,
+      )
+    },
+  )
 
   it('toma sucursal y repartidor del pedido, no del cliente', async () => {
     const { orchestrator, reviewService } = makeOrchestrator({
-      orderService: { findById: jest.fn().mockResolvedValue(order({ riderId: 'u-real', branchId: 'b-real' })) },
+      orderService: {
+        findById: jest.fn().mockResolvedValue(order({ riderId: 'u-real', branchId: 'b-real' })),
+      },
       branchService: { findById: jest.fn().mockResolvedValue({ id: 'b-real' }) },
     })
 
@@ -224,17 +241,20 @@ describe('OrderReviewOrchestrator.getStatus', () => {
     { name: 'cancelado sin reseña', order: { status: ORDER_STATUS.cancelled }, canReview: false },
   ]
 
-  it.each(cases)('$name → canReview $canReview', async ({ order: orderPatch, existing, canReview }) => {
-    const { orchestrator } = makeOrchestrator({
-      orderService: { findById: jest.fn().mockResolvedValue(order(orderPatch)) },
-      reviewService: { findByOrderId: jest.fn().mockResolvedValue(existing ?? null) },
-    })
+  it.each(cases)(
+    '$name → canReview $canReview',
+    async ({ order: orderPatch, existing, canReview }) => {
+      const { orchestrator } = makeOrchestrator({
+        orderService: { findById: jest.fn().mockResolvedValue(order(orderPatch)) },
+        reviewService: { findByOrderId: jest.fn().mockResolvedValue(existing ?? null) },
+      })
 
-    const result = await orchestrator.getStatus('c1', 'o1')
+      const result = await orchestrator.getStatus('c1', 'o1')
 
-    expect(result.canReview).toBe(canReview)
-    expect(result.review).toBe(existing ?? null)
-  })
+      expect(result.canReview).toBe(canReview)
+      expect(result.review).toBe(existing ?? null)
+    },
+  )
 
   it('rechaza pedidos de otro cliente', async () => {
     const { orchestrator } = makeOrchestrator({

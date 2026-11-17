@@ -59,11 +59,31 @@ const catchCode = async (promise: Promise<unknown>): Promise<string | undefined>
 describe('OrderReviewService.create', () => {
   const ratingCases: Array<{ name: string; patch: Record<string, unknown>; code?: string }> = [
     { name: 'puntajes válidos en los límites', patch: { branchRating: 1, courierRating: 5 } },
-    { name: 'puntaje de sucursal 0', patch: { branchRating: 0 }, code: ERROR_CODES.invalidReviewRating },
-    { name: 'puntaje de sucursal 6', patch: { branchRating: 6 }, code: ERROR_CODES.invalidReviewRating },
-    { name: 'puntaje decimal', patch: { branchRating: 3.5 }, code: ERROR_CODES.invalidReviewRating },
-    { name: 'puntaje de repartidor 0', patch: { courierRating: 0 }, code: ERROR_CODES.invalidReviewRating },
-    { name: 'puntaje de repartidor 6', patch: { courierRating: 6 }, code: ERROR_CODES.invalidReviewRating },
+    {
+      name: 'puntaje de sucursal 0',
+      patch: { branchRating: 0 },
+      code: ERROR_CODES.invalidReviewRating,
+    },
+    {
+      name: 'puntaje de sucursal 6',
+      patch: { branchRating: 6 },
+      code: ERROR_CODES.invalidReviewRating,
+    },
+    {
+      name: 'puntaje decimal',
+      patch: { branchRating: 3.5 },
+      code: ERROR_CODES.invalidReviewRating,
+    },
+    {
+      name: 'puntaje de repartidor 0',
+      patch: { courierRating: 0 },
+      code: ERROR_CODES.invalidReviewRating,
+    },
+    {
+      name: 'puntaje de repartidor 6',
+      patch: { courierRating: 6 },
+      code: ERROR_CODES.invalidReviewRating,
+    },
     {
       name: 'comentario de 501 caracteres',
       patch: { branchComment: 'a'.repeat(501) },

@@ -14,7 +14,11 @@ import {
   ReviewsSummary,
   serializeOrderReview,
 } from './order-review.model'
-import { CreateOrderReviewData, OrderReviewRepository, ReviewFilter } from './order-review.repository'
+import {
+  CreateOrderReviewData,
+  OrderReviewRepository,
+  ReviewFilter,
+} from './order-review.repository'
 
 const DUPLICATE_KEY_CODE = 11000
 
@@ -31,11 +35,7 @@ const normalizeComment = (value: string | null | undefined): string | null => {
 const assertRating = (rating: number | null, field: string): void => {
   if (rating === null) return
 
-  if (
-    !Number.isInteger(rating) ||
-    rating < REVIEW_MIN_RATING ||
-    rating > REVIEW_MAX_RATING
-  ) {
+  if (!Number.isInteger(rating) || rating < REVIEW_MIN_RATING || rating > REVIEW_MAX_RATING) {
     throw new DomainException(
       ERROR_CODES.invalidReviewRating,
       `${field} debe ser un número entero entre ${REVIEW_MIN_RATING} y ${REVIEW_MAX_RATING}.`,

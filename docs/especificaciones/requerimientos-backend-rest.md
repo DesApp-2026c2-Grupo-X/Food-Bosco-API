@@ -1745,16 +1745,16 @@ Reglas:
 
 Endpoints REST internos:
 
-| Método | Ruta | Rol |
-| --- | --- | --- |
-| `POST` | `/v1/reviews/orders/{orderId}` | `customer` |
-| `GET` | `/v1/reviews/orders/{orderId}` | `customer` |
-| `GET` | `/v1/reviews/mine` | `customer` |
-| `GET` | `/v1/reviews/pending` | `customer` |
-| `GET` | `/v1/reviews/branches/{branchId}/stats` | `branch_admin`, `super_admin` |
-| `GET` | `/v1/reviews/couriers/{courierId}/stats` | `rider`, `super_admin` |
-| `GET` | `/v1/reviews/branches/ranking` | `super_admin` |
-| `GET` | `/v1/reviews/couriers/ranking` | `super_admin` |
-| `GET` | `/v1/reviews/summary` | `super_admin` |
+| Método | Ruta                                     | Rol                           |
+| ------ | ---------------------------------------- | ----------------------------- |
+| `POST` | `/v1/reviews/orders/{orderId}`           | `customer`                    |
+| `GET`  | `/v1/reviews/orders/{orderId}`           | `customer`                    |
+| `GET`  | `/v1/reviews/mine`                       | `customer`                    |
+| `GET`  | `/v1/reviews/pending`                    | `customer`                    |
+| `GET`  | `/v1/reviews/branches/{branchId}/stats`  | `branch_admin`, `super_admin` |
+| `GET`  | `/v1/reviews/couriers/{courierId}/stats` | `rider`, `super_admin`        |
+| `GET`  | `/v1/reviews/branches/ranking`           | `super_admin`                 |
+| `GET`  | `/v1/reviews/couriers/ranking`           | `super_admin`                 |
+| `GET`  | `/v1/reviews/summary`                    | `super_admin`                 |
 
 Detalle completo en [`../feature-calificaciones/`](../feature-calificaciones/relevamiento.md).

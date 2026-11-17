@@ -9,10 +9,10 @@
 ```ts
 interface OrderReview {
   _id: ObjectId
-  orderId: string          // índice único
-  customerId: string       // índice
-  branchId: string         // índice
-  branchRating: number     // entero 1..5
+  orderId: string // índice único
+  customerId: string // índice
+  branchId: string // índice
+  branchRating: number // entero 1..5
   branchComment: string | null // ≤ 500 caracteres
   courierId: string | null // userId del repartidor; índice
   courierRating: number | null // entero 1..5 o null
@@ -44,12 +44,12 @@ Los índices `branchId + createdAt` y `courierId + createdAt` soportan las agreg
 
 ## Validaciones de entrada
 
-| Campo | Regla |
-| --- | --- |
-| `branchRating` | entero entre 1 y 5, obligatorio |
-| `courierRating` | entero entre 1 y 5, obligatorio si el pedido tiene repartidor |
-| `branchComment` | opcional, texto, máximo 500 caracteres |
-| `courierComment` | opcional, texto, máximo 500 caracteres |
+| Campo            | Regla                                                         |
+| ---------------- | ------------------------------------------------------------- |
+| `branchRating`   | entero entre 1 y 5, obligatorio                               |
+| `courierRating`  | entero entre 1 y 5, obligatorio si el pedido tiene repartidor |
+| `branchComment`  | opcional, texto, máximo 500 caracteres                        |
+| `courierComment` | opcional, texto, máximo 500 caracteres                        |
 
 Las validaciones se aplican dos veces: DTO (`class-validator`) y servicio (defensa ante llamadas internas).
 
