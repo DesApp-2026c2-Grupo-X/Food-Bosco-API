@@ -203,6 +203,7 @@ describe('Gateway seed (e2e) — POST /seed con InternalGuard', () => {
             ],
           },
         ],
+        riderIds: ['u-rider'],
         demo: {},
       })
 

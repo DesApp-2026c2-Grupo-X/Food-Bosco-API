@@ -8,6 +8,7 @@ import { ProductService } from '../product/product.service'
 import { PromotionService } from '../promotion/promotion.service'
 import { StockService } from '../stock/stock.service'
 import { DemoOrdersRepository } from './demo/demo-orders.repository'
+import { DemoReviewsRepository } from './demo/demo-reviews.repository'
 import { SeedService } from './seed.service'
 
 const existingEntity = (overrides: Record<string, unknown> = {}) => overrides
@@ -72,17 +73,35 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
     insert: jest
       .fn()
       .mockImplementation(
-        async (planned: { status: string; branchId: string; createdAt: Date }[]) =>
+        async (
+          planned: {
+            clientId: string
+            status: string
+            branchId: string
+            riderId: string | null
+            createdAt: Date
+            statusHistory: { changedAt: Date }[]
+          }[],
+        ) =>
           planned.map((order, index) => ({
             id: `demo-${index}`,
             number: String(index + 1).padStart(6, '0'),
+            clientId: order.clientId,
             status: order.status,
             branchId: order.branchId,
+            riderId: order.riderId ?? null,
             deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
             createdAt: order.createdAt,
+            deliveredAt:
+              order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
           })),
       ),
+    findDemoOrderIds: jest.fn().mockResolvedValue([]),
     resetDemoData: jest.fn().mockResolvedValue(0),
+  },
+  demoReviewsRepository: {
+    insert: jest.fn().mockImplementation(async (planned: unknown[]) => planned.length),
+    deleteByOrderIds: jest.fn().mockResolvedValue(0),
   },
   ...overrides,
 })
@@ -99,6 +118,7 @@ const instantiate = (mocks: ReturnType<typeof buildMocks>) =>
     mocks.stockService as unknown as StockService,
     mocks.orderService as unknown as OrderService,
     mocks.demoOrdersRepository as unknown as DemoOrdersRepository,
+    mocks.demoReviewsRepository as unknown as DemoReviewsRepository,
   )
 
 describe('SeedService (commerce)', () => {
@@ -352,14 +372,20 @@ describe('SeedService (commerce)', () => {
 
     it('resetea los lotes previos por defecto cuando no se especifica reset', async () => {
       const mocks = withProducts()
+      mocks.demoOrdersRepository.findDemoOrderIds.mockResolvedValue(['old-1', 'old-2'])
 
       const result = await instantiate(mocks).seed({
         customers: demoCustomers,
-        demo: { orders: 3, seed: 7 },
+        riderIds: ['r-1', 'r-2'],
+        demo: { orders: 20, seed: 7 },
       })
 
+      expect(mocks.demoOrdersRepository.findDemoOrderIds).toHaveBeenCalledTimes(1)
+      expect(mocks.demoReviewsRepository.deleteByOrderIds).toHaveBeenCalledWith(['old-1', 'old-2'])
       expect(mocks.demoOrdersRepository.resetDemoData).toHaveBeenCalledTimes(1)
+      expect(mocks.demoReviewsRepository.insert).toHaveBeenCalledTimes(1)
       expect(result.demo.resetDeleted).toBe(0)
+      expect(result.demo.reviews).toBeGreaterThan(0)
     })
 
     it('no resetea los lotes previos cuando se pasa reset: false', async () => {
