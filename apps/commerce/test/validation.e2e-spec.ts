@@ -200,9 +200,9 @@ const CASES: InvalidCase[] = [
 
   // GET /v1/orders
   {
-    name: 'GET /v1/orders con limit>100',
+    name: 'GET /v1/orders con limit>2000',
     method: 'get',
-    path: '/v1/orders?limit=101',
+    path: '/v1/orders?limit=2001',
     token: superToken,
   },
   {

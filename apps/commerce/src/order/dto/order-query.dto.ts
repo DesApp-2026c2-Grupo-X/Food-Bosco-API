@@ -21,7 +21,7 @@ export class OrderQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(2000)
   limit?: number
 
   @IsOptional()

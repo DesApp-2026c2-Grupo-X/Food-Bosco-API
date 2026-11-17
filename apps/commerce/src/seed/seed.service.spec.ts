@@ -370,14 +370,14 @@ describe('SeedService (commerce)', () => {
       expect(snapshot(firstPlanned)).toEqual(snapshot(secondPlanned))
     })
 
-    it('resetea los lotes previos cuando se pide reset', async () => {
+    it('resetea los lotes previos por defecto cuando no se especifica reset', async () => {
       const mocks = withProducts()
       mocks.demoOrdersRepository.findDemoOrderIds.mockResolvedValue(['old-1', 'old-2'])
 
       const result = await instantiate(mocks).seed({
         customers: demoCustomers,
         riderIds: ['r-1', 'r-2'],
-        demo: { orders: 20, seed: 7, reset: true },
+        demo: { orders: 20, seed: 7 },
       })
 
       expect(mocks.demoOrdersRepository.findDemoOrderIds).toHaveBeenCalledTimes(1)
@@ -386,6 +386,17 @@ describe('SeedService (commerce)', () => {
       expect(mocks.demoReviewsRepository.insert).toHaveBeenCalledTimes(1)
       expect(result.demo.resetDeleted).toBe(0)
       expect(result.demo.reviews).toBeGreaterThan(0)
+    })
+
+    it('no resetea los lotes previos cuando se pasa reset: false', async () => {
+      const mocks = withProducts()
+
+      await instantiate(mocks).seed({
+        customers: demoCustomers,
+        demo: { orders: 3, seed: 7, reset: false },
+      })
+
+      expect(mocks.demoOrdersRepository.resetDemoData).not.toHaveBeenCalled()
     })
 
     it('sin clientes no genera lote histórico', async () => {
