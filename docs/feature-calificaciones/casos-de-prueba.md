@@ -10,28 +10,28 @@ Archivos:
 
 Cobertura:
 
-| Caso | Resultado esperado |
-| --- | --- |
-| Puntajes 1 y 5 (límites) | Válido |
-| Puntaje 0, 6 o decimal | `INVALID_REVIEW_RATING` |
-| Comentario de 500 caracteres | Válido |
-| Comentario de 501 caracteres | `VALIDATION_ERROR` |
-| Comentario vacío o con espacios | Se guarda `null` |
-| Pedido inexistente | `ORDER_NOT_FOUND` |
-| Pedido de otro cliente | `ORDER_NOT_OWNED` |
-| Pedido no entregado | `ORDER_NOT_DELIVERED` |
-| Sucursal inexistente | `INVALID_REVIEW_BRANCH` |
-| Pedido ya calificado | `REVIEW_ALREADY_EXISTS` |
-| Índice único (`E11000`) | `REVIEW_ALREADY_EXISTS` |
-| Pedido con delivery sin puntaje de repartidor | `COURIER_RATING_REQUIRED` |
-| Pedido sin delivery con datos de repartidor | `COURIER_NOT_ASSIGNED` |
-| Pedido sin delivery solo con sucursal | Válido, `courierId/courierRating` en `null` |
-| Sucursal y repartidor tomados del pedido | El input del cliente no puede imponerlos |
-| `getStatus` entregado sin reseña | `canReview: true` |
-| `getStatus` entregado con reseña | `canReview: false` |
-| `getStatus` en camino/cancelado | `canReview: false` |
-| Pendientes excluye pedidos con reseña | Solo devuelve los no calificados |
-| Rankings y resumen | Delegación correcta al repositorio |
+| Caso                                          | Resultado esperado                          |
+| --------------------------------------------- | ------------------------------------------- |
+| Puntajes 1 y 5 (límites)                      | Válido                                      |
+| Puntaje 0, 6 o decimal                        | `INVALID_REVIEW_RATING`                     |
+| Comentario de 500 caracteres                  | Válido                                      |
+| Comentario de 501 caracteres                  | `VALIDATION_ERROR`                          |
+| Comentario vacío o con espacios               | Se guarda `null`                            |
+| Pedido inexistente                            | `ORDER_NOT_FOUND`                           |
+| Pedido de otro cliente                        | `ORDER_NOT_OWNED`                           |
+| Pedido no entregado                           | `ORDER_NOT_DELIVERED`                       |
+| Sucursal inexistente                          | `INVALID_REVIEW_BRANCH`                     |
+| Pedido ya calificado                          | `REVIEW_ALREADY_EXISTS`                     |
+| Índice único (`E11000`)                       | `REVIEW_ALREADY_EXISTS`                     |
+| Pedido con delivery sin puntaje de repartidor | `COURIER_RATING_REQUIRED`                   |
+| Pedido sin delivery con datos de repartidor   | `COURIER_NOT_ASSIGNED`                      |
+| Pedido sin delivery solo con sucursal         | Válido, `courierId/courierRating` en `null` |
+| Sucursal y repartidor tomados del pedido      | El input del cliente no puede imponerlos    |
+| `getStatus` entregado sin reseña              | `canReview: true`                           |
+| `getStatus` entregado con reseña              | `canReview: false`                          |
+| `getStatus` en camino/cancelado               | `canReview: false`                          |
+| Pendientes excluye pedidos con reseña         | Solo devuelve los no calificados            |
+| Rankings y resumen                            | Delegación correcta al repositorio          |
 
 ## Backend — consultas y regresiones
 

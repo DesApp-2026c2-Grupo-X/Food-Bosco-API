@@ -190,25 +190,25 @@
 >
 > ```typescript
 > interface OrderReview {
->   _id: ObjectId;
+>   _id: ObjectId
 >
->   orderId: ObjectId;
->   customerId: ObjectId;
+>   orderId: ObjectId
+>   customerId: ObjectId
 >
 >   branch: {
->     branchId: ObjectId;
->     rating: number;
->     comment?: string;
->   };
+>     branchId: ObjectId
+>     rating: number
+>     comment?: string
+>   }
 >
 >   courier?: {
->     courierId: ObjectId;
->     rating: number;
->     comment?: string;
->   };
+>     courierId: ObjectId
+>     rating: number
+>     comment?: string
+>   }
 >
->   createdAt: Date;
->   updatedAt: Date;
+>   createdAt: Date
+>   updatedAt: Date
 > }
 > ```
 >

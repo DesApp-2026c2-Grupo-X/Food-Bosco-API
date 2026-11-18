@@ -5,9 +5,16 @@ Todos los contratos se exponen por el gateway (puerto 4000). El frontend no llam
 ## Tipos
 
 ```graphql
-type RatingBreakdown { rating: Int! count: Int! }
+type RatingBreakdown {
+  rating: Int!
+  count: Int!
+}
 
-type ReviewComment { rating: Int! comment: String createdAt: String! }
+type ReviewComment {
+  rating: Int!
+  comment: String
+  createdAt: String!
+}
 
 type OrderReview {
   id: ID!
@@ -24,7 +31,10 @@ type OrderReview {
   updatedAt: String!
 }
 
-type OrderReviewStatus { canReview: Boolean! review: OrderReview }
+type OrderReviewStatus {
+  canReview: Boolean!
+  review: OrderReview
+}
 
 type BranchReviewStats {
   branchId: ID!
@@ -76,7 +86,11 @@ input CreateOrderReviewInput {
   courierComment: String
 }
 
-input ReviewFilterInput { from: String to: String limit: Int }
+input ReviewFilterInput {
+  from: String
+  to: String
+  limit: Int
+}
 ```
 
 El input no acepta `orderId`, `branchId`, `courierId` ni `customerId`: se derivan del pedido y del usuario autenticado.
@@ -115,16 +129,16 @@ reviewsSummary(filter: ReviewFilterInput): ReviewsSummary!
 
 ## Endpoints REST internos (Commerce)
 
-| Método | Ruta | Rol |
-| --- | --- | --- |
-| `POST` | `/v1/reviews/orders/:orderId` | `customer` |
-| `GET` | `/v1/reviews/orders/:orderId` | `customer` |
-| `GET` | `/v1/reviews/mine` | `customer` |
-| `GET` | `/v1/reviews/pending` | `customer` |
-| `GET` | `/v1/reviews/branches/:branchId/stats` | `branch_admin`, `super_admin` |
-| `GET` | `/v1/reviews/couriers/:courierId/stats` | `rider`, `super_admin` |
-| `GET` | `/v1/reviews/branches/ranking` | `super_admin` |
-| `GET` | `/v1/reviews/couriers/ranking` | `super_admin` |
-| `GET` | `/v1/reviews/summary` | `super_admin` |
+| Método | Ruta                                    | Rol                           |
+| ------ | --------------------------------------- | ----------------------------- |
+| `POST` | `/v1/reviews/orders/:orderId`           | `customer`                    |
+| `GET`  | `/v1/reviews/orders/:orderId`           | `customer`                    |
+| `GET`  | `/v1/reviews/mine`                      | `customer`                    |
+| `GET`  | `/v1/reviews/pending`                   | `customer`                    |
+| `GET`  | `/v1/reviews/branches/:branchId/stats`  | `branch_admin`, `super_admin` |
+| `GET`  | `/v1/reviews/couriers/:courierId/stats` | `rider`, `super_admin`        |
+| `GET`  | `/v1/reviews/branches/ranking`          | `super_admin`                 |
+| `GET`  | `/v1/reviews/couriers/ranking`          | `super_admin`                 |
+| `GET`  | `/v1/reviews/summary`                   | `super_admin`                 |
 
 Parámetros de filtro: `from` (ISO 8601), `to` (ISO 8601), `limit` (1..100).

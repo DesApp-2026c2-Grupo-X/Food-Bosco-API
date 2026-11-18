@@ -166,18 +166,18 @@ No se agregaron microservicios ni llamadas directas Commerce → Delivery.
 
 ## 12. Pruebas ejecutadas y resultados
 
-| Suite | Resultado |
-| --- | --- |
-| Commerce completa (Jest) | 70 suites, 1587 tests aprobados |
-| Gateway completa (Jest) | 33 suites, 655 tests aprobados |
-| Store completo (Vitest) | 44 archivos, 218 tests aprobados |
-| Rider completo (Vitest) | 30 archivos, 141 tests aprobados |
-| Branch completo (Vitest) | 17 archivos, 74 tests aprobados |
-| Admin: `product-editor-flow` | 2 tests aprobados |
-| Admin: `staff-flow` | 1 test aprobado |
-| StarRating | 4 tests aprobados |
-| ReviewOrderModal | 8 tests aprobados |
-| OrderDetailPage / OrdersPage | 21 tests aprobados |
+| Suite                        | Resultado                        |
+| ---------------------------- | -------------------------------- |
+| Commerce completa (Jest)     | 70 suites, 1587 tests aprobados  |
+| Gateway completa (Jest)      | 33 suites, 655 tests aprobados   |
+| Store completo (Vitest)      | 44 archivos, 218 tests aprobados |
+| Rider completo (Vitest)      | 30 archivos, 141 tests aprobados |
+| Branch completo (Vitest)     | 17 archivos, 74 tests aprobados  |
+| Admin: `product-editor-flow` | 2 tests aprobados                |
+| Admin: `staff-flow`          | 1 test aprobado                  |
+| StarRating                   | 4 tests aprobados                |
+| ReviewOrderModal             | 8 tests aprobados                |
+| OrderDetailPage / OrdersPage | 21 tests aprobados               |
 
 Nota: la suite completa de Admin no se completó dentro del tiempo límite de la sesión; los dos flujos afectados por la ejecución en paralelo se volvieron a ejecutar de forma individual y aprobaron.
 
