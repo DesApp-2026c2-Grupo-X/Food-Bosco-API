@@ -73,6 +73,18 @@ export class BranchService {
       .sort((a, b) => haversineDistanceKm(origin, a) - haversineDistanceKm(origin, b))
   }
 
+  async findNearestAvailable(
+    latitude: number,
+    longitude: number,
+  ): Promise<{ branch: PublicBranch; distanceKm: number } | null> {
+    const branches = await this.findAvailable(latitude, longitude)
+    const branch = branches[0]
+    if (!branch) {
+      return null
+    }
+    return { branch, distanceKm: haversineDistanceKm({ latitude, longitude }, branch) }
+  }
+
   async findInZone(latitude: number, longitude: number): Promise<PublicBranch[]> {
     const maxDistanceKm = await this.parameterService.getValue(PARAMETER_KEYS.maxDistanceKm)
     const docs = await this.repository.findAll()

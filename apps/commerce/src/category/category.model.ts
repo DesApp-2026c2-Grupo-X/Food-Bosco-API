@@ -19,6 +19,8 @@ export type CategoryDocument = HydratedDocument<Category>
 
 export const CategorySchema = SchemaFactory.createForClass(Category)
 
+CategorySchema.index({ active: 1 })
+
 export interface PublicCategory {
   id: string
   name: string

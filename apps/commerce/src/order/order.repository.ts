@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { isValidObjectId, Model } from 'mongoose'
-import { OrderStatus } from '../config/constants'
+import { ORDER_STATUS, OrderStatus } from '../config/constants'
 import {
   Order,
   OrderDocument,
@@ -73,6 +73,18 @@ export class OrderRepository {
     ])
 
     return { data, total }
+  }
+
+  /**
+   * Últimos pedidos entregados del cliente. La ventana temporal y el peso por
+   * recencia se aplican en el dominio de personalización, no en la consulta.
+   */
+  findRecentDeliveredByClient(clientId: string, limit: number): Promise<OrderDocument[]> {
+    return this.model
+      .find({ clientId, status: ORDER_STATUS.delivered })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec()
   }
 
   save(doc: OrderDocument): Promise<OrderDocument> {
