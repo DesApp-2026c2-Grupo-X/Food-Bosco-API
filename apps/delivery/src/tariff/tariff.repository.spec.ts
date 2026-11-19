@@ -14,6 +14,7 @@ const makeRepository = () => {
     create: jest.fn(),
     updateMany: jest.fn(),
     updateOne: jest.fn(),
+    deleteOne: jest.fn(),
     countDocuments: jest.fn(),
   }
   const repository = new TariffRepository(model as unknown as Model<DeliveryTariffDocument>)
@@ -65,6 +66,23 @@ describe('TariffRepository', () => {
     expect(model.create).toHaveBeenCalledWith({ ...data, active: false })
   })
 
+  it('insertActive crea la tarifa bootstrap ya vigente', async () => {
+    const { repository, model } = makeRepository()
+    const data = {
+      baseFare: 500,
+      perKm: 200,
+      perOrder: 300,
+      currency: 'ARS',
+      effectiveFrom: new Date('2026-01-01T00:00:00.000Z'),
+      createdBy: 'system:bootstrap',
+    }
+    const doc = { ...data, active: true }
+    model.create.mockResolvedValue(doc)
+
+    await expect(repository.insertActive(data)).resolves.toBe(doc)
+    expect(model.create).toHaveBeenCalledWith({ ...data, active: true })
+  })
+
   it('deactivateAll actualiza sólo las activas', async () => {
     const { repository, model } = makeRepository()
     model.updateMany.mockReturnValue(execQuery({ modifiedCount: 1 }))
@@ -97,6 +115,23 @@ describe('TariffRepository', () => {
 
     await expect(repository.activateById(id)).resolves.toBeNull()
     expect(model.updateOne).not.toHaveBeenCalled()
+  })
+
+  it('deleteById elimina la versión indicada', async () => {
+    const { repository, model } = makeRepository()
+    model.deleteOne.mockReturnValue(execQuery({ deletedCount: 1 }))
+
+    await expect(repository.deleteById(validId)).resolves.toBe(true)
+    expect(model.deleteOne).toHaveBeenCalledWith({ _id: validId })
+  })
+
+  it('deleteById devuelve false si no existe o el id es inválido', async () => {
+    const { repository, model } = makeRepository()
+    model.deleteOne.mockReturnValue(execQuery({ deletedCount: 0 }))
+
+    await expect(repository.deleteById(validId)).resolves.toBe(false)
+    await expect(repository.deleteById('abc')).resolves.toBe(false)
+    expect(model.deleteOne).toHaveBeenCalledTimes(1)
   })
 
   it('countActive cuenta las tarifas activas', async () => {

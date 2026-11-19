@@ -27,8 +27,10 @@ const makeService = () => {
     findHistory: jest.fn(),
     findById: jest.fn(),
     insertInactive: jest.fn(),
+    insertActive: jest.fn(),
     deactivateAll: jest.fn().mockResolvedValue(0),
     activateById: jest.fn(),
+    deleteById: jest.fn().mockResolvedValue(true),
     countActive: jest.fn().mockResolvedValue(0),
   }
   const service = new TariffService(repository as unknown as TariffRepository)
@@ -61,16 +63,16 @@ describe('TariffService.getActive (RQ-DLV-08)', () => {
     })
   })
 
-  it('lanza TARIFF_NOT_AVAILABLE cuando no hay tarifa vigente ni bootstrap posible', async () => {
+  it('lanza TARIFF_NOT_AVAILABLE sin bootstrapear si no hay tarifa vigente', async () => {
     const { service, repository } = makeService()
     repository.findActive.mockResolvedValue(null)
-    repository.insertInactive.mockResolvedValue(buildDoc({ active: false }))
-    repository.activateById.mockResolvedValue(buildDoc({ active: false }))
 
     const error = await service.getActive().catch((caught: unknown) => caught)
 
     expect(error).toBeInstanceOf(ServiceUnavailableException)
     expect(errorCodeOf(error)).toBe(ERROR_CODES.tariffNotAvailable)
+    expect(repository.insertActive).not.toHaveBeenCalled()
+    expect(repository.deactivateAll).not.toHaveBeenCalled()
   })
 })
 
@@ -176,23 +178,42 @@ describe('TariffService.publish (RQ-DLV-08)', () => {
 
     expect(repository.activateById).toHaveBeenNthCalledWith(1, 'nueva')
     expect(repository.activateById).toHaveBeenNthCalledWith(2, 'vieja')
+    expect(repository.deleteById).toHaveBeenCalledWith('nueva')
     expect(error).toBeInstanceOf(ConflictException)
     expect(errorCodeOf(error)).toBe(ERROR_CODES.tariffConflict)
+  })
+
+  it('elimina la versión fantasma si falla la activación por otro error', async () => {
+    const { service, repository } = makeService()
+    const previous = buildDoc({ _id: { toString: () => 'vieja' }, active: true })
+    const created = buildDoc({ _id: { toString: () => 'nueva' }, active: false })
+    const failure = new Error('mongo caído')
+
+    repository.findActive.mockResolvedValue(previous)
+    repository.insertInactive.mockResolvedValue(created)
+    repository.activateById.mockImplementation(async (id: string) => {
+      if (id === 'nueva') throw failure
+      return buildDoc({ _id: { toString: () => id }, active: true })
+    })
+
+    await expect(
+      service.publish({ baseFare: 1, perKm: 1, perOrder: 1, createdBy: 'admin-1' }),
+    ).rejects.toBe(failure)
+    expect(repository.deleteById).toHaveBeenCalledWith('nueva')
   })
 })
 
 describe('TariffService.ensureBootstrap (RQ-DLV-08)', () => {
-  it('crea la tarifa inicial desde el seed con autor system:bootstrap', async () => {
+  it('crea la tarifa inicial activa desde el seed con autor system:bootstrap', async () => {
     const { service, repository } = makeService()
-    const created = buildDoc({ _id: { toString: () => 'seed' }, active: false })
+    const created = buildDoc({ _id: { toString: () => 'seed' }, active: true })
 
     repository.countActive.mockResolvedValue(0)
-    repository.insertInactive.mockResolvedValue(created)
-    repository.activateById.mockResolvedValue(buildDoc({ _id: { toString: () => 'seed' } }))
+    repository.insertActive.mockResolvedValue(created)
 
     await service.ensureBootstrap()
 
-    expect(repository.insertInactive).toHaveBeenCalledWith({
+    expect(repository.insertActive).toHaveBeenCalledWith({
       baseFare: 500,
       perKm: 200,
       perOrder: 300,
@@ -200,8 +221,9 @@ describe('TariffService.ensureBootstrap (RQ-DLV-08)', () => {
       createdBy: 'system:bootstrap',
       effectiveFrom: expect.any(Date),
     })
-    expect(repository.deactivateAll).toHaveBeenCalledTimes(1)
-    expect(repository.activateById).toHaveBeenCalledWith('seed')
+    expect(repository.insertInactive).not.toHaveBeenCalled()
+    expect(repository.deactivateAll).not.toHaveBeenCalled()
+    expect(repository.activateById).not.toHaveBeenCalled()
   })
 
   it('es idempotente: no crea otra tarifa si ya hay una activa', async () => {
@@ -211,21 +233,20 @@ describe('TariffService.ensureBootstrap (RQ-DLV-08)', () => {
     await service.ensureBootstrap()
     await service.ensureBootstrap()
 
-    expect(repository.insertInactive).not.toHaveBeenCalled()
+    expect(repository.insertActive).not.toHaveBeenCalled()
     expect(repository.deactivateAll).not.toHaveBeenCalled()
   })
 
   it('comparte el bootstrap entre llamadas concurrentes', async () => {
     const { service, repository } = makeService()
-    const created = buildDoc({ _id: { toString: () => 'seed' }, active: false })
+    const created = buildDoc({ _id: { toString: () => 'seed' }, active: true })
 
     repository.countActive.mockResolvedValue(0)
-    repository.insertInactive.mockResolvedValue(created)
-    repository.activateById.mockResolvedValue(buildDoc({ _id: { toString: () => 'seed' } }))
+    repository.insertActive.mockResolvedValue(created)
 
     await Promise.all([service.ensureBootstrap(), service.ensureBootstrap()])
 
-    expect(repository.insertInactive).toHaveBeenCalledTimes(1)
+    expect(repository.insertActive).toHaveBeenCalledTimes(1)
   })
 
   it('ignora el E11000 si otra instancia creó la tarifa al mismo tiempo', async () => {
@@ -233,9 +254,9 @@ describe('TariffService.ensureBootstrap (RQ-DLV-08)', () => {
     const duplicate = Object.assign(new Error('duplicate key'), { code: 11000 })
 
     repository.countActive.mockResolvedValue(0)
-    repository.insertInactive.mockRejectedValue(duplicate)
+    repository.insertActive.mockRejectedValue(duplicate)
 
     await expect(service.ensureBootstrap()).resolves.toBeUndefined()
-    expect(repository.activateById).not.toHaveBeenCalled()
+    expect(repository.deactivateAll).not.toHaveBeenCalled()
   })
 })

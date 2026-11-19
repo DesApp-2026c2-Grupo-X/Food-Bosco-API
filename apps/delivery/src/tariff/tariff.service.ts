@@ -57,12 +57,7 @@ export class TariffService implements OnModuleInit {
   }
 
   async getActive(): Promise<PublicDeliveryTariff> {
-    let doc = await this.repository.findActive()
-
-    if (!doc) {
-      await this.ensureBootstrap()
-      doc = await this.repository.findActive()
-    }
+    const doc = await this.repository.findActive()
 
     if (!doc) {
       throw new ServiceUnavailableException({
@@ -95,6 +90,7 @@ export class TariffService implements OnModuleInit {
       return serializeDeliveryTariff(activated)
     } catch (error) {
       await this.compensate(previous)
+      await this.discard(created)
       if (isDuplicateKeyError(error)) {
         throw new ConflictException({
           code: ERROR_CODES.tariffConflict,
@@ -121,30 +117,15 @@ export class TariffService implements OnModuleInit {
 
   private async bootstrapFromSeed(): Promise<void> {
     const seed = this.loadSeedTariff()
-    const created = await this.insertBootstrapTariff(seed)
-
-    if (!created) return
 
     try {
-      await this.repository.deactivateAll()
-      await this.repository.activateById(created._id.toString())
-    } catch (error) {
-      if (!isDuplicateKeyError(error)) throw error
-    }
-  }
-
-  private async insertBootstrapTariff(
-    seed: TariffSeed,
-  ): Promise<{ _id: { toString(): string } } | null> {
-    try {
-      return await this.repository.insertInactive({
+      await this.repository.insertActive({
         ...seed,
         effectiveFrom: new Date(),
         createdBy: BOOTSTRAP_AUTHOR,
       })
     } catch (error) {
-      if (isDuplicateKeyError(error)) return null
-      throw error
+      if (!isDuplicateKeyError(error)) throw error
     }
   }
 
@@ -155,6 +136,14 @@ export class TariffService implements OnModuleInit {
       await this.repository.activateById(previous._id.toString())
     } catch {
       // Si otra publicación ya ganó la carrera, la tarifa vigente se conserva.
+    }
+  }
+
+  private async discard(created: { _id: { toString(): string } }): Promise<void> {
+    try {
+      await this.repository.deleteById(created._id.toString())
+    } catch {
+      // La versión fallida queda inactiva si no se pudo limpiar.
     }
   }
 

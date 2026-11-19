@@ -36,6 +36,10 @@ export class TariffRepository {
     return this.model.create({ ...data, active: false })
   }
 
+  insertActive(data: CreateTariffData): Promise<DeliveryTariffDocument> {
+    return this.model.create({ ...data, active: true })
+  }
+
   async deactivateAll(): Promise<number> {
     const result = await this.model.updateMany({ active: true }, { $set: { active: false } }).exec()
     return result.modifiedCount
@@ -46,6 +50,12 @@ export class TariffRepository {
     const result = await this.model.updateOne({ _id: id }, { $set: { active: true } }).exec()
     if (result.matchedCount === 0) return null
     return this.findById(id)
+  }
+
+  async deleteById(id: string): Promise<boolean> {
+    if (!isValidObjectId(id)) return false
+    const result = await this.model.deleteOne({ _id: id }).exec()
+    return result.deletedCount > 0
   }
 
   countActive(): Promise<number> {
