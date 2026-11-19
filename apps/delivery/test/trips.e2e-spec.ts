@@ -17,6 +17,7 @@ import { DeliveryOrderModule } from '../src/delivery-order/delivery-order.module
 import { OfferModule } from '../src/offer/offer.module'
 import { OrderLifecycleModule } from '../src/order-lifecycle/order-lifecycle.module'
 import { RiderModule } from '../src/rider/rider.module'
+import { TariffService } from '../src/tariff/tariff.service'
 import { TripModule } from '../src/trip/trip.module'
 import { createMongoServer } from './mongo'
 
@@ -43,6 +44,7 @@ interface TripRow {
   distanceKm: number
   estimatedMinutes: number
   estimatedEarnings: number
+  tariffSnapshot: { baseFare: number; perKm: number; perOrder: number } | null
   earnings: number | null
   expiresAt: Date | null
 }
@@ -73,6 +75,7 @@ describe('Delivery trips (e2e)', () => {
   let riderModel: Model<RiderRow>
   let processedModel: Model<ProcessedEventRow>
   let eventBus: EventBus
+  let tariffService: TariffService
   let commercePatch: jest.Mock
 
   const rider1 = tokenFor('rider-1')
@@ -129,6 +132,7 @@ describe('Delivery trips (e2e)', () => {
     riderModel = app.get<Model<RiderRow>>(getModelToken('Rider'))
     processedModel = app.get<Model<ProcessedEventRow>>(getModelToken('ProcessedEvent'))
     eventBus = app.get(EventBus)
+    tariffService = app.get(TariffService)
   })
 
   afterAll(async () => {
@@ -195,6 +199,60 @@ describe('Delivery trips (e2e)', () => {
   }
 
   describe('GET /v1/trips/offers', () => {
+    it('usa la tarifa vigente y congela el snapshot al ofertar', async () => {
+      await tariffService.publish({
+        baseFare: 1000,
+        perKm: 300,
+        perOrder: 500,
+        createdBy: 'admin-e2e',
+      })
+      await onboard('rider-1')
+      await seedReadyOrder('ord-tariff')
+
+      try {
+        const res = await request(app.getHttpServer())
+          .get('/v1/trips/offers')
+          .set(bearer(rider1))
+          .expect(200)
+
+        const offer = res.body.data[0]
+        expect(offer.estimatedEarnings).toBe(Math.round(1000 + 300 * offer.distanceKm + 500))
+
+        const createdTrip = await tripModel.findById(offer.id).lean().exec()
+        expect(createdTrip?.tariffSnapshot).toEqual({
+          baseFare: 1000,
+          perKm: 300,
+          perOrder: 500,
+        })
+
+        await tariffService.publish({
+          baseFare: 2000,
+          perKm: 400,
+          perOrder: 600,
+          createdBy: 'admin-e2e',
+        })
+
+        const frozen = await request(app.getHttpServer())
+          .get(`/v1/trips/${offer.id}`)
+          .set(bearer(rider1))
+          .expect(200)
+
+        expect(frozen.body.estimatedEarnings).toBe(offer.estimatedEarnings)
+        expect(frozen.body.tariffSnapshot).toEqual({
+          baseFare: 1000,
+          perKm: 300,
+          perOrder: 500,
+        })
+      } finally {
+        await tariffService.publish({
+          baseFare: 500,
+          perKm: 200,
+          perOrder: 300,
+          createdBy: 'admin-e2e',
+        })
+      }
+    })
+
     it('ofrece al rider disponible una orden lista del pool', async () => {
       await onboard('rider-1')
       await seedReadyOrder('ord-happy')
