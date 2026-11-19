@@ -76,10 +76,10 @@ aunque la cantidad sea mayor a uno.
 
 ## 5. Archivos modificados
 
-| Repositorio | Archivo | Función o componente | Modificación | Justificación |
-| --- | --- | --- | --- | --- |
-| Food-Bosco-API | `docs/implementacion/informe-fix-eliminar-productos-carrito.md` | Informe técnico | Alta | Documentar la verificación y el resultado del fix. |
-| Food-Bosco-API | `docs/prompts/general/2026-11-19-0100-fix-eliminar-productos-carrito.md` | Registro de interacción con IA | Alta | Dejar registro del pedido y del análisis según la convención del proyecto. |
+| Repositorio    | Archivo                                                                  | Función o componente           | Modificación | Justificación                                                              |
+| -------------- | ------------------------------------------------------------------------ | ------------------------------ | ------------ | -------------------------------------------------------------------------- |
+| Food-Bosco-API | `docs/implementacion/informe-fix-eliminar-productos-carrito.md`          | Informe técnico                | Alta         | Documentar la verificación y el resultado del fix.                         |
+| Food-Bosco-API | `docs/prompts/general/2026-11-19-0100-fix-eliminar-productos-carrito.md` | Registro de interacción con IA | Alta         | Dejar registro del pedido y del análisis según la convención del proyecto. |
 
 No se modificaron archivos de código fuente en el backend ni en el frontend.
 
@@ -101,28 +101,28 @@ No se modificaron archivos de código fuente en el backend ni en el frontend.
 
 ### Pruebas automatizadas ejecutadas
 
-| Comando / alcance | Resultado |
-| --- | --- |
-| `npx vitest run` sobre `CartLineCard`, `CartPage` (unitaria e integración), `useCart` y dominio del carrito | 30 tests aprobados en 5 archivos |
-| `npx vitest run` sobre `purchase-flow.test.tsx` y `CartButton` | 9 tests aprobados en 3 archivos |
-| `npx jest src/cart` en `apps/commerce` | 76 tests aprobados en 4 suites |
-| `npm run test` en `Food-Bosco-API` (suite completa de unit tests) | 6 tareas exitosas: auth 750, commerce 1595, delivery 601 y gateway 664 tests aprobados |
-| `npx jest ... -t "removeCartItem"` en `apps/gateway` | 1 test aprobado (los demás se omitieron por el filtro) |
+| Comando / alcance                                                                                           | Resultado                                                                              |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `npx vitest run` sobre `CartLineCard`, `CartPage` (unitaria e integración), `useCart` y dominio del carrito | 30 tests aprobados en 5 archivos                                                       |
+| `npx vitest run` sobre `purchase-flow.test.tsx` y `CartButton`                                              | 9 tests aprobados en 3 archivos                                                        |
+| `npx jest src/cart` en `apps/commerce`                                                                      | 76 tests aprobados en 4 suites                                                         |
+| `npm run test` en `Food-Bosco-API` (suite completa de unit tests)                                           | 6 tareas exitosas: auth 750, commerce 1595, delivery 601 y gateway 664 tests aprobados |
+| `npx jest ... -t "removeCartItem"` en `apps/gateway`                                                        | 1 test aprobado (los demás se omitieron por el filtro)                                 |
 
 ### Casos verificados
 
-| Caso | Resultado |
-| --- | --- |
-| Carrito con un producto | Cubierto por las pruebas de `CartPage` y `CartLineCard`; la línea se elimina. |
-| Carrito con varios productos | El filtro es por `item.id`, por lo que solo se quita la línea seleccionada. Verificado por revisión de código y por las pruebas de integración de la mutación. |
-| Eliminar el último producto | Cubierto por `CartPage.integration` y por el test del orchestrator que deja la lista vacía y el total en 0. |
-| Producto con cantidad mayor a uno | El backend filtra la línea completa sin tocar la cantidad; cubierto por el test del orchestrator con cantidad 2. |
-| Productos con precios distintos | El total se recalcula en el servidor y se vuelve a consultar el carrito; cubierto por los tests de cálculo de dominio y del orchestrator. |
-| Productos con variantes u opciones distintas | La identificación es por `CartItem.id`, no por `productId`; las líneas con opciones distintas son ítems distintos. |
-| Actualización inmediata del carrito | `useCart.removeItem` ejecuta la mutación y luego `refetch`; cubierto por `CartPage.integration`. |
-| Persistencia | El carrito se guarda en el backend mediante `replaceItems`; no se ejecutaron pruebas end-to-end contra base de datos real en este fix. |
-| Checkout con productos restantes | El flujo existente no cambió; las pruebas de `purchase-flow` validan el agregado y el guardado del checkout vacío. |
-| Carrito vacío | La página muestra el estado vacío y el checkout bloquea la continuación; cubierto por pruebas de `CartPage` y `purchase-flow`. |
+| Caso                                         | Resultado                                                                                                                                                      |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Carrito con un producto                      | Cubierto por las pruebas de `CartPage` y `CartLineCard`; la línea se elimina.                                                                                  |
+| Carrito con varios productos                 | El filtro es por `item.id`, por lo que solo se quita la línea seleccionada. Verificado por revisión de código y por las pruebas de integración de la mutación. |
+| Eliminar el último producto                  | Cubierto por `CartPage.integration` y por el test del orchestrator que deja la lista vacía y el total en 0.                                                    |
+| Producto con cantidad mayor a uno            | El backend filtra la línea completa sin tocar la cantidad; cubierto por el test del orchestrator con cantidad 2.                                               |
+| Productos con precios distintos              | El total se recalcula en el servidor y se vuelve a consultar el carrito; cubierto por los tests de cálculo de dominio y del orchestrator.                      |
+| Productos con variantes u opciones distintas | La identificación es por `CartItem.id`, no por `productId`; las líneas con opciones distintas son ítems distintos.                                             |
+| Actualización inmediata del carrito          | `useCart.removeItem` ejecuta la mutación y luego `refetch`; cubierto por `CartPage.integration`.                                                               |
+| Persistencia                                 | El carrito se guarda en el backend mediante `replaceItems`; no se ejecutaron pruebas end-to-end contra base de datos real en este fix.                         |
+| Checkout con productos restantes             | El flujo existente no cambió; las pruebas de `purchase-flow` validan el agregado y el guardado del checkout vacío.                                             |
+| Carrito vacío                                | La página muestra el estado vacío y el checkout bloquea la continuación; cubierto por pruebas de `CartPage` y `purchase-flow`.                                 |
 
 ### Limitaciones
 
@@ -153,11 +153,12 @@ carrito ni estilos globales. El único cambio es documental.
 - **Food-Bosco-API**
   - Rama creada: `fix/eliminar-productos-carrito`
   - Rama base: `develop`
-  - Estado: rama con cambios documentales sin commit.
+  - Estado: rama publicada en `origin` con un commit documental.
   - Archivos nuevos de este fix: informe técnico y registro de prompt.
   - Se preservaron sin modificar los cambios locales preexistentes (`package-lock.json` y
     documentos sin seguimiento que ya estaban en el árbol de trabajo).
-  - Commits: ninguno.
+  - Commit: `46863ee docs(carrito): documentar fix de eliminacion de productos`.
+  - Pull request: [#50](https://github.com/DesApp-2026c2-Grupo-X/Food-Bosco-API/pull/50).
 - **Food-Bosco-Frontend**
   - No se creó rama ni se modificaron archivos: no se requieren cambios en este repositorio.
   - La rama actual y los cambios locales preexistentes se preservaron sin alteraciones.
