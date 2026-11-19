@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, ORDER_STATUS, ORDER_TRANSITIONS, OrderStatus } from '../config/constants'
+import { isDuplicateKeyError } from '../config/database/is-duplicate-key-error'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { AppliedPromotion, OrderStatusHistory, PublicOrder, serializeOrder } from './order.model'
 import { CreateOrderData, OrderListQuery, OrderRepository } from './order.repository'
@@ -28,6 +29,8 @@ export interface TransitionResult {
   changed: boolean
 }
 
+const ORDER_NUMBER_ATTEMPTS = 5
+
 @Injectable()
 export class OrderService {
   constructor(private readonly repository: OrderRepository) {}
@@ -51,17 +54,37 @@ export class OrderService {
   }
 
   async create(input: CreateOrderInput): Promise<PublicOrder> {
-    const sequence = (await this.repository.count()) + 1
-    const number = String(sequence).padStart(6, '0')
-
     const initialHistory: OrderStatusHistory = {
       previousStatus: ORDER_STATUS.pending,
       newStatus: ORDER_STATUS.pending,
       changedAt: new Date(),
     }
 
-    const doc = await this.repository.create({ ...input, number }, initialHistory)
-    return serializeOrder(doc)
+    for (let attempt = 0; attempt < ORDER_NUMBER_ATTEMPTS; attempt += 1) {
+      const number = await this.nextOrderNumber()
+
+      try {
+        const doc = await this.repository.create({ ...input, number }, initialHistory)
+        return serializeOrder(doc)
+      } catch (error) {
+        if (isDuplicateKeyError(error) && attempt < ORDER_NUMBER_ATTEMPTS - 1) {
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw new DomainException(
+      ERROR_CODES.conflict,
+      'No se pudo asignar un número de pedido. Intentá de nuevo.',
+      409,
+    )
+  }
+
+  private async nextOrderNumber(): Promise<string> {
+    const lastNumber = await this.repository.findMaxNumber()
+    const next = lastNumber ? Number(lastNumber) + 1 : 1
+    return String(next).padStart(6, '0')
   }
 
   async applyTransition(id: string, newStatus: OrderStatus): Promise<TransitionResult | null> {

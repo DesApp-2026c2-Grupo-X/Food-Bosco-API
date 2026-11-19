@@ -284,10 +284,12 @@ describe('OrderService.list — paginación (RQ-ORD-11/19)', () => {
 })
 
 describe('OrderService.create — numeración y estado inicial (RQ-ORD-07/08)', () => {
-  const makeCreateService = (count: number) => {
-    const created = buildDoc({ number: String(count + 1).padStart(6, '0') })
+  const makeCreateService = (lastNumber: number) => {
+    const created = buildDoc({ number: String(lastNumber + 1).padStart(6, '0') })
     const repository = {
-      count: jest.fn().mockResolvedValue(count),
+      findMaxNumber: jest
+        .fn()
+        .mockResolvedValue(lastNumber > 0 ? String(lastNumber).padStart(6, '0') : null),
       create: jest.fn().mockResolvedValue(created),
     }
     return {
@@ -308,12 +310,13 @@ describe('OrderService.create — numeración y estado inicial (RQ-ORD-07/08)', 
   }
 
   it.each([
-    { name: 'primer pedido', count: 0, expected: '000001' },
-    { name: 'pedido 122', count: 122, expected: '000123' },
-    { name: 'último de 6 dígitos', count: 999998, expected: '999999' },
-    { name: 'desborde de 6 dígitos (no trunca)', count: 999999, expected: '1000000' },
-  ])('$name → $expected', async ({ count, expected }) => {
-    const { service, repository } = makeCreateService(count)
+    { name: 'primer pedido', lastNumber: 0, expected: '000001' },
+    { name: 'pedido 122', lastNumber: 122, expected: '000123' },
+    { name: 'último de 6 dígitos', lastNumber: 999998, expected: '999999' },
+    { name: 'desborde de 6 dígitos (no trunca)', lastNumber: 999999, expected: '1000000' },
+    { name: 'con huecos en la numeración', lastNumber: 1066, expected: '001067' },
+  ])('$name → $expected', async ({ lastNumber, expected }) => {
+    const { service, repository } = makeCreateService(lastNumber)
 
     await service.create(input)
 
@@ -325,6 +328,35 @@ describe('OrderService.create — numeración y estado inicial (RQ-ORD-07/08)', 
         changedAt: expect.any(Date),
       }),
     )
+  })
+
+  it('reintenta con el siguiente número si otra creación ganó la carrera', async () => {
+    const duplicate = Object.assign(new Error('duplicate key'), { code: 11000 })
+    const repository = {
+      findMaxNumber: jest.fn().mockResolvedValueOnce('000123').mockResolvedValueOnce('000124'),
+      create: jest
+        .fn()
+        .mockRejectedValueOnce(duplicate)
+        .mockImplementationOnce(async (data: { number: string }) =>
+          buildDoc({ number: data.number }),
+        ),
+    }
+    const service = new OrderService(repository as unknown as OrderRepository)
+
+    const result = await service.create(input)
+
+    expect(repository.create).toHaveBeenCalledTimes(2)
+    expect(repository.create).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ number: '000124' }),
+      expect.anything(),
+    )
+    expect(repository.create).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ number: '000125' }),
+      expect.anything(),
+    )
+    expect(result.number).toBe('000125')
   })
 
   it('propaga el snapshot de dirección y los ítems al repositorio', async () => {
@@ -449,7 +481,7 @@ describe('OrderService.applyTransition — estado desconocido (defensivo)', () =
 describe('OrderService.create (RQ-ORD-07/08)', () => {
   it('genera un número secuencial zero-padded e inicia en pendiente', async () => {
     const repository = {
-      count: jest.fn().mockResolvedValue(122),
+      findMaxNumber: jest.fn().mockResolvedValue('000122'),
       create: jest.fn().mockResolvedValue(buildDoc({ number: '000123' })),
     }
     const service = new OrderService(repository as unknown as OrderRepository)
