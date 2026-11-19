@@ -156,6 +156,10 @@ export type OrderDocument = HydratedDocument<Order>
 
 export const OrderSchema = SchemaFactory.createForClass(Order)
 
+// Personalización: historial entregado por cliente, más reciente primero.
+OrderSchema.index({ clientId: 1, status: 1, createdAt: -1 })
+OrderSchema.index({ clientId: 1, createdAt: -1 })
+
 export interface PublicOrderItemOption {
   optionId: string
   name: string

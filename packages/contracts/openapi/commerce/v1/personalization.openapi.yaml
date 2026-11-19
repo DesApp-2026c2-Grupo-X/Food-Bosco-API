@@ -1,0 +1,364 @@
+openapi: 3.0.3
+info:
+  title: Commerce — Personalización
+  version: 1.0.0
+  description: |
+    Contrato del feed de la home. El gateway resuelve `addressId` contra Auth y
+    llama a este endpoint con las coordenadas ya validadas. La identidad del
+    usuario sale del JWT verificado por Commerce.
+
+    Documento de contrato: el cliente HTTP del gateway se mantiene manual en
+    `apps/gateway/src/rest/rest.client.ts` (ver decisión D2 del plan de
+    personalización).
+servers:
+  - url: http://localhost:4202
+security:
+  - bearerAuth: []
+paths:
+  /v1/personalization/home-feed:
+    get:
+      operationId: getHomeFeed
+      summary: Feed personalizado de la home
+      parameters:
+        - name: lat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - name: forYouLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+            default: 8
+        - name: discoveryLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 8
+            default: 4
+        - name: reorderLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 3
+      responses:
+        '200':
+          description: Feed de la home (secciones vacías si no hay datos)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeFeed'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ValidationError:
+      description: Parámetros inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthenticated:
+      description: Token inválido o ausente cuando se requiere
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Dependencia no disponible
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    Error:
+      type: object
+      required: [code, message, path]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        requestId:
+          type: string
+    HomeFeed:
+      type: object
+      required: [generatedAt, hasHistory, categories, forYou, discovery, reorder, promotions]
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        hasHistory:
+          type: boolean
+        topCategory:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Category'
+        favoriteBranch:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Branch'
+        nearestBranch:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/NearbyBranch'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        forYou:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductRecommendation'
+        discovery:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductRecommendation'
+        reorder:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReorderCard'
+        promotions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromotionSummary'
+    ProductRecommendation:
+      type: object
+      required: [product, reason, score]
+      properties:
+        product:
+          $ref: '#/components/schemas/Product'
+        reason:
+          type: string
+          enum: [REPEAT, FAVORITE_CATEGORY, DISCOVERY, POPULAR]
+        hint:
+          type: string
+          nullable: true
+        score:
+          type: number
+          format: double
+    NearbyBranch:
+      type: object
+      required: [branch, distanceMeters]
+      properties:
+        branch:
+          $ref: '#/components/schemas/Branch'
+        distanceMeters:
+          type: number
+          format: double
+    ReorderItem:
+      type: object
+      required: [productId, name, quantity]
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+    ReorderCard:
+      type: object
+      required: [id, number, status, createdAt, total, branchId, items]
+      properties:
+        id:
+          type: string
+        number:
+          type: string
+        status:
+          type: string
+          enum:
+            [pending, confirmed, preparing, ready_for_delivery, on_the_way, delivered, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        total:
+          type: number
+        branchId:
+          type: string
+        branch:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/Branch'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReorderItem'
+    PromotionSummary:
+      type: object
+      required:
+        [
+          id,
+          name,
+          startDate,
+          endDate,
+          categoryIds,
+          productIds,
+          branchIds,
+          minSubtotal,
+          minQuantity,
+          daysOfWeek,
+        ]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        type:
+          type: string
+          nullable: true
+          enum: [PERCENTAGE, FIXED_AMOUNT, BUY_X_GET_Y]
+        discountValue:
+          type: number
+          nullable: true
+        maxDiscount:
+          type: number
+          nullable: true
+        buyQuantity:
+          type: integer
+          nullable: true
+        payQuantity:
+          type: integer
+          nullable: true
+        scope:
+          type: string
+          nullable: true
+          enum: [ORDER, CATEGORY, PRODUCT]
+        categoryIds:
+          type: array
+          items:
+            type: string
+        productIds:
+          type: array
+          items:
+            type: string
+        branchIds:
+          type: array
+          items:
+            type: string
+        minSubtotal:
+          type: number
+        minQuantity:
+          type: integer
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        startTime:
+          type: string
+          nullable: true
+        endTime:
+          type: string
+          nullable: true
+    Category:
+      type: object
+      required: [id, name, active]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
+    Branch:
+      type: object
+      required: [id, name, addressText, latitude, longitude, active, hours]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        addressText:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        phone:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/BranchHour'
+    BranchHour:
+      type: object
+      required: [dayOfWeek, closed]
+      properties:
+        dayOfWeek:
+          type: integer
+        opening:
+          type: string
+          nullable: true
+        closing:
+          type: string
+          nullable: true
+        closed:
+          type: boolean
+    Product:
+      type: object
+      required: [id, categoryId, name, description, price, available, configGroups, recipe]
+      properties:
+        id:
+          type: string
+        categoryId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        image:
+          type: string
+          nullable: true
+        available:
+          type: boolean
+        configGroups:
+          type: array
+          items:
+            type: object
+        recipe:
+          type: array
+          items:
+            type: object

@@ -57,6 +57,8 @@ export type BranchDocument = HydratedDocument<Branch>
 
 export const BranchSchema = SchemaFactory.createForClass(Branch)
 
+BranchSchema.index({ active: 1 })
+
 export interface PublicBranchHour {
   dayOfWeek: number
   opening: string | null

@@ -18,6 +18,8 @@ export interface RestRequestOptions {
   query?: RestQuery
   body?: unknown
   errorsAsHttp?: boolean
+  /** Tiempo máximo de la llamada. Sin valor, se mantiene el comportamiento actual. */
+  timeoutMs?: number
 }
 
 export interface RestMultipartOptions {
@@ -173,7 +175,7 @@ export class RestClient {
   }
 
   async request<T>(method: HttpMethod, path: string, options: RestRequestOptions = {}): Promise<T> {
-    const { context = {}, query, body, errorsAsHttp } = options
+    const { context = {}, query, body, errorsAsHttp, timeoutMs } = options
     const hasBody = body !== undefined
 
     const response = await this.send(
@@ -185,6 +187,7 @@ export class RestClient {
           ...(hasBody ? { 'content-type': 'application/json' } : {}),
         },
         body: hasBody ? JSON.stringify(body) : undefined,
+        signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
       },
       path,
       context.requestId,

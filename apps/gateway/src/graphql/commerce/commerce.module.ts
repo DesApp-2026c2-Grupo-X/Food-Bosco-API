@@ -10,6 +10,7 @@ import {
   TripOrderFieldResolver,
 } from './commerce.fields.resolver'
 import { CommerceResolver } from './commerce.resolver'
+import { HomeFeedResolver } from './home-feed.resolver'
 import {
   BranchRatingRowFieldResolver,
   CourierRatingRowFieldResolver,
@@ -21,6 +22,7 @@ import {
   imports: [RestModule],
   providers: [
     CommerceResolver,
+    HomeFeedResolver,
     ReviewsResolver,
     OrderReviewFieldResolver,
     BranchRatingRowFieldResolver,

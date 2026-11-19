@@ -45,6 +45,11 @@ export class OrderService {
     return doc ? serializeOrder(doc) : null
   }
 
+  async listRecentDeliveredByClient(clientId: string, limit: number): Promise<PublicOrder[]> {
+    const docs = await this.repository.findRecentDeliveredByClient(clientId, limit)
+    return docs.map(serializeOrder)
+  }
+
   async create(input: CreateOrderInput): Promise<PublicOrder> {
     const sequence = (await this.repository.count()) + 1
     const number = String(sequence).padStart(6, '0')

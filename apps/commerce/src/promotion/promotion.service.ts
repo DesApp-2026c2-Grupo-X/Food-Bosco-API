@@ -350,6 +350,16 @@ export class PromotionService {
     return docs.map(serializeBannerPromotion)
   }
 
+  /**
+   * Promociones vigentes con el contrato completo, para la home.
+   * A diferencia de `getPublicActive`, incluye los campos que el feed necesita
+   * para rankear por afinidad y no expone datos internos de uso.
+   */
+  async getActiveForHome(now: Date = new Date()): Promise<PublicPromotion[]> {
+    const docs = await this.repository.findPublicActive(now)
+    return docs.map(serializePromotion)
+  }
+
   async getUsageMap(
     promotionIds: string[],
     clientId: string,

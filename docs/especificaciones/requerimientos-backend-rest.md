@@ -530,6 +530,87 @@ type Trip {
   earnings: Float
 }
 
+# ===== Personalización =====
+enum RecommendationReason {
+  REPEAT
+  FAVORITE_CATEGORY
+  DISCOVERY
+  POPULAR
+}
+
+input HomeFeedInput {
+  addressId: ID
+  lat: Float
+  lng: Float
+  forYouLimit: Int
+  discoveryLimit: Int
+  reorderLimit: Int
+}
+
+type ProductRecommendation {
+  product: Product!
+  reason: RecommendationReason!
+  hint: String
+  score: Float!
+}
+
+type NearbyBranch {
+  branch: Branch!
+  distanceMeters: Float!
+}
+
+type PromotionSummary {
+  id: ID!
+  name: String!
+  description: String
+  startDate: String!
+  endDate: String!
+  type: PromotionType
+  discountValue: Float
+  maxDiscount: Float
+  buyQuantity: Int
+  payQuantity: Int
+  scope: PromotionScope
+  categoryIds: [ID!]!
+  productIds: [ID!]!
+  branchIds: [ID!]!
+  minSubtotal: Float!
+  minQuantity: Int!
+  daysOfWeek: [Int!]!
+  startTime: String
+  endTime: String
+}
+
+type ReorderItem {
+  productId: ID!
+  name: String!
+  quantity: Int!
+}
+
+type ReorderCard {
+  id: ID!
+  number: String!
+  status: OrderStatus!
+  createdAt: String!
+  total: Float!
+  branchId: ID!
+  branch: Branch
+  items: [ReorderItem!]!
+}
+
+type HomeFeed {
+  generatedAt: String!
+  hasHistory: Boolean!
+  topCategory: Category
+  favoriteBranch: Branch
+  nearestBranch: NearbyBranch
+  categories: [Category!]!
+  forYou: [ProductRecommendation!]!
+  discovery: [ProductRecommendation!]!
+  reorder: [ReorderCard!]!
+  promotions: [PromotionSummary!]!
+}
+
 # ===== Query =====
 type Query {
   # Auth / sesión
@@ -565,6 +646,9 @@ type Query {
   orders(filter: OrderFilter, page: PageInput): [Order!]! # admin: su sucursal / todas
   order(id: ID!): Order!
   orderHistory(id: ID!): [OrderStatusHistory!]!
+
+  # Personalización (pública; personalizada si hay JWT)
+  homeFeed(input: HomeFeedInput): HomeFeed!
 
   # Stock
   branchStock(branchId: ID): [BranchStock!]!
@@ -1355,6 +1439,30 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | RQ-CFG-06 | El `super_admin` deberá poder listar y crear/modificar/activar/desactivar estados del catálogo.                                                                    |
 | RQ-CFG-07 | Las transiciones válidas entre estados seguirán controladas por el módulo de Order (máquina de estados), no por este catálogo.                                     |
 | RQ-CFG-08 | El API REST deberá exponer `GET /v1/config/parameters`, `PATCH /v1/config/parameters/{key}`, `GET /v1/config/order-states` y `PUT /v1/config/order-states/{code}`. |
+
+## 7.8 Personalización
+
+| Método | Ruta                            | Acceso                             | Operación                                                                  |
+| ------ | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| GET    | `/v1/personalization/home-feed` | Público (personalizado si hay JWT) | Feed de la home: contexto, categorías, recomendaciones, reordenar y promos |
+
+Parámetros opcionales: `lat`, `lng`, `forYouLimit` (1–12), `discoveryLimit` (1–8), `reorderLimit` (1–5).
+El `addressId` lo resuelve el gateway contra Auth; Commerce sólo recibe coordenadas.
+
+### Requerimientos — Personalización
+
+| ID        | Requerimiento                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-PER-01 | El feed deberá devolver en una sola operación el contexto, las categorías ordenadas, las recomendaciones, el reordenamiento y las promociones. |
+| RQ-PER-02 | La identidad deberá salir del JWT verificado; nunca de un parámetro del cliente.                                                               |
+| RQ-PER-03 | El feed sólo deberá leer pedidos entregados del usuario autenticado dentro de la ventana configurada.                                          |
+| RQ-PER-04 | Las secciones sin datos deberán devolverse como arreglos vacíos, no como error.                                                                |
+| RQ-PER-05 | Sólo se recomendarán productos con `available=true`; se excluirán los productos pausados.                                                      |
+| RQ-PER-06 | `forYou` deberá aplicar diversidad de hasta 2 productos por categoría en la primera pasada y completar slots con el excedente.                 |
+| RQ-PER-07 | `discovery` deberá priorizar categorías sin historial y excluir productos ya comprados o mostrados.                                            |
+| RQ-PER-08 | `reorder` deberá deduplicar por sucursal + productos y conservar el pedido más reciente.                                                       |
+| RQ-PER-09 | Las promociones deberán devolverse vigentes y ordenadas por afinidad, prioridad y fecha, sin exponer `usedCount` ni topes de uso.              |
+| RQ-PER-10 | Los límites deberán recortarse en el gateway y validarse en Commerce; no se aceptarán valores fuera de rango.                                  |
 
 ---
 
