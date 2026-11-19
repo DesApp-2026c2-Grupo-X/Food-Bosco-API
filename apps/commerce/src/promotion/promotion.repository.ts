@@ -193,6 +193,23 @@ export class PromotionRepository {
     return this.model.find(filter).sort({ priority: -1, createdAt: -1 }).exec()
   }
 
+  findActivePublicCandidates(params: {
+    branchId?: string | null
+    now: Date
+  }): Promise<PromotionDocument[]> {
+    const filter: FilterQuery<PromotionDocument> = {
+      active: true,
+      startDate: { $lte: params.now },
+      endDate: { $gte: params.now },
+    }
+
+    if (params.branchId) {
+      filter.$or = [{ branchIds: { $size: 0 } }, { branchIds: params.branchId }]
+    }
+
+    return this.model.find(filter).sort({ priority: -1, createdAt: -1 }).exec()
+  }
+
   async findPublicActive(now: Date = new Date()): Promise<PromotionDocument[]> {
     return this.model
       .find({

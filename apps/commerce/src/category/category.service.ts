@@ -29,6 +29,12 @@ export class CategoryService {
     return doc ? serializeCategory(doc) : null
   }
 
+  async findByIds(ids: string[]): Promise<PublicCategory[]> {
+    if (ids.length === 0) return []
+    const docs = await this.repository.findByIds([...new Set(ids)])
+    return docs.map(serializeCategory)
+  }
+
   async listActive(): Promise<PublicCategory[]> {
     const docs = await this.repository.findActive()
     return docs.map(serializeCategory)

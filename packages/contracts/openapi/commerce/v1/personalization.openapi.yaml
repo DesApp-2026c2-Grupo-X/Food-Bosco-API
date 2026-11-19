@@ -335,6 +335,53 @@ components:
           nullable: true
         closed:
           type: boolean
+    ProductPromotionPreview:
+      type: object
+      required:
+        [
+          promotionId,
+          name,
+          kind,
+          badge,
+          originalPrice,
+          minSubtotal,
+          minQuantity,
+          conditionsMet,
+          promotionCount,
+          endsAt,
+        ]
+      properties:
+        promotionId:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [PERCENTAGE, FIXED_AMOUNT, BUY_X_GET_Y, COUPON, INFORMATIONAL]
+        badge:
+          type: string
+        originalPrice:
+          type: number
+        estimatedUnitPrice:
+          type: number
+          nullable: true
+        discountValue:
+          type: number
+          nullable: true
+        maxDiscount:
+          type: number
+          nullable: true
+        minSubtotal:
+          type: number
+        minQuantity:
+          type: integer
+        conditionsMet:
+          type: boolean
+        promotionCount:
+          type: integer
+        endsAt:
+          type: string
+          format: date-time
     Product:
       type: object
       required: [id, categoryId, name, description, price, available, configGroups, recipe]
@@ -354,6 +401,14 @@ components:
           nullable: true
         available:
           type: boolean
+        promotion:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/ProductPromotionPreview'
+        promotions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPromotionPreview'
         configGroups:
           type: array
           items:

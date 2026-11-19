@@ -3,10 +3,12 @@ import { ERROR_CODES, ROLES } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
 import { Roles } from '../config/security/roles.decorator'
 import { CreatePromotionDto } from './dto/create-promotion.dto'
+import { PromotionCatalogQueryDto } from './dto/promotion-catalog-query.dto'
 import { PromotionQueryDto } from './dto/promotion-query.dto'
 import { SetActiveDto } from './dto/set-active.dto'
 import { UpdatePromotionDto } from './dto/update-promotion.dto'
 import type { PublicBannerPromotion, PublicPromotion } from './promotion.model'
+import type { PublicPromotionCatalogItem } from './promotion.preview'
 import { PromotionOrchestrator } from './promotion.orchestrator'
 import { PromotionService, type PromotionListResponse } from './promotion.service'
 
@@ -35,6 +37,20 @@ export class PromotionController {
   @Get('public')
   getPublic(): Promise<PublicBannerPromotion[]> {
     return this.promotionService.getPublicActive()
+  }
+
+  @Get('public/catalog')
+  getPublicCatalog(
+    @Query() query: PromotionCatalogQueryDto,
+  ): Promise<PublicPromotionCatalogItem[]> {
+    if (!this.orchestrator) {
+      throw new DomainException(
+        ERROR_CODES.serviceUnavailable,
+        'Orquestador de promociones no disponible',
+        503,
+      )
+    }
+    return this.orchestrator.getPublicCatalog(query.lat, query.lng)
   }
 
   @Post()
