@@ -16,6 +16,7 @@ import type { ProductListResponse } from './product.service'
 import { CreateConfigGroupDto } from './dto/create-config-group.dto'
 import { CreateConfigOptionDto } from './dto/create-config-option.dto'
 import { CreateProductDto } from './dto/create-product.dto'
+import { ProductDetailQueryDto } from './dto/product-detail-query.dto'
 import { ProductQueryDto } from './dto/product-query.dto'
 import { RecipeItemDto, SetRecipeDto } from './dto/recipe-item.dto'
 import { SetAvailableDto } from './dto/set-available.dto'
@@ -38,13 +39,16 @@ export class ProductController {
     const isAdmin = auth.roles.includes(ROLES.superAdmin)
     const requestedAvailable = query.available as boolean | undefined
     const available = requestedAvailable ?? (isAdmin ? undefined : true)
-    return this.productService.list({
-      categoryId: query.categoryId,
-      search: query.search,
-      available,
-      limit: query.limit ?? 20,
-      offset: query.offset ?? 0,
-    })
+    return this.orchestrator.listWithPreviews(
+      {
+        categoryId: query.categoryId,
+        search: query.search,
+        available,
+        limit: query.limit ?? 20,
+        offset: query.offset ?? 0,
+      },
+      { lat: query.lat, lng: query.lng },
+    )
   }
 
   @Post()
@@ -54,8 +58,14 @@ export class ProductController {
   }
 
   @Get(':productId')
-  async get(@Param('productId') productId: string): Promise<PublicProduct> {
-    const product = await this.productService.findById(productId)
+  async get(
+    @Param('productId') productId: string,
+    @Query() query: ProductDetailQueryDto = {},
+  ): Promise<PublicProduct> {
+    const product = await this.orchestrator.findByIdWithPreviews(productId, {
+      lat: query.lat,
+      lng: query.lng,
+    })
     if (!product) {
       throw new DomainException(ERROR_CODES.productNotFound, 'Producto no encontrado', 404)
     }

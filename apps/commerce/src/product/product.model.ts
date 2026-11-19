@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
 import { HydratedDocument, Types } from 'mongoose'
 import { CONFIG_GROUP_TYPE_VALUES } from '../config/constants'
 import type { ConfigGroupType } from '../config/constants'
+import type { ProductPromotionPreview } from '../promotion/promotion.model'
 
 export const PRODUCT_ALREADY_EXISTS = 'PRODUCT_ALREADY_EXISTS'
 export const OPTION_NOT_FOUND = 'OPTION_NOT_FOUND'
@@ -147,6 +148,8 @@ export interface PublicProduct {
   available: boolean
   configGroups: PublicConfigGroup[]
   recipe: PublicRecipeItem[]
+  promotion?: ProductPromotionPreview | null
+  promotions?: ProductPromotionPreview[]
 }
 
 export const serializeOption = (option: ConfigOption): PublicConfigOption => ({

@@ -1236,13 +1236,19 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 
 ### Promociones
 
-| Método | Ruta                                          | Acceso        | Operación                    |
-| ------ | --------------------------------------------- | ------------- | ---------------------------- |
-| GET    | `/v1/catalog/promotions`                      | `super_admin` | Listar promociones           |
-| POST   | `/v1/catalog/promotions`                      | `super_admin` | Crear promoción              |
-| GET    | `/v1/catalog/promotions/{promotionId}`        | `super_admin` | Obtener promoción            |
-| PATCH  | `/v1/catalog/promotions/{promotionId}`        | `super_admin` | Modificar promoción          |
-| PATCH  | `/v1/catalog/promotions/{promotionId}/active` | `super_admin` | Activar/desactivar promoción |
+| Método | Ruta                                          | Acceso        | Operación                                              |
+| ------ | --------------------------------------------- | ------------- | ------------------------------------------------------ |
+| GET    | `/v1/catalog/promotions`                      | `super_admin` | Listar promociones                                     |
+| POST   | `/v1/catalog/promotions`                      | `super_admin` | Crear promoción                                        |
+| GET    | `/v1/catalog/promotions/{promotionId}`        | `super_admin` | Obtener promoción                                      |
+| PATCH  | `/v1/catalog/promotions/{promotionId}`        | `super_admin` | Modificar promoción                                    |
+| PATCH  | `/v1/catalog/promotions/{promotionId}/active` | `super_admin` | Activar/desactivar promoción                           |
+| GET    | `/v1/catalog/promotions/public`               | Público       | Promociones activas para banners                       |
+| GET    | `/v1/catalog/promotions/public/catalog`       | Público       | Catálogo público con categorías y productos hidratados |
+
+> Los endpoints de productos (`/v1/catalog/products`, `/v1/catalog/products/{id}` y
+> `/v1/branches/available/products`) aceptan `lat`/`lng` opcionales y devuelven
+> `promotion` y `promotions` por producto. El precio sigue siendo autoritativo en el carrito.
 
 ### Requerimientos — Catalog
 
@@ -1265,6 +1271,7 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | RQ-CAT-15 | Un admin de sucursal (`branch_admin`) deberá poder pausar/reactivar productos en **su** sucursal, sin editar la definición global del producto.                                                                                                                                               |
 | RQ-CAT-16 | La disponibilidad por sucursal deberá registrarse en `branchProductAvailability` (`branchId`, `productId`, `available`); el catálogo público combina el `available` global con este flag.                                                                                                     |
 | RQ-CAT-17 | Un admin global deberá poder subir la imagen de un producto como **archivo** (`multipart/form-data`, un solo archivo jpg/png/webp/gif, con tamaño máximo configurable); el archivo se almacena en **Cloudinary** y la URL devuelta (`secure_url`) se guarda en el campo `image` del producto. |
+| RQ-CAT-18 | El catálogo público deberá devolver un preview informativo de la mejor promoción vigente por producto, y el catálogo público de promociones deberá hidratar categorías y productos. El preview no reemplaza el cálculo autoritativo del carrito.                                              |
 
 ## 7.2 Branch
 

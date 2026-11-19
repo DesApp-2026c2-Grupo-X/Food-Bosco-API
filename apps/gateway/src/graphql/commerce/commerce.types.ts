@@ -14,6 +14,7 @@ import {
 } from '../common/mappers'
 import type { RawRecord } from '../common/mappers'
 import { OrderStatus, orderStatusFromRest } from '../common/order-status.enum'
+import { PromotionBadgeKind, promotionBadgeKindFromRest } from '../common/promotion-badge-kind.enum'
 import { PromotionScope, promotionScopeFromRest } from '../common/promotion-scope.enum'
 import { PromotionType, promotionTypeFromRest } from '../common/promotion-type.enum'
 
@@ -102,6 +103,48 @@ export class RecipeItem {
 }
 
 @ObjectType()
+export class ProductPromotionPreview {
+  @Field(() => ID)
+  promotionId!: string
+
+  @Field()
+  name!: string
+
+  @Field(() => PromotionBadgeKind)
+  kind!: PromotionBadgeKind
+
+  @Field()
+  badge!: string
+
+  @Field(() => Float)
+  originalPrice!: number
+
+  @Field(() => Float, { nullable: true })
+  estimatedUnitPrice!: number | null
+
+  @Field(() => Float, { nullable: true })
+  discountValue!: number | null
+
+  @Field(() => Float, { nullable: true })
+  maxDiscount!: number | null
+
+  @Field(() => Float)
+  minSubtotal!: number
+
+  @Field(() => Int)
+  minQuantity!: number
+
+  @Field()
+  conditionsMet!: boolean
+
+  @Field(() => Int)
+  promotionCount!: number
+
+  @Field()
+  endsAt!: string
+}
+
+@ObjectType()
 export class Product {
   @Field(() => ID)
   id!: string
@@ -132,6 +175,12 @@ export class Product {
 
   @Field(() => [RecipeItem])
   recipe!: RecipeItem[]
+
+  @Field(() => ProductPromotionPreview, { nullable: true })
+  promotion!: ProductPromotionPreview | null
+
+  @Field(() => [ProductPromotionPreview])
+  promotions!: ProductPromotionPreview[]
 }
 
 @ObjectType()
@@ -228,6 +277,81 @@ export class Promotion {
 
   @Field(() => Int)
   usedCount!: number
+}
+
+@ObjectType()
+export class PromotionCatalogItem {
+  @Field(() => ID)
+  id!: string
+
+  @Field()
+  name!: string
+
+  @Field(() => String, { nullable: true })
+  description!: string | null
+
+  @Field(() => PromotionType, { nullable: true })
+  type!: PromotionType | null
+
+  @Field(() => PromotionScope, { nullable: true })
+  scope!: PromotionScope | null
+
+  @Field(() => PromotionBadgeKind)
+  kind!: PromotionBadgeKind
+
+  @Field()
+  badge!: string
+
+  @Field(() => Float, { nullable: true })
+  discountValue!: number | null
+
+  @Field(() => Float, { nullable: true })
+  maxDiscount!: number | null
+
+  @Field(() => Int, { nullable: true })
+  buyQuantity!: number | null
+
+  @Field(() => Int, { nullable: true })
+  payQuantity!: number | null
+
+  @Field()
+  startDate!: string
+
+  @Field()
+  endDate!: string
+
+  @Field(() => [Int])
+  daysOfWeek!: number[]
+
+  @Field(() => String, { nullable: true })
+  startTime!: string | null
+
+  @Field(() => String, { nullable: true })
+  endTime!: string | null
+
+  @Field(() => Float)
+  minSubtotal!: number
+
+  @Field(() => Int)
+  minQuantity!: number
+
+  @Field(() => [ID])
+  branchIds!: string[]
+
+  @Field(() => String, { nullable: true })
+  code!: string | null
+
+  @Field(() => [ID])
+  categoryIds!: string[]
+
+  @Field(() => [ID])
+  productIds!: string[]
+
+  @Field(() => [Category])
+  categories!: Category[]
+
+  @Field(() => [Product])
+  products!: Product[]
 }
 
 @ObjectType()
@@ -984,6 +1108,22 @@ export const mapIngredient = (raw: RawRecord): Ingredient => ({
   active: asBoolean(raw.active),
 })
 
+export const mapProductPromotionPreview = (raw: RawRecord): ProductPromotionPreview => ({
+  promotionId: asString(raw.promotionId),
+  name: asString(raw.name),
+  kind: promotionBadgeKindFromRest(nullableString(raw.kind)) ?? PromotionBadgeKind.PERCENTAGE,
+  badge: asString(raw.badge),
+  originalPrice: asNumber(raw.originalPrice),
+  estimatedUnitPrice: nullableNumber(raw.estimatedUnitPrice),
+  discountValue: nullableNumber(raw.discountValue),
+  maxDiscount: nullableNumber(raw.maxDiscount),
+  minSubtotal: asNumber(raw.minSubtotal),
+  minQuantity: asNumber(raw.minQuantity),
+  conditionsMet: asBoolean(raw.conditionsMet),
+  promotionCount: asNumber(raw.promotionCount),
+  endsAt: asString(raw.endsAt),
+})
+
 export const mapProduct = (raw: RawRecord): Product => ({
   id: idOf(raw),
   categoryId: asString(raw.categoryId),
@@ -994,6 +1134,8 @@ export const mapProduct = (raw: RawRecord): Product => ({
   available: asBoolean(raw.available),
   configGroups: asRecordList(raw.configGroups).map(mapConfigGroup),
   recipe: asRecordList(raw.recipe).map(mapRecipeItem),
+  promotion: raw.promotion ? mapProductPromotionPreview(raw.promotion as RawRecord) : null,
+  promotions: asRecordList(raw.promotions).map(mapProductPromotionPreview),
 })
 
 export const mapAppliedPromotion = (raw: RawRecord): AppliedPromotion => ({
@@ -1030,6 +1172,33 @@ export const mapPromotion = (raw: RawRecord): Promotion => ({
   maxUsesTotal: nullableNumber(raw.maxUsesTotal),
   maxUsesPerCustomer: nullableNumber(raw.maxUsesPerCustomer),
   usedCount: asNumber(raw.usedCount),
+})
+
+export const mapPromotionCatalogItem = (raw: RawRecord): PromotionCatalogItem => ({
+  id: idOf(raw),
+  name: asString(raw.name),
+  description: nullableString(raw.description),
+  type: promotionTypeFromRest(nullableString(raw.type)),
+  scope: promotionScopeFromRest(nullableString(raw.scope)),
+  kind: promotionBadgeKindFromRest(nullableString(raw.kind)) ?? PromotionBadgeKind.INFORMATIONAL,
+  badge: asString(raw.badge),
+  discountValue: nullableNumber(raw.discountValue),
+  maxDiscount: nullableNumber(raw.maxDiscount),
+  buyQuantity: nullableNumber(raw.buyQuantity),
+  payQuantity: nullableNumber(raw.payQuantity),
+  startDate: asString(raw.startDate),
+  endDate: asString(raw.endDate),
+  daysOfWeek: asNumberList(raw.daysOfWeek),
+  startTime: nullableString(raw.startTime),
+  endTime: nullableString(raw.endTime),
+  minSubtotal: asNumber(raw.minSubtotal),
+  minQuantity: asNumber(raw.minQuantity),
+  branchIds: asStringList(raw.branchIds),
+  code: nullableString(raw.code),
+  categoryIds: asStringList(raw.categoryIds),
+  productIds: asStringList(raw.productIds),
+  categories: asRecordList(raw.categories).map(mapCategory),
+  products: asRecordList(raw.products).map(mapProduct),
 })
 
 export const mapBranchHour = (raw: RawRecord): BranchHours => ({

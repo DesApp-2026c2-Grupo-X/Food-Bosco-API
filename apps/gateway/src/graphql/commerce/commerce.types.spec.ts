@@ -1,5 +1,6 @@
 import { ConfigGroupType } from '../common/config-group-type.enum'
 import { OrderStatus } from '../common/order-status.enum'
+import { PromotionBadgeKind } from '../common/promotion-badge-kind.enum'
 import {
   mapBranch,
   mapBranchHour,
@@ -21,6 +22,7 @@ import {
   mapProduct,
   mapProductReportRow,
   mapPromotion,
+  mapPromotionCatalogItem,
   mapRecipeItem,
   mapReportsOverview,
   mapStockMovement,
@@ -186,8 +188,88 @@ describe('mapProduct', () => {
     expect(result.image).toBeNull()
     expect(result.configGroups).toEqual([])
     expect(result.recipe).toEqual([])
+    expect(result.promotion).toBeNull()
+    expect(result.promotions).toEqual([])
     expect(result.price).toBe(0)
     expect(result.available).toBe(false)
+  })
+
+  it('mapea el preview de promoción y su lista', () => {
+    const preview = {
+      promotionId: 'pr1',
+      name: '20% en hamburguesas',
+      kind: 'PERCENTAGE',
+      badge: '-20%',
+      originalPrice: 100,
+      estimatedUnitPrice: 80,
+      discountValue: 20,
+      maxDiscount: null,
+      minSubtotal: 0,
+      minQuantity: 0,
+      conditionsMet: true,
+      promotionCount: 1,
+      endsAt: '2026-11-30T23:59:59.000Z',
+    }
+
+    const result = mapProduct({
+      ...rawProduct,
+      promotion: preview,
+      promotions: [preview],
+    })
+
+    expect(result.promotion?.kind).toBe(PromotionBadgeKind.PERCENTAGE)
+    expect(result.promotion?.estimatedUnitPrice).toBe(80)
+    expect(result.promotions).toHaveLength(1)
+  })
+})
+
+describe('mapPromotionCatalogItem', () => {
+  it('mapea cupones, categorías y productos hidratados', () => {
+    const result = mapPromotionCatalogItem({
+      id: 'pr1',
+      name: '20% en hamburguesas',
+      description: 'Válido en locales',
+      type: 'PERCENTAGE',
+      scope: 'PRODUCT',
+      kind: 'PERCENTAGE',
+      badge: '-20%',
+      discountValue: 20,
+      startDate: '2026-11-01T00:00:00.000Z',
+      endDate: '2026-11-30T23:59:59.000Z',
+      daysOfWeek: [4, 5],
+      minSubtotal: 0,
+      minQuantity: 0,
+      branchIds: ['b1'],
+      categoryIds: ['c1'],
+      productIds: ['p1'],
+      categories: [{ id: 'c1', name: 'Hamburguesas', active: true }],
+      products: [rawProduct],
+    })
+
+    expect(result.kind).toBe(PromotionBadgeKind.PERCENTAGE)
+    expect(result.type).toBe('PERCENTAGE')
+    expect(result.scope).toBe('PRODUCT')
+    expect(result.daysOfWeek).toEqual([4, 5])
+    expect(result.categoryIds).toEqual(['c1'])
+    expect(result.productIds).toEqual(['p1'])
+    expect(result.categories).toHaveLength(1)
+    expect(result.products).toHaveLength(1)
+  })
+
+  it('mapea una promo informativa sin tipo', () => {
+    const result = mapPromotionCatalogItem({
+      id: 'pr2',
+      name: 'Beneficio',
+      type: null,
+      scope: null,
+      kind: 'INFORMATIONAL',
+      badge: 'Beneficio',
+    })
+
+    expect(result.type).toBeNull()
+    expect(result.scope).toBeNull()
+    expect(result.kind).toBe(PromotionBadgeKind.INFORMATIONAL)
+    expect(result.products).toEqual([])
   })
 })
 

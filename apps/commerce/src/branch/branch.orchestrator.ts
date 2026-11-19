@@ -4,6 +4,8 @@ import { DomainException } from '../config/exceptions/domain.exception'
 import { IngredientService } from '../ingredient/ingredient.service'
 import type { PublicProduct } from '../product/product.model'
 import { ProductService } from '../product/product.service'
+import { resolveProductPromotionPreviews } from '../promotion/promotion.preview'
+import { PromotionService } from '../promotion/promotion.service'
 import { StockService } from '../stock/stock.service'
 import type { PublicBranch } from './branch.model'
 import type { CreateBranchData } from './branch.repository'
@@ -24,6 +26,7 @@ export class BranchOrchestrator {
     private readonly productService: ProductService,
     private readonly ingredientService: IngredientService,
     private readonly stockService: StockService,
+    private readonly promotionService: PromotionService,
   ) {}
 
   async create(dto: CreateBranchData): Promise<PublicBranch> {
@@ -66,14 +69,19 @@ export class BranchOrchestrator {
   }
 
   private async buildProductList(branchId: string): Promise<BranchProductListResponse> {
-    const [products, availability] = await Promise.all([
+    const now = new Date()
+    const [products, availability, promotions] = await Promise.all([
       this.productService.findAll(),
       this.branchService.getAvailabilityMap(branchId),
+      this.promotionService.getCandidates({ branchId, now }),
     ])
+    const previews = resolveProductPromotionPreviews(products, promotions, branchId, now)
 
     const data = products.map((product) => ({
       ...product,
       availableInBranch: availability.get(product.id) ?? true,
+      promotion: previews.get(product.id)?.promotion ?? null,
+      promotions: previews.get(product.id)?.promotions ?? [],
     }))
 
     return { data }

@@ -1,8 +1,10 @@
-import { ERROR_CODES } from '../config/constants'
+import { ERROR_CODES, PROMOTION_SCOPE, PROMOTION_TYPE } from '../config/constants'
 import type { DomainException } from '../config/exceptions/domain.exception'
 import type { IngredientService } from '../ingredient/ingredient.service'
 import type { PublicProduct } from '../product/product.model'
+import type { PublicPromotion } from '../promotion/promotion.model'
 import type { ProductService } from '../product/product.service'
+import type { PromotionService } from '../promotion/promotion.service'
 import type { StockService } from '../stock/stock.service'
 import { BranchOrchestrator } from './branch.orchestrator'
 import type { PublicBranch } from './branch.model'
@@ -18,6 +20,36 @@ const product = (overrides: Partial<PublicProduct> = {}): PublicProduct => ({
   available: true,
   configGroups: [],
   recipe: [],
+  ...overrides,
+})
+
+const promotion = (overrides: Partial<PublicPromotion> = {}): PublicPromotion => ({
+  id: 'promo-1',
+  name: '20% en burgers',
+  description: null,
+  startDate: '2020-01-01T00:00:00.000Z',
+  endDate: '2099-12-31T23:59:59.999Z',
+  active: true,
+  type: PROMOTION_TYPE.percentage,
+  discountValue: 20,
+  maxDiscount: null,
+  buyQuantity: null,
+  payQuantity: null,
+  scope: PROMOTION_SCOPE.product,
+  categoryIds: [],
+  productIds: ['p1'],
+  branchIds: [],
+  minSubtotal: 0,
+  minQuantity: 0,
+  daysOfWeek: [],
+  startTime: null,
+  endTime: null,
+  code: null,
+  stackable: false,
+  priority: 0,
+  maxUsesTotal: null,
+  maxUsesPerCustomer: null,
+  usedCount: 0,
   ...overrides,
 })
 
@@ -43,13 +75,22 @@ const makeOrchestrator = () => {
   const productService = { findAll: jest.fn(), findById: jest.fn() }
   const ingredientService = { list: jest.fn().mockResolvedValue({ data: [] }) }
   const stockService = { ensureStockRows: jest.fn().mockResolvedValue(undefined) }
+  const promotionService = { getCandidates: jest.fn().mockResolvedValue([]) }
   const orchestrator = new BranchOrchestrator(
     branchService as unknown as BranchService,
     productService as unknown as ProductService,
     ingredientService as unknown as IngredientService,
     stockService as unknown as StockService,
+    promotionService as unknown as PromotionService,
   )
-  return { orchestrator, branchService, productService, ingredientService, stockService }
+  return {
+    orchestrator,
+    branchService,
+    productService,
+    ingredientService,
+    stockService,
+    promotionService,
+  }
 }
 
 const captureError = async (promise: Promise<unknown>): Promise<DomainException> => {
@@ -114,6 +155,21 @@ describe('BranchOrchestrator.listProducts (RQ-CAT-16)', () => {
       ['p1', true],
       ['p2', false],
     ])
+  })
+
+  it('adjunta el preview de promociones vigentes de la sucursal', async () => {
+    const { orchestrator, branchService, productService, promotionService } = makeOrchestrator()
+    branchService.getAvailabilityMap.mockResolvedValue(new Map())
+    productService.findAll.mockResolvedValue([product()])
+    promotionService.getCandidates.mockResolvedValue([promotion()])
+
+    const result = await orchestrator.listProducts('b1')
+
+    expect(promotionService.getCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'b1' }),
+    )
+    expect(result.data[0].promotion?.badge).toBe('-20%')
+    expect(result.data[0].promotion?.estimatedUnitPrice).toBe(80)
   })
 })
 

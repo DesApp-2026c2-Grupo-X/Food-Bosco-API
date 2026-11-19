@@ -3,6 +3,7 @@ import type { RestClient } from '../../rest/rest.client'
 import { ConfigGroupType } from '../common/config-group-type.enum'
 import { CustomerInsightsSort } from '../common/customer-insights-sort.enum'
 import { OrderStatus } from '../common/order-status.enum'
+import { PromotionBadgeKind } from '../common/promotion-badge-kind.enum'
 import { ReportGroupBy } from '../common/report-group.enum'
 import { CommerceResolver } from './commerce.resolver'
 
@@ -53,6 +54,21 @@ const rawPromotion = {
   startDate: '2026-01-01',
   endDate: '2026-01-31',
   active: true,
+}
+const rawPromotionPreview = {
+  promotionId: 'pr1',
+  name: '20% en hamburguesas',
+  kind: 'PERCENTAGE',
+  badge: '-20%',
+  originalPrice: 100,
+  estimatedUnitPrice: 80,
+  discountValue: 20,
+  maxDiscount: null,
+  minSubtotal: 0,
+  minQuantity: 0,
+  conditionsMet: true,
+  promotionCount: 1,
+  endsAt: '2026-11-30T23:59:59.000Z',
 }
 const rawBranchHour = { dayOfWeek: 1, opening: '09:00', closing: '18:00', closed: false }
 const rawBranch = {
@@ -169,7 +185,7 @@ describe('CommerceResolver — lookups por id', () => {
       path: '/v1/catalog/products/p1',
       raw: rawProduct,
       expectedId: 'p1',
-      invoke: (r) => r.product('p1', ctx),
+      invoke: (r) => r.product('p1', null, null, ctx),
     },
     {
       name: 'ingredient',
@@ -229,11 +245,57 @@ describe('CommerceResolver — lookups por id', () => {
   it('product → mapea price numérico y colecciones', async () => {
     restMock.get.mockResolvedValue(rawProduct)
 
-    const result = await resolver.product('p1', ctx)
+    const result = await resolver.product('p1', null, null, ctx)
 
     expect(result.price).toBe(100)
     expect(result.configGroups).toEqual([])
     expect(result.recipe).toEqual([])
+  })
+
+  it('product con lat/lng → envía coordenadas al catálogo', async () => {
+    restMock.get.mockResolvedValue({ ...rawProduct, promotion: rawPromotionPreview })
+
+    const result = await resolver.product('p1', -34.6, -58.4, ctx)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/catalog/products/p1', {
+      context: expect.objectContaining({ userId: 'u1' }),
+      query: { lat: -34.6, lng: -58.4 },
+    })
+    expect(result.promotion?.badge).toBe('-20%')
+    expect(result.promotion?.kind).toBe(PromotionBadgeKind.PERCENTAGE)
+  })
+
+  it('promotionCatalog → GET del catálogo público y mapea productos/categorías', async () => {
+    restMock.get.mockResolvedValue([
+      {
+        id: 'pr1',
+        name: '20% en hamburguesas',
+        description: null,
+        type: 'PERCENTAGE',
+        scope: 'PRODUCT',
+        kind: 'PERCENTAGE',
+        badge: '-20%',
+        startDate: '2026-11-01T00:00:00.000Z',
+        endDate: '2026-11-30T23:59:59.000Z',
+        daysOfWeek: [],
+        minSubtotal: 0,
+        minQuantity: 0,
+        branchIds: [],
+        categoryIds: ['c1'],
+        productIds: ['p1'],
+        categories: [rawCategory],
+        products: [{ ...rawProduct, promotion: rawPromotionPreview }],
+      },
+    ])
+
+    const result = await resolver.promotionCatalog(-34.6, -58.4)
+
+    expect(restMock.get).toHaveBeenCalledWith('/v1/catalog/promotions/public/catalog', {
+      query: { lat: -34.6, lng: -58.4 },
+    })
+    expect(result[0].kind).toBe(PromotionBadgeKind.PERCENTAGE)
+    expect(result[0].products[0].promotion?.estimatedUnitPrice).toBe(80)
+    expect(result[0].categories[0].id).toBe('c1')
   })
 })
 
