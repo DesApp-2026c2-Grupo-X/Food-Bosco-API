@@ -104,7 +104,7 @@ describe('CreatePromotionDto (RQ-CAT-13)', () => {
     expect(invalid).toEqual([])
   })
 
-  it('con whitelist descarta active, que no forma parte del DTO', async () => {
+  it('acepta active booleano opcional', async () => {
     const { instance, invalid } = await check(
       CreatePromotionDto,
       { name: '2x1', active: false, ...validRange },
@@ -112,7 +112,7 @@ describe('CreatePromotionDto (RQ-CAT-13)', () => {
     )
 
     expect(invalid).toEqual([])
-    expect(instance.active).toBeUndefined()
+    expect(instance.active).toBe(false)
   })
 })
 

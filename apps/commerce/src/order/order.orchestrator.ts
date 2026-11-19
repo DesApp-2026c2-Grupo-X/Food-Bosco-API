@@ -18,7 +18,9 @@ import { ProductService } from '../product/product.service'
 import { StockService } from '../stock/stock.service'
 import type { IngredientRequirements } from '../stock/stock.service'
 import type { PublicCart } from '../cart/cart.model'
-import type { PublicOrder } from './order.model'
+import { AppliedPromotion, PublicOrder } from './order.model'
+import { evaluatePromotions } from '../promotion/promotion.engine'
+import { PromotionService } from '../promotion/promotion.service'
 import { OrderService } from './order.service'
 
 export interface CreateOrderInput {
@@ -66,6 +68,7 @@ export class OrderOrchestrator {
     private readonly stockService: StockService,
     private readonly parameterService: ParameterService,
     private readonly eventBus: EventBus,
+    private readonly promotionService?: PromotionService,
   ) {}
 
   async create(clientId: string, input: CreateOrderInput): Promise<PublicOrder> {
@@ -89,11 +92,74 @@ export class OrderOrchestrator {
 
     const availability = await this.branchService.getAvailabilityMap(branch.id)
 
-    const { items, requirements } = await this.buildOrderItems(cart.items, availability)
+    const { items, requirements, productById } = await this.buildOrderItems(
+      cart.items,
+      availability,
+    )
 
     await this.stockService.validateAvailability(branch.id, requirements)
 
-    const total = items.reduce((sum, item) => sum + item.subtotal, 0)
+    const grossSubtotal = items.reduce((sum, item) => sum + item.subtotal, 0)
+    let discountTotal = 0
+    let finalTotal = grossSubtotal
+    let appliedPromotions: AppliedPromotion[] = []
+    const promotionCode = cart.promotionCode ?? null
+
+    if (this.promotionService) {
+      const now = new Date()
+      const candidates = await this.promotionService.getCandidates({
+        branchId: branch.id,
+        now,
+        code: promotionCode,
+      })
+      const usage = await this.promotionService.getUsageMap(
+        candidates.map((c) => c.id),
+        clientId,
+      )
+      const promotableLines = items.map((item) => {
+        const product = productById.get(item.productId)
+        return {
+          lineId: item.productId,
+          productId: item.productId,
+          categoryId: product?.categoryId ?? '',
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          subtotal: item.subtotal,
+        }
+      })
+
+      const pricing = evaluatePromotions(candidates, {
+        lines: promotableLines,
+        subtotal: grossSubtotal,
+        totalQuantity: items.reduce((sum, i) => sum + i.quantity, 0),
+        branchId: branch.id,
+        clientId,
+        now,
+        requestedCode: promotionCode,
+        usage,
+      })
+
+      if (promotionCode && pricing.rejectedCode) {
+        const reason = pricing.rejectedCode.reason
+        if (reason === 'PROMOTION_LIMIT_REACHED') {
+          throw new DomainException(
+            ERROR_CODES.promotionLimitReached,
+            'El cupón ha alcanzado su límite de usos',
+            409,
+          )
+        }
+        throw new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'El cupón de descuento ya no es válido para este pedido',
+          400,
+        )
+      }
+
+      discountTotal = pricing.discountTotal
+      finalTotal = pricing.total
+      appliedPromotions = pricing.appliedPromotions
+    }
+
     const estimatedDeliveryAt = await this.computeEta(branch, input.deliveryAddress)
 
     const claimed = await this.cartService.claim(cart.id)
@@ -105,13 +171,18 @@ export class OrderOrchestrator {
       )
     }
 
+    let order: PublicOrder
     try {
-      return await this.orderService.create({
+      order = await this.orderService.create({
         clientId,
         branchId: branch.id,
         addressId: input.addressId,
         deliveryAddress: input.deliveryAddress,
-        total,
+        subtotal: grossSubtotal,
+        discountTotal,
+        total: finalTotal,
+        promotionCode,
+        appliedPromotions,
         estimatedDeliveryAt,
         items,
       })
@@ -119,6 +190,16 @@ export class OrderOrchestrator {
       await this.cartService.release(cart.id)
       throw error
     }
+
+    if (this.promotionService && appliedPromotions.length > 0) {
+      try {
+        await this.promotionService.recordRedemptions(order.id, clientId, appliedPromotions)
+      } catch {
+        // Log error if needed; the order is created and redemptions recorded
+      }
+    }
+
+    return order
   }
 
   async changeStatus(
@@ -146,6 +227,10 @@ export class OrderOrchestrator {
           await this.orderService.revertTransition(orderId, newStatus, order.status)
           throw error
         }
+      }
+
+      if (newStatus === ORDER_STATUS.cancelled && this.promotionService) {
+        await this.promotionService.releaseRedemptions(order.id)
       }
 
       const branch = await this.branchService.findById(order.branchId)
@@ -231,7 +316,11 @@ export class OrderOrchestrator {
   private async buildOrderItems(
     cartItems: CartItemData[],
     availability: Map<string, boolean>,
-  ): Promise<{ items: PublicOrder['items']; requirements: IngredientRequirements }> {
+  ): Promise<{
+    items: PublicOrder['items']
+    requirements: IngredientRequirements
+    productById: Map<string, PublicProduct>
+  }> {
     const productIds = cartItems.map((item) => item.productId)
     const products = await this.productService.findByIds(productIds)
     const productById = new Map(products.map((product) => [product.id, product]))
@@ -268,7 +357,7 @@ export class OrderOrchestrator {
       this.accumulateRequirements(requirements, product, cartItem.optionIds, cartItem.quantity)
     }
 
-    return { items, requirements }
+    return { items, requirements, productById }
   }
 
   private async computeRequirementsFromOrder(order: PublicOrder): Promise<IngredientRequirements> {

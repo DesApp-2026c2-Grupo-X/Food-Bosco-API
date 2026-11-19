@@ -108,6 +108,8 @@ export type ProductDocument = HydratedDocument<Product>
 
 export const ProductSchema = SchemaFactory.createForClass(Product)
 
+ProductSchema.index({ available: 1, categoryId: 1 })
+
 const subId = (value: { _id?: Types.ObjectId }): string =>
   value._id?.toString() ?? new Types.ObjectId().toString()
 

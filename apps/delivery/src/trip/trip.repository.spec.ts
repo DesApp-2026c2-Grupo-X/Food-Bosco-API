@@ -51,6 +51,7 @@ const createData: CreateTripData = {
   distanceKm: 5,
   estimatedMinutes: 12,
   estimatedEarnings: 1500,
+  tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
   expiresAt: new Date('2026-01-01T00:01:00.000Z'),
 }
 

@@ -1,10 +1,11 @@
-import { Module } from '@nestjs/common'
+import { forwardRef, Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
 import { BranchModule } from '../branch/branch.module'
 import { CartModule } from '../cart/cart.module'
 import { MessagingModule } from '../config/messaging/messaging.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
+import { PromotionModule } from '../promotion/promotion.module'
 import { StockModule } from '../stock/stock.module'
 import { Order, OrderSchema } from './order.model'
 import { OrderController } from './order.controller'
@@ -22,6 +23,7 @@ import { TripEventsConsumer } from './trip-events.consumer'
     StockModule,
     ParameterModule,
     MessagingModule,
+    forwardRef(() => PromotionModule),
   ],
   controllers: [OrderController],
   providers: [OrderRepository, OrderService, OrderOrchestrator, TripEventsConsumer],

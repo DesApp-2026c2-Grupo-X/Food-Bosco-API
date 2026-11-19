@@ -84,6 +84,8 @@ export interface DemoOrderConfig {
   recentDays: number
   recentShare: number
   cancelRate: number
+  deliveredWithRiderRate?: number
+  reviewRate?: number
   oldestPriceFactor: number
   maxItems: number
   maxQuantity: number
@@ -116,6 +118,7 @@ export interface PlannedOrder {
   status: OrderStatus
   total: number
   estimatedDeliveryAt: Date
+  riderId: string | null
   items: PlannedOrderItem[]
   statusHistory: PlannedStatusHistory[]
   createdAt: Date
@@ -125,6 +128,7 @@ export interface BuildDemoOrdersInput {
   customers: DemoCustomerInput[]
   products: PublicProduct[]
   branches: PublicBranch[]
+  riderIds?: string[]
   config: DemoOrderConfig
   random: SeededRandom
   now: Date
@@ -333,6 +337,15 @@ const buildOrder = (
 
   if (items.length === 0) return null
 
+  const statusHistory = buildStatusHistory(status, createdAt, now, random)
+  const riderRate = clamp(config.deliveredWithRiderRate ?? 0.9, 0, 1)
+  const riderId =
+    status === ORDER_STATUS.delivered && input.riderIds && input.riderIds.length > 0
+      ? forced?.status === ORDER_STATUS.delivered || random.chance(riderRate)
+        ? random.pick(input.riderIds)
+        : null
+      : null
+
   return {
     clientId: customer.id,
     branchId: branch.id,
@@ -345,8 +358,9 @@ const buildOrder = (
     status,
     total: items.reduce((sum, item) => sum + item.subtotal, 0),
     estimatedDeliveryAt: new Date(createdAt.getTime() + 60 * MINUTE_MS),
+    riderId,
     items,
-    statusHistory: buildStatusHistory(status, createdAt, now, random),
+    statusHistory,
     createdAt,
   }
 }

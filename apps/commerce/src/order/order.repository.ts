@@ -1,8 +1,14 @@
 import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { isValidObjectId, Model } from 'mongoose'
-import { OrderStatus } from '../config/constants'
-import { Order, OrderDocument, OrderItem, OrderStatusHistory } from './order.model'
+import { ORDER_STATUS, OrderStatus } from '../config/constants'
+import {
+  Order,
+  OrderDocument,
+  OrderItem,
+  OrderStatusHistory,
+  AppliedPromotion,
+} from './order.model'
 
 export interface CreateOrderData {
   number: string
@@ -10,7 +16,11 @@ export interface CreateOrderData {
   branchId: string
   addressId: string
   deliveryAddress: { text: string; latitude: number; longitude: number }
+  subtotal?: number
+  discountTotal?: number
   total: number
+  promotionCode?: string | null
+  appliedPromotions?: AppliedPromotion[]
   estimatedDeliveryAt: Date | null
   items: OrderItem[]
 }
@@ -38,9 +48,25 @@ export class OrderRepository {
     return this.model.countDocuments().exec()
   }
 
+  async findMaxNumber(): Promise<string | null> {
+    const [last] = await this.model
+      .aggregate<{ number: string }>([
+        { $project: { number: 1, numeric: { $toInt: '$number' } } },
+        { $sort: { numeric: -1 } },
+        { $limit: 1 },
+      ])
+      .exec()
+
+    return last?.number ?? null
+  }
+
   create(data: CreateOrderData, initialHistory: OrderStatusHistory): Promise<OrderDocument> {
     return this.model.create({
       ...data,
+      subtotal: data.subtotal ?? data.total,
+      discountTotal: data.discountTotal ?? 0,
+      promotionCode: data.promotionCode ?? null,
+      appliedPromotions: data.appliedPromotions ?? [],
       status: 'pending',
       statusHistory: [initialHistory],
     })
@@ -59,6 +85,18 @@ export class OrderRepository {
     ])
 
     return { data, total }
+  }
+
+  /**
+   * Últimos pedidos entregados del cliente. La ventana temporal y el peso por
+   * recencia se aplican en el dominio de personalización, no en la consulta.
+   */
+  findRecentDeliveredByClient(clientId: string, limit: number): Promise<OrderDocument[]> {
+    return this.model
+      .find({ clientId, status: ORDER_STATUS.delivered })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .exec()
   }
 
   save(doc: OrderDocument): Promise<OrderDocument> {

@@ -74,7 +74,7 @@ export const env = {
       orders: toOptionalNumber(process.env.SEED_DEMO_ORDERS),
       days: toOptionalNumber(process.env.SEED_DEMO_DAYS),
       seed: toOptionalNumber(process.env.SEED_DEMO_SEED),
-      reset: process.env.SEED_DEMO_RESET === 'true',
+      reset: process.env.SEED_DEMO_RESET !== 'false',
     },
   },
 }

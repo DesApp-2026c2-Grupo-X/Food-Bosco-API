@@ -1,6 +1,8 @@
-import { Module } from '@nestjs/common'
+import { forwardRef, Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
+import { BranchModule } from '../branch/branch.module'
 import { ProductModule } from '../product/product.module'
+import { PromotionModule } from '../promotion/promotion.module'
 import { CartController } from './cart.controller'
 import { Cart, CartSchema } from './cart.model'
 import { CartOrchestrator } from './cart.orchestrator'
@@ -8,7 +10,12 @@ import { CartRepository } from './cart.repository'
 import { CartService } from './cart.service'
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Cart.name, schema: CartSchema }]), ProductModule],
+  imports: [
+    MongooseModule.forFeature([{ name: Cart.name, schema: CartSchema }]),
+    ProductModule,
+    forwardRef(() => PromotionModule),
+    forwardRef(() => BranchModule),
+  ],
   controllers: [CartController],
   providers: [CartRepository, CartService, CartOrchestrator],
   exports: [CartService, CartOrchestrator],

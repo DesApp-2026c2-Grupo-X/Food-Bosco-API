@@ -2,7 +2,7 @@ import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
-import type { RestClient } from '../../rest/rest.client'
+import type { RestClient, RestQuery } from '../../rest/rest.client'
 import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT } from '../../rest/rest.module'
 import { AuthGuard } from '../../security/auth.guard'
 import { Authenticated } from '../../security/authenticated.decorator'
@@ -183,6 +183,12 @@ export class CommerceResolver {
   }
 
   @Query(() => [Promotion])
+  async publicPromotions(): Promise<Promotion[]> {
+    const raw = await this.rest.get<RawRecord[]>('/v1/catalog/promotions/public')
+    return raw.map(mapPromotion)
+  }
+
+  @Query(() => [Promotion])
   @Roles(ROLES.superAdmin)
   async promotions(
     @Args('activeOnly', { type: () => Boolean, nullable: true }) activeOnly: boolean | null,
@@ -293,8 +299,23 @@ export class CommerceResolver {
 
   @Query(() => Cart)
   @Roles(ROLES.customer)
-  async myCart(@Context() ctx: GraphQLContext): Promise<Cart> {
-    const raw = await this.rest.get<RawRecord>('/v1/carts', { context: toRestContext(ctx) })
+  async myCart(
+    @Context() ctx: GraphQLContext,
+    @Args('addressId', { type: () => ID, nullable: true }) addressId?: string | null,
+  ): Promise<Cart> {
+    let query: RestQuery | undefined = undefined
+    if (addressId) {
+      const address = await this.authRest.get<RawRecord>(`/v1/addresses/${addressId}`, {
+        context: toRestContext(ctx),
+      })
+      if (address?.latitude !== undefined && address?.longitude !== undefined) {
+        query = { lat: Number(address.latitude), lng: Number(address.longitude) }
+      }
+    }
+    const raw = await this.rest.get<RawRecord>('/v1/carts', {
+      context: toRestContext(ctx),
+      ...(query ? { query } : {}),
+    })
     return mapCart(raw)
   }
 
@@ -799,6 +820,18 @@ export class CommerceResolver {
     return mapPromotion(raw)
   }
 
+  @Mutation(() => Boolean)
+  @Roles(ROLES.superAdmin)
+  async deletePromotion(
+    @Args('id', { type: () => ID }) id: string,
+    @Context() ctx: GraphQLContext,
+  ): Promise<boolean> {
+    await this.rest.delete(`/v1/catalog/promotions/${id}`, {
+      context: toRestContext(ctx),
+    })
+    return true
+  }
+
   @Mutation(() => Branch)
   @Roles(ROLES.superAdmin)
   async createBranch(
@@ -903,6 +936,19 @@ export class CommerceResolver {
     @Context() ctx: GraphQLContext,
   ): Promise<Cart> {
     const raw = await this.rest.delete<RawRecord>(`/v1/carts/items/${itemId}`, {
+      context: toRestContext(ctx),
+    })
+    return mapCart(raw)
+  }
+
+  @Mutation(() => Cart)
+  @Roles(ROLES.customer)
+  async setCartPromotionCode(
+    @Args('code', { type: () => String, nullable: true }) code: string | null,
+    @Context() ctx: GraphQLContext,
+  ): Promise<Cart> {
+    const raw = await this.rest.patch<RawRecord>('/v1/carts/promotion-code', {
+      body: { code },
       context: toRestContext(ctx),
     })
     return mapCart(raw)

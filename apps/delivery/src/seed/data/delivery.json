@@ -23,5 +23,11 @@
   ],
   "rider": {
     "email": "repartidor@foodbosco.local"
+  },
+  "tariff": {
+    "baseFare": 500,
+    "perKm": 200,
+    "perOrder": 300,
+    "currency": "ARS"
   }
 }

@@ -8,8 +8,10 @@ import { RequestIdMiddleware } from './config/observability/request-id.middlewar
 import { HealthModule } from './health/health.module'
 import { IngredientModule } from './ingredient/ingredient.module'
 import { OrderModule } from './order/order.module'
+import { OrderReviewModule } from './order-review/order-review.module'
 import { OrderStateModule } from './order-state/order-state.module'
 import { ParameterModule } from './parameter/parameter.module'
+import { PersonalizationModule } from './personalization/personalization.module'
 import { ProductModule } from './product/product.module'
 import { PromotionModule } from './promotion/promotion.module'
 import { ReportingModule } from './reporting/reporting.module'
@@ -29,9 +31,11 @@ import { UploadModule } from './upload/upload.module'
     BranchModule,
     CartModule,
     OrderModule,
+    OrderReviewModule,
     StockModule,
     ReportingModule,
     ParameterModule,
+    PersonalizationModule,
     OrderStateModule,
     SeedModule,
     UploadModule,

@@ -29,6 +29,11 @@ export class CategoryService {
     return doc ? serializeCategory(doc) : null
   }
 
+  async listActive(): Promise<PublicCategory[]> {
+    const docs = await this.repository.findActive()
+    return docs.map(serializeCategory)
+  }
+
   async create(data: CreateCategoryData): Promise<PublicCategory> {
     const doc = await this.repository.create(data)
     return serializeCategory(doc)

@@ -11,7 +11,13 @@ import type { PublicBranch } from '../branch/branch.model'
 import { BranchService } from '../branch/branch.service'
 import type { BranchHours } from '../branch/branch.model'
 import { CategoryService } from '../category/category.service'
-import { ORDER_STATUS, OrderStatus, PARAMETER_KEYS } from '../config/constants'
+import {
+  ORDER_STATUS,
+  OrderStatus,
+  PARAMETER_KEYS,
+  PromotionScope,
+  PromotionType,
+} from '../config/constants'
 import { env } from '../config/env'
 import { IngredientService } from '../ingredient/ingredient.service'
 import type { OrderItem } from '../order/order.model'
@@ -25,6 +31,8 @@ import { StockService } from '../stock/stock.service'
 import { buildBranchHours, type HoursSchedule } from './branch-hours'
 import { buildDemoOrders, type DemoOrderConfig } from './demo/demo-order.factory'
 import { DemoOrdersRepository, type InsertedDemoOrder } from './demo/demo-orders.repository'
+import { buildDemoReviews } from './demo/demo-review.factory'
+import { DemoReviewsRepository } from './demo/demo-reviews.repository'
 
 interface BranchSeed {
   name: string
@@ -74,6 +82,22 @@ interface OrderSeed {
 interface PromotionSeed {
   name: string
   description?: string
+  type: PromotionType
+  scope: PromotionScope
+  categoryName?: string
+  discountValue?: number
+  maxDiscount?: number
+  buyQuantity?: number
+  payQuantity?: number
+  code?: string
+  minSubtotal?: number
+  minQuantity?: number
+  maxUsesTotal?: number
+  maxUsesPerCustomer?: number
+  daysOfWeek?: number[]
+  stackable?: boolean
+  priority?: number
+  active?: boolean
 }
 
 interface OrderStateSeed {
@@ -139,6 +163,7 @@ export interface SeedDemoOptions {
 export interface SeedOptions {
   order?: SeedOrderContext
   customers?: SeedCustomerContext[]
+  riderIds?: string[]
   demo?: SeedDemoOptions
 }
 
@@ -208,6 +233,7 @@ export interface SeedDemoSummary {
   batchId: string | null
   seed: number | null
   orders: number
+  reviews: number
   customers: number
   resetDeleted: number
   outOfStockRows: number
@@ -230,6 +256,7 @@ const emptyDemoSummary = (): SeedDemoSummary => ({
   batchId: null,
   seed: null,
   orders: 0,
+  reviews: 0,
   customers: 0,
   resetDeleted: 0,
   outOfStockRows: 0,
@@ -258,6 +285,7 @@ export class SeedService {
     private readonly stockService: StockService,
     private readonly orderService: OrderService,
     private readonly demoOrdersRepository: DemoOrdersRepository,
+    private readonly demoReviewsRepository: DemoReviewsRepository,
   ) {}
 
   async seed(options: SeedOptions = {}): Promise<SeedResult> {
@@ -271,7 +299,7 @@ export class SeedService {
     const ingredients = await this.seedIngredients(data.ingredients)
     const branches = await this.seedBranches(data)
     const products = await this.seedProducts(data.products, categories, ingredients)
-    const promotions = await this.seedPromotions(data.promotions)
+    const promotions = await this.seedPromotions(data.promotions, categories)
     const stockRows = await this.seedStock(branches, ingredients)
     const showcaseOrders = await this.seedOrders(data.orders ?? [], branches, options)
 
@@ -333,7 +361,12 @@ export class SeedService {
     const random = createSeededRandom(seedValue)
     const reset = demo.reset ?? env.seed.demo.reset
 
-    const resetDeleted = reset ? await this.demoOrdersRepository.resetDemoData() : 0
+    let resetDeleted = 0
+    if (reset) {
+      const demoOrderIds = await this.demoOrdersRepository.findDemoOrderIds()
+      await this.demoReviewsRepository.deleteByOrderIds(demoOrderIds)
+      resetDeleted = await this.demoOrdersRepository.resetDemoData()
+    }
 
     const products = (await this.productService.list({ limit: 500, offset: 0 })).data.filter(
       (product) => product.available,
@@ -347,17 +380,27 @@ export class SeedService {
       }
     }
 
+    const now = new Date()
     const planned = buildDemoOrders({
       customers: customers.map((customer) => ({ id: customer.id, addresses: customer.addresses })),
       products,
       branches: activeBranches,
+      riderIds: options.riderIds,
       config: { ...config, orders, days },
       random,
-      now: new Date(),
+      now,
     })
 
     const batchId = createBatchId(seedValue)
     const inserted = await this.demoOrdersRepository.insert(planned, batchId)
+    const plannedReviews = buildDemoReviews({
+      orders: inserted,
+      reviewRate: config.reviewRate,
+      random,
+      now,
+    })
+    const reviewsCount = await this.demoReviewsRepository.insert(plannedReviews)
+
     const branchById = new Map(activeBranches.map((branch) => [branch.id, branch]))
     const readyOrders = inserted
       .filter(
@@ -369,7 +412,7 @@ export class SeedService {
       .map((order) => this.toDemoOrderSummary(order, branchById))
 
     Logger.log(
-      `lote demo ${batchId}: ${inserted.length} pedidos de ${customers.length} clientes (semilla ${seedValue})`,
+      `lote demo ${batchId}: ${inserted.length} pedidos de ${customers.length} clientes, ${reviewsCount} reseñas (semilla ${seedValue})`,
       'Seed',
     )
 
@@ -379,6 +422,7 @@ export class SeedService {
         batchId,
         seed: seedValue,
         orders: inserted.length,
+        reviews: reviewsCount,
         customers: customers.length,
         resetDeleted,
         outOfStockRows: 0,
@@ -718,19 +762,47 @@ export class SeedService {
     return createdCount
   }
 
-  private async seedPromotions(promotions: PromotionSeed[]): Promise<number> {
+  private async seedPromotions(
+    promotions: PromotionSeed[],
+    categories: { id: string; name: string }[],
+  ): Promise<number> {
     const now = Date.now()
     const { data } = await this.promotionService.list({ limit: 500, offset: 0 })
     let createdCount = 0
 
+    const categoryByName = new Map(categories.map((c) => [c.name, c.id]))
+
     for (const seed of promotions) {
       if (data.find((promotion) => promotion.name === seed.name)) continue
+
+      const categoryIds =
+        seed.categoryName && categoryByName.get(seed.categoryName)
+          ? [categoryByName.get(seed.categoryName)!]
+          : []
 
       await this.promotionService.upsertByName({
         name: seed.name,
         description: seed.description,
-        startDate: new Date(now),
-        endDate: new Date(now + 30 * 24 * 60 * 60 * 1000),
+        type: seed.type,
+        scope: seed.scope,
+        discountValue: seed.discountValue,
+        maxDiscount: seed.maxDiscount,
+        buyQuantity: seed.buyQuantity,
+        payQuantity: seed.payQuantity,
+        categoryIds,
+        productIds: [],
+        branchIds: [],
+        code: seed.code,
+        minSubtotal: seed.minSubtotal ?? 0,
+        minQuantity: seed.minQuantity ?? 0,
+        maxUsesTotal: seed.maxUsesTotal,
+        maxUsesPerCustomer: seed.maxUsesPerCustomer,
+        daysOfWeek: seed.daysOfWeek ?? [],
+        stackable: seed.stackable ?? false,
+        priority: seed.priority ?? 0,
+        startDate: new Date(now - 24 * 60 * 60 * 1000),
+        endDate: new Date(now + 365 * 24 * 60 * 60 * 1000),
+        active: seed.active ?? true,
       })
       createdCount += 1
       Logger.log(`promoción creada: ${seed.name}`, 'Seed')

@@ -24,8 +24,11 @@
 >   configuran las contraseñas (`SEED_*_PASSWORD`).
 > - **Fuera del alcance actual (documentado, no implementado):** paquete de contratos/OpenAPI +
 >   codegen, idempotencia/DLQ/retry del bus de eventos, DataLoader con batch real (solo deduplica por
->   request), separación de base por servicio y motor de promociones. Promociones y stock se
->   administran como **datos generales** (ABM), sin reglas automáticas.
+>   request) y separación de base por servicio.
+> - **Motor de promociones (Alcance C - Completo):** implementado con cálculo autoritativo en Commerce,
+>   evaluación pura de reglas (`PERCENTAGE`, `FIXED_AMOUNT`, `BUY_X_GET_Y`), alcances (`ORDER`, `CATEGORY`, `PRODUCT`),
+>   cupones, control de días/horarios/sucursales, ledger de redenciones (`promotionRedemptions`) con liberación
+>   en cancelaciones, y snapshot congelado en carrito y pedidos. Ver [`docs/implementacion/promociones.md`](../implementacion/promociones.md).
 > - Endpoints implementados no listados en el catálogo original: `GET /v1/branches/available/products`,
 >   `GET /v1/reporting/overview`, `GET /v1/riders/by-user/:id`,
 >   `PATCH /v1/riders/me/vehicle`, `/v1/zones`, `/v1/shifts`, `POST /seed` (gateway, requiere
@@ -527,6 +530,87 @@ type Trip {
   earnings: Float
 }
 
+# ===== Personalización =====
+enum RecommendationReason {
+  REPEAT
+  FAVORITE_CATEGORY
+  DISCOVERY
+  POPULAR
+}
+
+input HomeFeedInput {
+  addressId: ID
+  lat: Float
+  lng: Float
+  forYouLimit: Int
+  discoveryLimit: Int
+  reorderLimit: Int
+}
+
+type ProductRecommendation {
+  product: Product!
+  reason: RecommendationReason!
+  hint: String
+  score: Float!
+}
+
+type NearbyBranch {
+  branch: Branch!
+  distanceMeters: Float!
+}
+
+type PromotionSummary {
+  id: ID!
+  name: String!
+  description: String
+  startDate: String!
+  endDate: String!
+  type: PromotionType
+  discountValue: Float
+  maxDiscount: Float
+  buyQuantity: Int
+  payQuantity: Int
+  scope: PromotionScope
+  categoryIds: [ID!]!
+  productIds: [ID!]!
+  branchIds: [ID!]!
+  minSubtotal: Float!
+  minQuantity: Int!
+  daysOfWeek: [Int!]!
+  startTime: String
+  endTime: String
+}
+
+type ReorderItem {
+  productId: ID!
+  name: String!
+  quantity: Int!
+}
+
+type ReorderCard {
+  id: ID!
+  number: String!
+  status: OrderStatus!
+  createdAt: String!
+  total: Float!
+  branchId: ID!
+  branch: Branch
+  items: [ReorderItem!]!
+}
+
+type HomeFeed {
+  generatedAt: String!
+  hasHistory: Boolean!
+  topCategory: Category
+  favoriteBranch: Branch
+  nearestBranch: NearbyBranch
+  categories: [Category!]!
+  forYou: [ProductRecommendation!]!
+  discovery: [ProductRecommendation!]!
+  reorder: [ReorderCard!]!
+  promotions: [PromotionSummary!]!
+}
+
 # ===== Query =====
 type Query {
   # Auth / sesión
@@ -562,6 +646,9 @@ type Query {
   orders(filter: OrderFilter, page: PageInput): [Order!]! # admin: su sucursal / todas
   order(id: ID!): Order!
   orderHistory(id: ID!): [OrderStatusHistory!]!
+
+  # Personalización (pública; personalizada si hay JWT)
+  homeFeed(input: HomeFeedInput): HomeFeed!
 
   # Stock
   branchStock(branchId: ID): [BranchStock!]!
@@ -1353,6 +1440,30 @@ Servicio que agrupa el flujo comercial completo. Sus módulos comparten el mismo
 | RQ-CFG-07 | Las transiciones válidas entre estados seguirán controladas por el módulo de Order (máquina de estados), no por este catálogo.                                     |
 | RQ-CFG-08 | El API REST deberá exponer `GET /v1/config/parameters`, `PATCH /v1/config/parameters/{key}`, `GET /v1/config/order-states` y `PUT /v1/config/order-states/{code}`. |
 
+## 7.8 Personalización
+
+| Método | Ruta                            | Acceso                             | Operación                                                                  |
+| ------ | ------------------------------- | ---------------------------------- | -------------------------------------------------------------------------- |
+| GET    | `/v1/personalization/home-feed` | Público (personalizado si hay JWT) | Feed de la home: contexto, categorías, recomendaciones, reordenar y promos |
+
+Parámetros opcionales: `lat`, `lng`, `forYouLimit` (1–12), `discoveryLimit` (1–8), `reorderLimit` (1–5).
+El `addressId` lo resuelve el gateway contra Auth; Commerce sólo recibe coordenadas.
+
+### Requerimientos — Personalización
+
+| ID        | Requerimiento                                                                                                                                  |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| RQ-PER-01 | El feed deberá devolver en una sola operación el contexto, las categorías ordenadas, las recomendaciones, el reordenamiento y las promociones. |
+| RQ-PER-02 | La identidad deberá salir del JWT verificado; nunca de un parámetro del cliente.                                                               |
+| RQ-PER-03 | El feed sólo deberá leer pedidos entregados del usuario autenticado dentro de la ventana configurada.                                          |
+| RQ-PER-04 | Las secciones sin datos deberán devolverse como arreglos vacíos, no como error.                                                                |
+| RQ-PER-05 | Sólo se recomendarán productos con `available=true`; se excluirán los productos pausados.                                                      |
+| RQ-PER-06 | `forYou` deberá aplicar diversidad de hasta 2 productos por categoría en la primera pasada y completar slots con el excedente.                 |
+| RQ-PER-07 | `discovery` deberá priorizar categorías sin historial y excluir productos ya comprados o mostrados.                                            |
+| RQ-PER-08 | `reorder` deberá deduplicar por sucursal + productos y conservar el pedido más reciente.                                                       |
+| RQ-PER-09 | Las promociones deberán devolverse vigentes y ordenadas por afinidad, prioridad y fecha, sin exponer `usedCount` ni topes de uso.              |
+| RQ-PER-10 | Los límites deberán recortarse en el gateway y validarse en Commerce; no se aceptarán valores fuera de rango.                                  |
+
 ---
 
 # 8. Delivery Service
@@ -1723,3 +1834,35 @@ Mapa pantalla (`requerimientos-frontend.md`) → endpoints REST que invoca el ga
 | 1   | Catálogo público vs stock/pausa (RQ-CAT-05) | La sucursal se asigna al **confirmar** (§1.4), así que al navegar (T-05/T-06) no hay sucursal definida. Decisión actual: catálogo **global** al navegar; pausa + stock se validan al confirmar (RQ-ORD-01/03, RQ-STK-06). Si se quiere disponibilidad real por sucursal en la Tienda, agregar `GET /v1/branches/{branchId}/catalog`. |
 | 2   | Validación de token de recuperación (T-04)  | Se resuelve con el error de `POST /v1/auth/reset-password` (token vencido/inválido). Opcional: `GET /v1/auth/reset-password/validate?token=` para validar antes de mostrar el formulario.                                                                                                                                            |
 | 3   | Orden de "pedidos recientes" (S-02/S-05)    | `GET /v1/orders` deberá ordenar por fecha desc por defecto (o aceptar `sort`). Definir explícito en el contrato.                                                                                                                                                                                                                     |
+
+---
+
+## Extensión — Calificaciones (2026-11-15)
+
+Se agrega el dominio `order-review` en Commerce y los contratos GraphQL correspondientes.
+
+Reglas:
+
+- Solo el cliente dueño puede calificar un pedido propio en estado `delivered`.
+- La calificación de sucursal es obligatoria.
+- Si el pedido tiene `riderId`, la calificación del repartidor es obligatoria.
+- Los comentarios son opcionales, independientes y de hasta 500 caracteres.
+- Una sola reseña por pedido (índice único sobre `orderId`).
+- `branchId`, `riderId` y `customerId` se derivan del pedido y del usuario autenticado.
+- Estadísticas separadas por sucursal y repartidor.
+
+Endpoints REST internos:
+
+| Método | Ruta                                     | Rol                           |
+| ------ | ---------------------------------------- | ----------------------------- |
+| `POST` | `/v1/reviews/orders/{orderId}`           | `customer`                    |
+| `GET`  | `/v1/reviews/orders/{orderId}`           | `customer`                    |
+| `GET`  | `/v1/reviews/mine`                       | `customer`                    |
+| `GET`  | `/v1/reviews/pending`                    | `customer`                    |
+| `GET`  | `/v1/reviews/branches/{branchId}/stats`  | `branch_admin`, `super_admin` |
+| `GET`  | `/v1/reviews/couriers/{courierId}/stats` | `rider`, `super_admin`        |
+| `GET`  | `/v1/reviews/branches/ranking`           | `super_admin`                 |
+| `GET`  | `/v1/reviews/couriers/ranking`           | `super_admin`                 |
+| `GET`  | `/v1/reviews/summary`                    | `super_admin`                 |
+
+Detalle completo en [`../feature-calificaciones/`](../feature-calificaciones/relevamiento.md).

@@ -10,6 +10,7 @@ import { DeliveryOrderRepository } from '../delivery-order/delivery-order.reposi
 import { normalizeVehicle } from '../rider/rider.model'
 import { RiderService } from '../rider/rider.service'
 import { ShiftService } from '../shift/shift.service'
+import { TariffService } from '../tariff/tariff.service'
 import { ZoneService } from '../zone/zone.service'
 
 interface ZoneSeed {
@@ -81,6 +82,7 @@ export class SeedService {
     private readonly riderService: RiderService,
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
+    private readonly tariffService: TariffService,
     private readonly deliveryOrderRepository: DeliveryOrderRepository,
     @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -88,15 +90,16 @@ export class SeedService {
   async seed(): Promise<SeedResult> {
     const zones = await this.seedZones()
     const shifts = await this.seedShifts()
-    const rider = await this.seedRiderProfileFromAuth()
+    const riders = await this.seedRiderProfilesFromAuth()
+    await this.tariffService.ensureBootstrap()
 
     return {
       summary: {
         zones,
         shifts,
-        riders: rider ? 1 : 0,
+        riders: riders.length,
       },
-      rider,
+      rider: riders[0] ?? null,
       readyOrderId: null,
       readyOrderIds: [],
     }
@@ -211,32 +214,57 @@ export class SeedService {
     return orderIds
   }
 
-  private async seedRiderProfileFromAuth(): Promise<{
-    id: string
-    userId: string
-  } | null> {
+  private async seedRiderProfilesFromAuth(): Promise<
+    {
+      id: string
+      userId: string
+    }[]
+  > {
     const email = envString('SEED_RIDER_EMAIL', this.loadData().rider.email)
 
     const collection = this.connection.db?.collection('users')
 
-    const user = (await collection?.findOne({
+    const primaryUser = (await collection?.findOne({
       email,
     })) as AuthUserRow | null | undefined
 
-    if (!user?._id) {
-      Logger.warn(`usuario rider no encontrado en auth (${email}); perfil omitido`, 'Seed')
-      return null
+    const roleCursor =
+      typeof collection?.find === 'function' ? collection.find({ role: 'rider' }) : null
+    const roleUsers =
+      roleCursor && typeof roleCursor.toArray === 'function'
+        ? ((await roleCursor.toArray()) as AuthUserRow[])
+        : []
+
+    const usersById = new Map<string, AuthUserRow>()
+    if (primaryUser?._id) {
+      usersById.set(primaryUser._id.toString(), primaryUser)
+    }
+    for (const user of roleUsers) {
+      if (user?._id && !usersById.has(user._id.toString())) {
+        usersById.set(user._id.toString(), user)
+      }
     }
 
-    const result = await this.seedRiderProfile({
-      userId: user._id.toString(),
-      firstName: user.firstName ?? 'Rider',
-      lastName: user.lastName ?? 'Demo',
-      phone: user.phone ?? '',
-      vehicle: user.vehicle ?? null,
-    })
+    if (usersById.size === 0) {
+      Logger.warn(`usuario rider no encontrado en auth (${email}); perfil omitido`, 'Seed')
+      return []
+    }
 
-    return result.rider
+    const seeded: { id: string; userId: string }[] = []
+    for (const user of usersById.values()) {
+      const result = await this.seedRiderProfile({
+        userId: user._id.toString(),
+        firstName: user.firstName ?? 'Rider',
+        lastName: user.lastName ?? 'Demo',
+        phone: user.phone ?? '',
+        vehicle: user.vehicle ?? null,
+      })
+      if (result.rider) {
+        seeded.push(result.rider)
+      }
+    }
+
+    return seeded
   }
 
   private loadData(): DeliverySeedData {

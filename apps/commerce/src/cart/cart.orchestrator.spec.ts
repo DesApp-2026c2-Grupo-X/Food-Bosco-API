@@ -37,7 +37,11 @@ const cart = (overrides: Partial<PublicCart> = {}): PublicCart => ({
   clientId: 'c1',
   status: 'active',
   items: [],
+  subtotal: 0,
+  discountTotal: 0,
   total: 0,
+  promotionCode: null,
+  appliedPromotions: [],
   ...overrides,
 })
 
@@ -50,7 +54,7 @@ const makeOrchestrator = () => {
   }
   const productService = {
     findById: jest.fn(),
-    findByIds: jest.fn(),
+    findByIds: jest.fn().mockResolvedValue([]),
   }
   const orchestrator = new CartOrchestrator(
     cartService as unknown as CartService,

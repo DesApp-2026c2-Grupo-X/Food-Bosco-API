@@ -1,7 +1,7 @@
 import type { Request } from 'express'
 import { env } from '../../config/env'
 import type { RestClient } from '../../rest/rest.client'
-import { getCommerceLoaders } from './commerce.dataloaders'
+import { getCommerceLoaders, getRiderLoader } from './commerce.dataloaders'
 
 const makeReq = (): Request => ({}) as unknown as Request
 
@@ -224,5 +224,53 @@ describe('getCommerceLoaders', () => {
 
       await expect(loaders.user.load('u1')).resolves.toBeNull()
     })
+  })
+})
+
+describe('getRiderLoader', () => {
+  it('cachea el loader en el request para reutilizarlo', () => {
+    const req = makeReq()
+    const delivery = makeRest()
+
+    const first = getRiderLoader(req, asClient(delivery))
+    const second = getRiderLoader(req, asClient(delivery))
+
+    expect(second).toBe(first)
+  })
+
+  it('crea loaders independientes cuando no recibe request o los requests son distintos', () => {
+    const delivery = makeRest()
+
+    const first = getRiderLoader(makeReq(), asClient(delivery))
+    const second = getRiderLoader(makeReq(), asClient(delivery))
+    const withoutReq = getRiderLoader(undefined, asClient(delivery))
+
+    expect(second).not.toBe(first)
+    expect(withoutReq).not.toBe(first)
+  })
+
+  it('consulta Delivery /v1/riders/by-user/{id} con token interno y deduplica en el lote', async () => {
+    const delivery = makeRest()
+    delivery.get.mockResolvedValue({ userId: 'r1', firstName: 'Marcos', lastName: 'Peralta' })
+    const loader = getRiderLoader(makeReq(), asClient(delivery))
+
+    const results = await Promise.all([loader.load('r1'), loader.load('r1')])
+
+    expect(delivery.get).toHaveBeenCalledTimes(1)
+    expect(delivery.get).toHaveBeenCalledWith('/v1/riders/by-user/r1', {
+      context: { internalToken: env.internalApiToken },
+    })
+    expect(results).toEqual([
+      { userId: 'r1', firstName: 'Marcos', lastName: 'Peralta' },
+      { userId: 'r1', firstName: 'Marcos', lastName: 'Peralta' },
+    ])
+  })
+
+  it('devuelve null cuando Delivery rechaza', async () => {
+    const delivery = makeRest()
+    delivery.get.mockRejectedValue(new Error('404'))
+    const loader = getRiderLoader(makeReq(), asClient(delivery))
+
+    await expect(loader.load('missing')).resolves.toBeNull()
   })
 })

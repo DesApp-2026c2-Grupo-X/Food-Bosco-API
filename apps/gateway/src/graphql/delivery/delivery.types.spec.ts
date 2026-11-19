@@ -1,6 +1,6 @@
 import { OrderStatus } from '../common/order-status.enum'
 import { TripStatus } from '../common/trip-status.enum'
-import { mapRider, mapTrip, mapTripOffer, mapTripOrder } from './delivery.types'
+import { mapDeliveryTariff, mapRider, mapTrip, mapTripOffer, mapTripOrder } from './delivery.types'
 
 describe('mapRider', () => {
   it('mapea todos los campos del rider con vehículo y ubicación', () => {
@@ -52,6 +52,66 @@ describe('mapRider', () => {
     const result = mapRider({ id: 'r1', currentLocation: {} })
 
     expect(result.currentLocation).toEqual({ latitude: 0, longitude: 0 })
+  })
+})
+
+describe('mapDeliveryTariff', () => {
+  it('mapea la tarifa con sus campos públicos', () => {
+    const result = mapDeliveryTariff({
+      id: 'tar-1',
+      baseFare: 500,
+      perKm: 200,
+      perOrder: 300,
+      currency: 'ARS',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      active: true,
+      createdBy: 'admin-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    })
+
+    expect(result).toEqual({
+      id: 'tar-1',
+      baseFare: 500,
+      perKm: 200,
+      perOrder: 300,
+      currency: 'ARS',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      active: true,
+      createdBy: 'admin-1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    })
+  })
+
+  it('acepta snake_case y usa _id cuando falta id', () => {
+    const result = mapDeliveryTariff({
+      _id: 'tar-9',
+      base_fare: 100,
+      per_km: 20,
+      per_order: 30,
+      effective_from: '2026-01-01T00:00:00.000Z',
+      created_by: 'admin-9',
+      created_at: '2026-01-01T00:00:00.000Z',
+    })
+
+    expect(result).toEqual({
+      id: 'tar-9',
+      baseFare: 100,
+      perKm: 20,
+      perOrder: 30,
+      currency: '',
+      effectiveFrom: '2026-01-01T00:00:00.000Z',
+      active: false,
+      createdBy: 'admin-9',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    })
+  })
+
+  it('normaliza numéricos ausentes a 0', () => {
+    const result = mapDeliveryTariff({ id: 'tar-1' })
+
+    expect(result.baseFare).toBe(0)
+    expect(result.perKm).toBe(0)
+    expect(result.perOrder).toBe(0)
   })
 })
 

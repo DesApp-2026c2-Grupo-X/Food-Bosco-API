@@ -202,13 +202,60 @@ describe('mapPromotion', () => {
         endDate: '2026-01-31',
         active: true,
       }),
-    ).toEqual({
+    ).toMatchObject({
       id: 'pr1',
       name: '2x1',
       description: null,
       startDate: '2026-01-01',
       endDate: '2026-01-31',
       active: true,
+    })
+  })
+
+  it('mapea todos los campos avanzados de promoción', () => {
+    expect(
+      mapPromotion({
+        id: 'pr2',
+        name: '2x1 Burgers',
+        description: 'Llevás 2 pagás 1',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        active: true,
+        type: 'BUY_X_GET_Y',
+        buyQuantity: 2,
+        payQuantity: 1,
+        scope: 'CATEGORY',
+        categoryIds: ['cat-1'],
+        productIds: [],
+        branchIds: ['b-1'],
+        minSubtotal: 3000,
+        minQuantity: 2,
+        daysOfWeek: [4, 5, 6],
+        code: 'BURGER2X1',
+        stackable: false,
+        priority: 10,
+        maxUsesTotal: 100,
+        maxUsesPerCustomer: 2,
+        usedCount: 5,
+      }),
+    ).toMatchObject({
+      id: 'pr2',
+      name: '2x1 Burgers',
+      type: 'BUY_X_GET_Y',
+      buyQuantity: 2,
+      payQuantity: 1,
+      scope: 'CATEGORY',
+      categoryIds: ['cat-1'],
+      branchIds: ['b-1'],
+      minSubtotal: 3000,
+      minQuantity: 2,
+      daysOfWeek: [4, 5, 6],
+      code: 'BURGER2X1',
+      stackable: false,
+      priority: 10,
+      maxUsesTotal: 100,
+      maxUsesPerCustomer: 2,
+      usedCount: 5,
     })
   })
 })

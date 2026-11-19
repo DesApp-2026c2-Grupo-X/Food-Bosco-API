@@ -8,10 +8,13 @@ import type { PlannedOrder } from './demo-order.factory'
 export interface InsertedDemoOrder {
   id: string
   number: string
-  status: OrderStatus
+  clientId: string
   branchId: string
+  riderId: string | null
+  status: OrderStatus
   deliveryAddress: { text: string; latitude: number; longitude: number }
   createdAt: Date
+  deliveredAt: Date
 }
 
 @Injectable()
@@ -43,7 +46,7 @@ export class DemoOrdersRepository {
       status: order.status,
       total: order.total,
       estimatedDeliveryAt: order.estimatedDeliveryAt,
-      riderId: null,
+      riderId: order.riderId ?? null,
       tripId: null,
       items: order.items,
       statusHistory: order.statusHistory,
@@ -54,14 +57,29 @@ export class DemoOrdersRepository {
 
     await this.model.collection.insertMany(documents)
 
-    return documents.map((document) => ({
-      id: document._id.toString(),
-      number: document.number,
-      status: document.status,
-      branchId: document.branchId,
-      deliveryAddress: document.deliveryAddress,
-      createdAt: document.createdAt,
-    }))
+    return documents.map((document) => {
+      const lastChange =
+        document.statusHistory[document.statusHistory.length - 1]?.changedAt ?? document.createdAt
+      return {
+        id: document._id.toString(),
+        number: document.number,
+        clientId: document.clientId,
+        branchId: document.branchId,
+        riderId: document.riderId,
+        status: document.status,
+        deliveryAddress: document.deliveryAddress,
+        createdAt: document.createdAt,
+        deliveredAt: lastChange,
+      }
+    })
+  }
+
+  async findDemoOrderIds(): Promise<string[]> {
+    const rows = await this.model
+      .find({ demoBatchId: { $ne: null } }, { _id: 1 })
+      .lean()
+      .exec()
+    return rows.map((row) => row._id.toString())
   }
 
   async resetDemoData(): Promise<number> {

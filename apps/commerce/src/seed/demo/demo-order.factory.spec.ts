@@ -234,4 +234,30 @@ describe('buildDemoOrders', () => {
       expect(order.items.every((item) => item.quantity <= 3)).toBe(true)
     }
   })
+
+  it('sin riderIds todos los pedidos tienen riderId null', () => {
+    const orders = build()
+
+    expect(orders.every((order) => order.riderId === null)).toBe(true)
+  })
+
+  it('con riderIds solo asigna repartidor a pedidos delivered respetando la tasa', () => {
+    const riderIds = ['r-1', 'r-2']
+    const orders = build({
+      riderIds,
+      config: config({ orders: 80, deliveredWithRiderRate: 0.9 }),
+    })
+
+    const nonDelivered = orders.filter((order) => order.status !== ORDER_STATUS.delivered)
+    expect(nonDelivered.length).toBeGreaterThan(0)
+    expect(nonDelivered.every((order) => order.riderId === null)).toBe(true)
+
+    const delivered = orders.filter((order) => order.status === ORDER_STATUS.delivered)
+    const withRider = delivered.filter((order) => order.riderId !== null)
+    const withoutRider = delivered.filter((order) => order.riderId === null)
+
+    expect(withRider.length).toBeGreaterThan(0)
+    expect(withoutRider.length).toBeGreaterThan(0)
+    expect(withRider.every((order) => riderIds.includes(order.riderId!))).toBe(true)
+  })
 })

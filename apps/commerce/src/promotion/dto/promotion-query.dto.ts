@@ -1,9 +1,9 @@
 import { Transform, Type } from 'class-transformer'
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator'
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
+import { PROMOTION_SCOPE_VALUES, PROMOTION_TYPE_VALUES } from '../../config/constants'
+import type { PromotionScope, PromotionType } from '../../config/constants'
 
 export class PromotionQueryDto {
-  // El tipo union evita que `enableImplicitConversion` coaccione el string
-  // 'false' a `true` (Boolean('false') === true) antes de este transform.
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true
@@ -12,6 +12,26 @@ export class PromotionQueryDto {
   })
   @IsBoolean()
   activeOnly?: boolean | string
+
+  @IsOptional()
+  @IsIn(PROMOTION_TYPE_VALUES)
+  type?: PromotionType
+
+  @IsOptional()
+  @IsIn(PROMOTION_SCOPE_VALUES)
+  scope?: PromotionScope
+
+  @IsOptional()
+  @IsString()
+  code?: string
+
+  @IsOptional()
+  @IsString()
+  branchId?: string
+
+  @IsOptional()
+  @IsString()
+  search?: string
 
   @IsOptional()
   @Type(() => Number)

@@ -408,6 +408,7 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
       totalRevenue: 1500,
       totalOrders: 30,
       averageTicket: 50,
+      totalDiscounts: 0,
       cancelledOrders: 5,
       bestSellingProduct: { productId: 'p1', name: 'Hamburguesa', quantity: 10, revenue: 1000 },
       topBranch: { branchId: 'b1', branchName: 'Centro', revenue: 1500, orders: 30 },
@@ -415,6 +416,25 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
     expect(result.variation).toEqual({ revenuePct: 50, ordersPct: 50, averageTicketPct: 0 })
     expect(result.branchPerformance).toHaveLength(2)
     expect(repository.listBranchNames).toHaveBeenCalledWith(['b1', 'b2'])
+  })
+
+  it('mapea totalDiscounts en los KPIs cuando las ventas tienen descuentos', async () => {
+    const { service } = makeService({
+      overviews: [
+        rawOverview({
+          sales: [{ revenue: 8000, orders: 10, discountTotal: 2000 }],
+        }),
+        rawOverview(),
+      ],
+    })
+
+    const result = await service.overview(
+      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.kpis.totalRevenue).toBe(8000)
+    expect(result.kpis.totalDiscounts).toBe(2000)
   })
 
   it('completa los estados faltantes con 0', async () => {
@@ -461,6 +481,7 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
       totalRevenue: 0,
       totalOrders: 0,
       averageTicket: 0,
+      totalDiscounts: 0,
       cancelledOrders: 0,
       bestSellingProduct: null,
       topBranch: null,

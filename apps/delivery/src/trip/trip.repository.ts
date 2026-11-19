@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { isValidObjectId, Model } from 'mongoose'
 import { TRIP_STATUS, TripStatus } from '../config/constants'
-import { Trip, TripDocument, TripOrder } from './trip.model'
+import { Trip, TripDocument, TripOrder, TripTariffSnapshot } from './trip.model'
 
 export interface CreateTripData {
   riderId: string
@@ -11,6 +11,7 @@ export interface CreateTripData {
   distanceKm: number
   estimatedMinutes: number
   estimatedEarnings: number
+  tariffSnapshot: TripTariffSnapshot | null
   expiresAt: Date | null
 }
 

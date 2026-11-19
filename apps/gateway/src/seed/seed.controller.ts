@@ -191,6 +191,10 @@ export class SeedController {
     )
     if (customers.length === 0) return { summary: {}, branches: [], orders: [] }
 
+    const riderIds = authResult.users
+      .filter((user) => user.role === 'rider')
+      .map((user) => user.id)
+
     return this.commerce.post<CommerceSeedResult>('/v1/seed', {
       context,
       body: {
@@ -203,6 +207,7 @@ export class SeedController {
             longitude: address.longitude,
           })),
         })),
+        ...(riderIds.length > 0 ? { riderIds } : {}),
         demo,
       },
       errorsAsHttp: true,
@@ -214,8 +219,8 @@ export class SeedController {
     authResult: AuthSeedResult,
     ordersResult: CommerceSeedResult,
   ): Promise<Raw> {
-    const rider = authResult.users.find((user) => user.role === 'rider')
-    if (!rider) return { riders: 0 }
+    const riders = authResult.users.filter((user) => user.role === 'rider')
+    if (riders.length === 0) return { riders: 0 }
 
     const readyOrders = (ordersResult.orders ?? [])
       .filter((order) => order.status === 'ready_for_delivery')
@@ -227,21 +232,30 @@ export class SeedController {
         deliveryAddress: order.deliveryAddress,
       }))
 
-    const deliveryResult = await this.delivery.post<{ summary: Raw }>('/v1/seed', {
-      context,
-      body: {
-        userId: rider.id,
-        firstName: rider.firstName,
-        lastName: rider.lastName,
-        phone: rider.phone,
-        vehicle: rider.vehicle,
-        available: true,
-        location: readyOrders[0]?.branchLocation,
-        readyOrders,
-      },
-      errorsAsHttp: true,
-    })
+    let primarySummary: Raw = { riders: 0 }
 
-    return deliveryResult.summary
+    for (const [index, rider] of riders.entries()) {
+      const isPrimary = index === 0
+      const deliveryResult = await this.delivery.post<{ summary: Raw }>('/v1/seed', {
+        context,
+        body: {
+          userId: rider.id,
+          firstName: rider.firstName,
+          lastName: rider.lastName,
+          phone: rider.phone,
+          vehicle: rider.vehicle,
+          available: true,
+          ...(isPrimary ? { location: readyOrders[0]?.branchLocation } : {}),
+          readyOrders: isPrimary ? readyOrders : [],
+        },
+        errorsAsHttp: true,
+      })
+
+      if (isPrimary) {
+        primarySummary = deliveryResult.summary
+      }
+    }
+
+    return riders.length === 1 ? primarySummary : { ...primarySummary, riders: riders.length }
   }
 }
