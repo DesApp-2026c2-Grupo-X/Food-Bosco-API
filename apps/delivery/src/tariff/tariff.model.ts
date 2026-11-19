@@ -50,9 +50,7 @@ export interface PublicDeliveryTariff {
   createdAt: string
 }
 
-export const serializeDeliveryTariff = (
-  doc: DeliveryTariffDocument,
-): PublicDeliveryTariff => ({
+export const serializeDeliveryTariff = (doc: DeliveryTariffDocument): PublicDeliveryTariff => ({
   id: doc._id.toString(),
   baseFare: doc.baseFare,
   perKm: doc.perKm,

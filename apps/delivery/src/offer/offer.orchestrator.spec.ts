@@ -300,9 +300,7 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
     const expectedDistance = Math.round(routeKm * 100) / 100
     const expectedMinutes = Math.round((expectedDistance / env.offer.avgSpeedKmh) * 60)
     const expectedEarnings = Math.round(
-      activeTariff.baseFare +
-        activeTariff.perKm * expectedDistance +
-        activeTariff.perOrder,
+      activeTariff.baseFare + activeTariff.perKm * expectedDistance + activeTariff.perOrder,
     )
 
     await orchestrator.listOffers('u1')

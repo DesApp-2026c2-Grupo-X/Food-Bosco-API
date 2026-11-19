@@ -39,9 +39,7 @@ const DEFAULT_CURRENCY = 'ARS'
 const DATA_DIR = join(__dirname, '../seed/data')
 
 const isDuplicateKeyError = (error: unknown): boolean =>
-  typeof error === 'object' &&
-  error !== null &&
-  (error as { code?: number }).code === 11000
+  typeof error === 'object' && error !== null && (error as { code?: number }).code === 11000
 
 @Injectable()
 export class TariffService implements OnModuleInit {

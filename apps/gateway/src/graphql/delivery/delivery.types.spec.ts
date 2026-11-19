@@ -1,12 +1,6 @@
 import { OrderStatus } from '../common/order-status.enum'
 import { TripStatus } from '../common/trip-status.enum'
-import {
-  mapDeliveryTariff,
-  mapRider,
-  mapTrip,
-  mapTripOffer,
-  mapTripOrder,
-} from './delivery.types'
+import { mapDeliveryTariff, mapRider, mapTrip, mapTripOffer, mapTripOrder } from './delivery.types'
 
 describe('mapRider', () => {
   it('mapea todos los campos del rider con vehículo y ubicación', () => {

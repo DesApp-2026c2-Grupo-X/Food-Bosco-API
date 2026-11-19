@@ -215,9 +215,7 @@ export class TripService {
     }
 
     return Math.round(
-      snapshot.baseFare +
-        snapshot.perKm * doc.distanceKm +
-        snapshot.perOrder * doc.orders.length,
+      snapshot.baseFare + snapshot.perKm * doc.distanceKm + snapshot.perOrder * doc.orders.length,
     )
   }
 

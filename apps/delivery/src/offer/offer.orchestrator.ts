@@ -320,9 +320,7 @@ export class OfferOrchestrator {
     routeKm: number,
     orderCount: number,
   ): number {
-    return Math.round(
-      tariff.baseFare + tariff.perKm * routeKm + tariff.perOrder * orderCount,
-    )
+    return Math.round(tariff.baseFare + tariff.perKm * routeKm + tariff.perOrder * orderCount)
   }
 
   private tripAcceptedEvent(trip: PublicTrip): TripAcceptedEvent {

@@ -37,9 +37,7 @@ const makeService = () => {
 
 const errorCodeOf = (error: unknown): string | undefined => {
   if (!(error instanceof Error)) return undefined
-  const response = (
-    error as Error & { getResponse?: () => { code?: string } }
-  ).getResponse?.()
+  const response = (error as Error & { getResponse?: () => { code?: string } }).getResponse?.()
   return response?.code
 }
 
