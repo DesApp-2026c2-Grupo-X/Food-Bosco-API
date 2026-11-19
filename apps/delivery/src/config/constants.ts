@@ -77,6 +77,8 @@ export const ERROR_CODES = {
   invalidTripStatus: 'INVALID_TRIP_STATUS',
   zoneNotFound: 'ZONE_NOT_FOUND',
   shiftNotFound: 'SHIFT_NOT_FOUND',
+  tariffNotAvailable: 'TARIFF_NOT_AVAILABLE',
+  tariffConflict: 'TARIFF_CONFLICT',
   validationError: 'VALIDATION_ERROR',
   forbidden: 'FORBIDDEN',
   unauthenticated: 'UNAUTHENTICATED',

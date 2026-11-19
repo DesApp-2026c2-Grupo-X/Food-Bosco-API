@@ -253,6 +253,7 @@ describe('Delivery trips (e2e)', () => {
         distanceKm: 1,
         estimatedMinutes: 1,
         estimatedEarnings: 100,
+        tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
         expiresAt: new Date(Date.now() - 60_000),
       })
 
@@ -515,6 +516,7 @@ describe('Delivery trips (e2e)', () => {
           distanceKm: 1,
           estimatedMinutes: 1,
           estimatedEarnings: 100,
+          tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
           earnings: 100,
         })
         ids.push(created._id.toString())

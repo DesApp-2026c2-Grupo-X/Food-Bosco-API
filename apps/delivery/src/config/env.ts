@@ -50,9 +50,6 @@ export const env = {
   offer: {
     ttlSeconds: toNumber(process.env.OFFER_TTL_SECONDS, 30),
     sameRiderCooldownSeconds: toNumber(process.env.SAME_RIDER_COOLDOWN_SECONDS, 45),
-    earningsBase: toNumber(process.env.EARNINGS_BASE, 500),
-    earningsPerKm: toNumber(process.env.EARNINGS_PER_KM, 200),
-    earningsPerOrder: toNumber(process.env.EARNINGS_PER_ORDER, 300),
     maxMatchDistanceKm: toNumber(process.env.MAX_MATCH_DISTANCE_KM, 8),
     avgSpeedKmh: toNumber(process.env.AVG_SPEED_KMH, 25),
     maxOrdersPerTrip: toNumber(process.env.MAX_ORDERS_PER_TRIP, 3),

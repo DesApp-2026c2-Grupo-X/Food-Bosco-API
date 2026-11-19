@@ -22,6 +22,7 @@ const buildDoc = (overrides: Partial<Trip> = {}): TripDocument =>
     distanceKm: 5,
     estimatedMinutes: 12,
     estimatedEarnings: 1500,
+    tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
     earnings: 1500,
     startedAt: new Date('2026-01-01T00:01:00.000Z'),
     completedAt: new Date('2026-01-01T00:30:00.000Z'),
@@ -86,6 +87,7 @@ describe('serializeTrip (RQ-DLV-06/08/10)', () => {
       distanceKm: 5,
       estimatedMinutes: 12,
       estimatedEarnings: 1500,
+      tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
       earnings: 1500,
       startedAt: '2026-01-01T00:01:00.000Z',
       completedAt: '2026-01-01T00:30:00.000Z',
@@ -117,6 +119,12 @@ describe('serializeTrip (RQ-DLV-06/08/10)', () => {
     const result = serializeTrip(buildDoc(overrides))
 
     expect(result[field]).toBeNull()
+  })
+
+  it('normaliza tariffSnapshot ausente a null para viajes históricos', () => {
+    const result = serializeTrip(buildDoc({ tariffSnapshot: undefined }))
+
+    expect(result.tariffSnapshot).toBeNull()
   })
 
   it('devuelve createdAt vacío si el documento no lo trae (límite)', () => {

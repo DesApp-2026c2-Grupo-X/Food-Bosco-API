@@ -3,6 +3,7 @@ import { Connection } from 'mongoose'
 import type { DeliveryOrderRepository } from '../delivery-order/delivery-order.repository'
 import { RiderService } from '../rider/rider.service'
 import { ShiftService } from '../shift/shift.service'
+import { TariffService } from '../tariff/tariff.service'
 import { ZoneService } from '../zone/zone.service'
 import { SeedService, type SeedRiderInput } from './seed.service'
 
@@ -23,12 +24,14 @@ const buildService = (deps: {
   zone?: unknown
   shift?: unknown
   repo?: unknown
+  tariff?: unknown
   connection?: Connection
 }) =>
   new SeedService(
     deps.rider as RiderService,
     (deps.zone ?? { findByName: jest.fn(), create: jest.fn() }) as ZoneService,
     (deps.shift ?? { findByName: jest.fn(), create: jest.fn() }) as ShiftService,
+    (deps.tariff ?? { ensureBootstrap: jest.fn() }) as unknown as TariffService,
     (deps.repo ?? buildRepo()) as DeliveryOrderRepository,
     deps.connection ?? buildConnection(),
   )
@@ -77,15 +80,18 @@ describe('SeedService (delivery)', () => {
       vehicle: 'Moto Honda CG Titan',
     })
 
+    const tariff = { ensureBootstrap: jest.fn().mockResolvedValue(undefined) }
     const service = buildService({
       rider: riderService,
       zone: zoneStub(),
       shift: shiftStub(),
+      tariff,
       connection,
     })
 
     const result = await service.seed()
 
+    expect(tariff.ensureBootstrap).toHaveBeenCalledTimes(1)
     expect(result.summary).toEqual({ zones: 3, shifts: 3, riders: 1 })
     expect(result.rider).toEqual({ id: 'r1', userId: 'u-rider' })
     expect(result.readyOrderId).toBeNull()

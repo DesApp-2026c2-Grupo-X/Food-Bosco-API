@@ -9,6 +9,8 @@ import { DeliveryOrderService } from '../delivery-order/delivery-order.service'
 import type { PublicRider } from '../rider/rider.model'
 import { RiderOrchestrator } from '../rider/rider.orchestrator'
 import { RiderService } from '../rider/rider.service'
+import type { PublicDeliveryTariff } from '../tariff/tariff.model'
+import { TariffService } from '../tariff/tariff.service'
 import type { PublicTrip } from '../trip/trip.model'
 import { TripService } from '../trip/trip.service'
 import { OfferOrchestrator } from './offer.orchestrator'
@@ -34,6 +36,18 @@ const deliveryOrder: PublicDeliveryOrder = {
   status: 'ready',
 }
 
+const activeTariff: PublicDeliveryTariff = {
+  id: 'tar-1',
+  baseFare: 500,
+  perKm: 200,
+  perOrder: 300,
+  currency: 'ARS',
+  effectiveFrom: '2026-01-01T00:00:00.000Z',
+  active: true,
+  createdBy: 'system:bootstrap',
+  createdAt: '2026-01-01T00:00:00.000Z',
+}
+
 const trip: PublicTrip = {
   id: 't1',
   riderId: 'u1',
@@ -52,6 +66,7 @@ const trip: PublicTrip = {
   distanceKm: 5,
   estimatedMinutes: 12,
   estimatedEarnings: 1500,
+  tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
   earnings: null,
   startedAt: null,
   completedAt: null,
@@ -83,6 +98,7 @@ const makeOrchestrator = () => {
   const riderService = { listAvailable: jest.fn().mockResolvedValue([]) }
   const commerceClient = { patchOrderStatus: jest.fn() }
   const eventBus = { publish: jest.fn() }
+  const tariffService = { getActive: jest.fn().mockResolvedValue(activeTariff) }
 
   const orchestrator = new OfferOrchestrator(
     riderOrchestrator as unknown as RiderOrchestrator,
@@ -91,6 +107,7 @@ const makeOrchestrator = () => {
     deliveryOrderService as unknown as DeliveryOrderService,
     commerceClient as unknown as CommerceClient,
     eventBus as unknown as EventBus,
+    tariffService as unknown as TariffService,
   )
 
   return {
@@ -101,6 +118,7 @@ const makeOrchestrator = () => {
     deliveryOrderService,
     commerceClient,
     eventBus,
+    tariffService,
   }
 }
 
@@ -282,9 +300,9 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
     const expectedDistance = Math.round(routeKm * 100) / 100
     const expectedMinutes = Math.round((expectedDistance / env.offer.avgSpeedKmh) * 60)
     const expectedEarnings = Math.round(
-      env.offer.earningsBase +
-        env.offer.earningsPerKm * expectedDistance +
-        env.offer.earningsPerOrder,
+      activeTariff.baseFare +
+        activeTariff.perKm * expectedDistance +
+        activeTariff.perOrder,
     )
 
     await orchestrator.listOffers('u1')
@@ -294,8 +312,30 @@ describe('OfferOrchestrator.listOffers (RQ-DLV-01/02/03)', () => {
         distanceKm: expectedDistance,
         estimatedMinutes: expectedMinutes,
         estimatedEarnings: expectedEarnings,
+        tariffSnapshot: {
+          baseFare: activeTariff.baseFare,
+          perKm: activeTariff.perKm,
+          perOrder: activeTariff.perOrder,
+        },
       }),
     )
+  })
+
+  it('no crea la oferta si no hay una tarifa vigente', async () => {
+    const { orchestrator, riderOrchestrator, tripService, deliveryOrderService, tariffService } =
+      makeOrchestrator()
+    riderOrchestrator.getProfile.mockResolvedValue(rider)
+    deliveryOrderService.releaseExpired.mockResolvedValue([])
+    deliveryOrderService.claimableForRider.mockResolvedValue([deliveryOrder])
+    tariffService.getActive.mockRejectedValue({
+      code: ERROR_CODES.tariffNotAvailable,
+      message: 'No hay una tarifa de delivery vigente.',
+    })
+
+    await expect(orchestrator.listOffers('u1')).rejects.toMatchObject({
+      code: ERROR_CODES.tariffNotAvailable,
+    })
+    expect(tripService.createOffered).not.toHaveBeenCalled()
   })
 
   it('no ofrece viajes a un repartidor que ya tiene un viaje en curso', async () => {
@@ -559,6 +599,7 @@ interface CreateOfferedInput {
   distanceKm: number
   estimatedMinutes: number
   estimatedEarnings: number
+  tariffSnapshot: { baseFare: number; perKm: number; perOrder: number }
   expiresAt: Date
 }
 
@@ -599,6 +640,7 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
     distanceKm: input.distanceKm,
     estimatedMinutes: input.estimatedMinutes,
     estimatedEarnings: input.estimatedEarnings,
+    tariffSnapshot: input.tariffSnapshot,
     expiresAt: input.expiresAt.toISOString(),
   })
 
@@ -645,9 +687,9 @@ describe('OfferOrchestrator.listOffers: agrupación y límites (RQ-DLV-03/04)', 
     const expectedDistance = Math.round(routeKm * 100) / 100
     const expectedMinutes = Math.round((expectedDistance / env.offer.avgSpeedKmh) * 60)
     const expectedEarnings = Math.round(
-      env.offer.earningsBase +
-        env.offer.earningsPerKm * expectedDistance +
-        env.offer.earningsPerOrder * selected.length,
+      activeTariff.baseFare +
+        activeTariff.perKm * expectedDistance +
+        activeTariff.perOrder * selected.length,
     )
 
     expect(tripService.createOffered).toHaveBeenCalledWith(

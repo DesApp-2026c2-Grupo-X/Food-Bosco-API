@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, ORDER_STATUS, TRIP_STATUS, TripStatus } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
-import { PublicTrip, serializeTrip, TripDocument, TripOrder } from './trip.model'
+import {
+  PublicTrip,
+  serializeTrip,
+  TripDocument,
+  TripOrder,
+  TripTariffSnapshot,
+} from './trip.model'
 import { TripRepository } from './trip.repository'
 
 export interface CreateOfferedTripInput {
@@ -10,6 +16,7 @@ export interface CreateOfferedTripInput {
   distanceKm: number
   estimatedMinutes: number
   estimatedEarnings: number
+  tariffSnapshot: TripTariffSnapshot
   expiresAt: Date
 }
 
@@ -39,6 +46,7 @@ export class TripService {
       distanceKm: input.distanceKm,
       estimatedMinutes: input.estimatedMinutes,
       estimatedEarnings: input.estimatedEarnings,
+      tariffSnapshot: input.tariffSnapshot,
       expiresAt: input.expiresAt,
     })
 
@@ -177,24 +185,40 @@ export class TripService {
 
     doc.status = deliveredCount > 0 ? TRIP_STATUS.completed : TRIP_STATUS.cancelled
     doc.completedAt = new Date()
-    doc.earnings = this.calculateEarnings(doc.estimatedEarnings, deliveredCount, doc.orders.length)
+    doc.earnings = this.calculateEarnings(doc, deliveredCount)
     return true
   }
 
-  // Si el viaje se cierra con órdenes canceladas, se prorratea la ganancia estimada
-  // según las órdenes efectivamente entregadas.
-  private calculateEarnings(
-    estimatedEarnings: number,
-    deliveredCount: number,
-    totalOrders: number,
-  ): number {
+  // Si el viaje se cierra con órdenes canceladas, se prorratea la ganancia calculada
+  // con la tarifa que quedó guardada al ofertar, según las órdenes entregadas.
+  private calculateEarnings(doc: TripDocument, deliveredCount: number): number {
+    const totalOrders = doc.orders.length
+
     if (deliveredCount === 0 || totalOrders === 0) {
       return 0
     }
+
+    const fullEarnings = this.fullEarnings(doc)
+
     if (deliveredCount === totalOrders) {
-      return estimatedEarnings
+      return fullEarnings
     }
-    return Math.round((estimatedEarnings * deliveredCount) / totalOrders)
+
+    return Math.round((fullEarnings * deliveredCount) / totalOrders)
+  }
+
+  private fullEarnings(doc: TripDocument): number {
+    const snapshot = doc.tariffSnapshot
+
+    if (!snapshot) {
+      return doc.estimatedEarnings
+    }
+
+    return Math.round(
+      snapshot.baseFare +
+        snapshot.perKm * doc.distanceKm +
+        snapshot.perOrder * doc.orders.length,
+    )
   }
 
   private async requireDocument(id: string): Promise<TripDocument> {

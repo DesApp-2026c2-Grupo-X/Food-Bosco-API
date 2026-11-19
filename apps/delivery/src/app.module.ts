@@ -10,6 +10,7 @@ import { OrderLifecycleModule } from './order-lifecycle/order-lifecycle.module'
 import { RiderModule } from './rider/rider.module'
 import { SeedModule } from './seed/seed.module'
 import { ShiftModule } from './shift/shift.module'
+import { TariffModule } from './tariff/tariff.module'
 import { TripModule } from './trip/trip.module'
 import { ZoneModule } from './zone/zone.module'
 
@@ -25,6 +26,7 @@ import { ZoneModule } from './zone/zone.module'
     TripModule,
     ZoneModule,
     ShiftModule,
+    TariffModule,
     SeedModule,
   ],
 })

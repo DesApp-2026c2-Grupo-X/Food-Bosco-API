@@ -117,6 +117,36 @@ export class TripOffer {
 }
 
 @ObjectType()
+export class DeliveryTariffType {
+  @Field(() => ID)
+  id!: string
+
+  @Field(() => Float)
+  baseFare!: number
+
+  @Field(() => Float)
+  perKm!: number
+
+  @Field(() => Float)
+  perOrder!: number
+
+  @Field(() => String)
+  currency!: string
+
+  @Field(() => String)
+  effectiveFrom!: string
+
+  @Field()
+  active!: boolean
+
+  @Field(() => String)
+  createdBy!: string
+
+  @Field(() => String)
+  createdAt!: string
+}
+
+@ObjectType()
 export class Trip {
   @Field(() => ID)
   id!: string
@@ -201,6 +231,18 @@ export const mapTripOffer = (raw: RawRecord): TripOffer => ({
   estimatedMinutes: asNumber(raw.estimatedMinutes),
   estimatedEarnings: asNumber(raw.estimatedEarnings),
   expiresAt: nullableString(raw.expiresAt),
+})
+
+export const mapDeliveryTariff = (raw: RawRecord): DeliveryTariffType => ({
+  id: idOf(raw),
+  baseFare: asNumber(raw.baseFare ?? raw.base_fare),
+  perKm: asNumber(raw.perKm ?? raw.per_km),
+  perOrder: asNumber(raw.perOrder ?? raw.per_order),
+  currency: asString(raw.currency),
+  effectiveFrom: asString(raw.effectiveFrom ?? raw.effective_from),
+  active: asBoolean(raw.active),
+  createdBy: asString(raw.createdBy ?? raw.created_by),
+  createdAt: asString(raw.createdAt ?? raw.created_at),
 })
 
 export const mapTrip = (raw: RawRecord): Trip => ({

@@ -1,6 +1,7 @@
 import { Inject, UseGuards } from '@nestjs/common'
-import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Args, Context, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { ROLES } from '../../config/constants'
+import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { DELIVERY_REST_CLIENT } from '../../rest/rest.module'
@@ -8,10 +9,28 @@ import { AuthGuard } from '../../security/auth.guard'
 import { Roles } from '../../security/roles.decorator'
 import { PageInput } from '../common/page'
 import { toRestContext } from '../common/rest-context'
-import { UpdateRiderProfileInput, UpdateVehicleInput } from './delivery.inputs'
-import { Rider, Trip, TripOffer, mapRider, mapTrip, mapTripOffer } from './delivery.types'
+import {
+  PublishDeliveryTariffInput,
+  UpdateRiderProfileInput,
+  UpdateVehicleInput,
+} from './delivery.inputs'
+import {
+  DeliveryTariffType,
+  Rider,
+  Trip,
+  TripOffer,
+  mapDeliveryTariff,
+  mapRider,
+  mapTrip,
+  mapTripOffer,
+} from './delivery.types'
 
 type RawRecord = Record<string, unknown>
+
+const internalRestContext = (ctx: GraphQLContext) => ({
+  ...toRestContext(ctx),
+  internalToken: env.internalApiToken,
+})
 
 interface TripListRest {
   data: RawRecord[]
@@ -25,6 +44,41 @@ interface OfferListRest {
 @UseGuards(AuthGuard)
 export class DeliveryResolver {
   constructor(@Inject(DELIVERY_REST_CLIENT) private readonly rest: RestClient) {}
+
+  @Query(() => DeliveryTariffType)
+  @Roles(ROLES.superAdmin)
+  async deliveryTariff(@Context() ctx: GraphQLContext): Promise<DeliveryTariffType> {
+    const raw = await this.rest.get<RawRecord>('/v1/tariffs/active', {
+      context: internalRestContext(ctx),
+    })
+    return mapDeliveryTariff(raw)
+  }
+
+  @Query(() => [DeliveryTariffType])
+  @Roles(ROLES.superAdmin)
+  async deliveryTariffs(
+    @Args('limit', { type: () => Int, defaultValue: 20 }) limit: number = 20,
+    @Context() ctx: GraphQLContext,
+  ): Promise<DeliveryTariffType[]> {
+    const raw = await this.rest.get<RawRecord[]>('/v1/tariffs', {
+      context: internalRestContext(ctx),
+      query: { limit },
+    })
+    return raw.map(mapDeliveryTariff)
+  }
+
+  @Mutation(() => DeliveryTariffType)
+  @Roles(ROLES.superAdmin)
+  async publishDeliveryTariff(
+    @Args('input') input: PublishDeliveryTariffInput,
+    @Context() ctx: GraphQLContext,
+  ): Promise<DeliveryTariffType> {
+    const raw = await this.rest.post<RawRecord>('/v1/tariffs', {
+      body: { ...input, createdBy: ctx.userId ?? '' },
+      context: internalRestContext(ctx),
+    })
+    return mapDeliveryTariff(raw)
+  }
 
   @Query(() => Rider)
   @Roles(ROLES.rider)
