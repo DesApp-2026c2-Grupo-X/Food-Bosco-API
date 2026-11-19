@@ -48,6 +48,18 @@ export class OrderRepository {
     return this.model.countDocuments().exec()
   }
 
+  async findMaxNumber(): Promise<string | null> {
+    const [last] = await this.model
+      .aggregate<{ number: string }>([
+        { $project: { number: 1, numeric: { $toInt: '$number' } } },
+        { $sort: { numeric: -1 } },
+        { $limit: 1 },
+      ])
+      .exec()
+
+    return last?.number ?? null
+  }
+
   create(data: CreateOrderData, initialHistory: OrderStatusHistory): Promise<OrderDocument> {
     return this.model.create({
       ...data,

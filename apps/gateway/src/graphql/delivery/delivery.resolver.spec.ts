@@ -1,5 +1,8 @@
+import { GraphQLError } from 'graphql'
+import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
+import { ROLES_KEY } from '../../security/roles.decorator'
 import { OrderStatus } from '../common/order-status.enum'
 import { TripStatus } from '../common/trip-status.enum'
 import { DeliveryResolver } from './delivery.resolver'
@@ -12,6 +15,24 @@ const ctx = {
   requestId: 'rid-1',
   authorization: 'Bearer xyz',
 } as unknown as GraphQLContext
+
+const adminCtx = {
+  ...ctx,
+  userId: 'admin-1',
+  roles: ['super_admin'],
+} as unknown as GraphQLContext
+
+const rawTariff = {
+  id: 'tar-1',
+  baseFare: 500,
+  perKm: 200,
+  perOrder: 300,
+  currency: 'ARS',
+  effectiveFrom: '2026-01-01T00:00:00.000Z',
+  active: true,
+  createdBy: 'admin-1',
+  createdAt: '2026-01-01T00:00:00.000Z',
+}
 
 const rawRider = {
   id: 'r1',
@@ -123,6 +144,43 @@ describe('DeliveryResolver — queries', () => {
       expect.objectContaining({ query: { limit: undefined, offset: undefined } }),
     )
   })
+
+  it('deliveryTariff → GET /v1/tariffs/active con token interno', async () => {
+    rest.get.mockResolvedValue(rawTariff)
+
+    const result = await resolver.deliveryTariff(adminCtx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/tariffs/active', {
+      context: expect.objectContaining({
+        userId: 'admin-1',
+        internalToken: 'dev-internal-token',
+      }),
+    })
+    expect(result).toMatchObject({ id: 'tar-1', baseFare: 500, active: true })
+  })
+
+  it('deliveryTariffs → GET /v1/tariffs con el límite pedido', async () => {
+    rest.get.mockResolvedValue([rawTariff])
+
+    const result = await resolver.deliveryTariffs(5, adminCtx)
+
+    expect(rest.get).toHaveBeenCalledWith('/v1/tariffs', {
+      context: expect.objectContaining({ internalToken: 'dev-internal-token' }),
+      query: { limit: 5 },
+    })
+    expect(result).toHaveLength(1)
+  })
+
+  it('deliveryTariffs usa 20 por defecto al llamar directo', async () => {
+    rest.get.mockResolvedValue([])
+
+    await resolver.deliveryTariffs(undefined as unknown as number, adminCtx)
+
+    expect(rest.get).toHaveBeenCalledWith(
+      '/v1/tariffs',
+      expect.objectContaining({ query: { limit: 20 } }),
+    )
+  })
 })
 
 describe('DeliveryResolver — mutations', () => {
@@ -130,6 +188,27 @@ describe('DeliveryResolver — mutations', () => {
   const resolver = new DeliveryResolver(rest as unknown as RestClient)
 
   beforeEach(() => jest.clearAllMocks())
+
+  it('publishDeliveryTariff → POST /v1/tariffs con createdBy del admin autenticado', async () => {
+    rest.post.mockResolvedValue({ ...rawTariff, baseFare: 700 })
+
+    const result = await resolver.publishDeliveryTariff(
+      { baseFare: 700, perKm: 250, perOrder: 350, currency: 'ARS' },
+      adminCtx,
+    )
+
+    expect(rest.post).toHaveBeenCalledWith('/v1/tariffs', {
+      body: {
+        baseFare: 700,
+        perKm: 250,
+        perOrder: 350,
+        currency: 'ARS',
+        createdBy: 'admin-1',
+      },
+      context: expect.objectContaining({ internalToken: 'dev-internal-token' }),
+    })
+    expect(result.baseFare).toBe(700)
+  })
 
   it('updateRiderProfile → PATCH /v1/riders/me', async () => {
     rest.patch.mockResolvedValue({ ...rawRider, phone: '999' })
@@ -320,4 +399,46 @@ describe('DeliveryResolver — propagación exacta de contexto y errores', () =>
       await expect(invoke()).rejects.toBe(failure)
     },
   )
+})
+
+describe('DeliveryResolver — tarifas y permisos (RQ-DLV-08)', () => {
+  const rest = { get: jest.fn(), post: jest.fn() }
+  const resolver = new DeliveryResolver(rest as unknown as RestClient)
+
+  beforeEach(() => jest.clearAllMocks())
+
+  it.each([
+    ['deliveryTariff', resolver.deliveryTariff],
+    ['deliveryTariffs', resolver.deliveryTariffs],
+    ['publishDeliveryTariff', resolver.publishDeliveryTariff],
+  ] as const)('$0 exige únicamente super_admin', (name, handler) => {
+    const roles = Reflect.getMetadata(ROLES_KEY, handler) as string[]
+
+    expect(name).toBeTruthy()
+    expect(roles).toEqual([ROLES.superAdmin])
+    expect(roles).not.toContain(ROLES.rider)
+  })
+
+  it('propaga el conflicto 409 de publicación como error GraphQL', async () => {
+    const conflict = new GraphQLError('tarifa en conflicto', {
+      extensions: { code: 'TARIFF_CONFLICT', httpStatus: 409 },
+    })
+    rest.post.mockRejectedValue(conflict)
+
+    await expect(
+      resolver.publishDeliveryTariff(
+        { baseFare: 1, perKm: 1, perOrder: 1, currency: 'ARS' },
+        adminCtx,
+      ),
+    ).rejects.toBe(conflict)
+  })
+
+  it('propaga el 503 de tarifa no disponible como error GraphQL', async () => {
+    const unavailable = new GraphQLError('sin tarifa', {
+      extensions: { code: 'TARIFF_NOT_AVAILABLE', httpStatus: 503 },
+    })
+    rest.get.mockRejectedValue(unavailable)
+
+    await expect(resolver.deliveryTariff(adminCtx)).rejects.toBe(unavailable)
+  })
 })

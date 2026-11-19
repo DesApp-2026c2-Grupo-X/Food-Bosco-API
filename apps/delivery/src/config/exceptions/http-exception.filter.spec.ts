@@ -6,6 +6,7 @@ import {
   HttpException,
   HttpStatus,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { ERROR_CODES } from '../constants'
@@ -172,6 +173,34 @@ describe('HttpExceptionFilter', () => {
       expect(json).toHaveBeenCalledWith(expect.objectContaining({ code }))
     },
   )
+
+  it.each([
+    {
+      name: 'TARIFF_CONFLICT',
+      exception: new ConflictException({
+        code: ERROR_CODES.tariffConflict,
+        message: 'Otra tarifa fue publicada al mismo tiempo.',
+      }),
+      status: 409,
+      code: ERROR_CODES.tariffConflict,
+    },
+    {
+      name: 'TARIFF_NOT_AVAILABLE',
+      exception: new ServiceUnavailableException({
+        code: ERROR_CODES.tariffNotAvailable,
+        message: 'No hay una tarifa de delivery vigente.',
+      }),
+      status: 503,
+      code: ERROR_CODES.tariffNotAvailable,
+    },
+  ])('mapea $name con su código de dominio', ({ exception, status, code }) => {
+    const { host, status: statusFn, json } = makeHost('/v1/tariffs')
+
+    filter.catch(exception, host)
+
+    expect(statusFn).toHaveBeenCalledWith(status)
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ code, path: '/v1/tariffs' }))
+  })
 
   it('preserva mensaje y path de un ConflictException (409)', () => {
     const { host, json } = makeHost('/v1/trips')

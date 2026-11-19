@@ -241,6 +241,7 @@ describe('TripService.listByRider / createOffered', () => {
       distanceKm: 5,
       estimatedMinutes: 12,
       estimatedEarnings: 1500,
+      tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
       expiresAt: new Date('2026-01-01T00:01:00.000Z'),
     })
 
@@ -600,6 +601,66 @@ describe('TripService.hasActiveTrip', () => {
   })
 })
 
+describe('TripService.markOrderDelivered — tarifa guardada en el viaje (RQ-DLV-08)', () => {
+  const tariffCases: Array<{
+    name: string
+    distanceKm: number
+    orders: TripOrder[]
+    snapshot: { baseFare: number; perKm: number; perOrder: number }
+    expected: number
+  }> = [
+    {
+      name: 'todas entregadas calcula con base, km y pedidos',
+      distanceKm: 10,
+      orders: [
+        buildOrder({ orderId: 'ord-1', status: 'on_the_way' }),
+        buildOrder({ orderId: 'ord-2', status: 'delivered' }),
+      ],
+      snapshot: { baseFare: 500, perKm: 100, perOrder: 200 },
+      expected: 1900,
+    },
+    {
+      name: 'prorratea la tarifa guardada cuando una orden se cancela',
+      distanceKm: 10,
+      orders: [
+        buildOrder({ orderId: 'ord-1', status: 'on_the_way' }),
+        buildOrder({ orderId: 'ord-2', status: 'cancelled' }),
+      ],
+      snapshot: { baseFare: 500, perKm: 100, perOrder: 200 },
+      expected: 950,
+    },
+    {
+      name: 'distancia 0 usa sólo base y pedidos',
+      distanceKm: 0,
+      orders: [buildOrder({ orderId: 'ord-1', status: 'on_the_way' })],
+      snapshot: { baseFare: 500, perKm: 200, perOrder: 0 },
+      expected: 500,
+    },
+  ]
+
+  it.each(tariffCases)(
+    '$name sin mirar estimatedEarnings',
+    async ({ distanceKm, orders, snapshot, expected }) => {
+      const { service, repository } = makeService()
+      repository.findById.mockResolvedValue(
+        buildDoc({
+          status: 'active',
+          distanceKm,
+          orders,
+          tariffSnapshot: snapshot,
+          estimatedEarnings: 1,
+        }),
+      )
+
+      const target = orders.find((order) => order.status === 'on_the_way') ?? orders[0]
+      const result = await service.markOrderDelivered('t1', target.orderId)
+
+      expect(result.status).toBe('completed')
+      expect(result.earnings).toBe(expected)
+    },
+  )
+})
+
 describe('TripService.markOrderDelivered con órdenes canceladas', () => {
   it('completa el viaje al entregar la última orden no cancelada', async () => {
     const { service, repository } = makeService()
@@ -731,6 +792,7 @@ describe('TripService.findById / findActiveOffer / createOffered', () => {
       distanceKm: 5,
       estimatedMinutes: 12,
       estimatedEarnings: 1500,
+      tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
       expiresAt,
     })
 
@@ -741,6 +803,7 @@ describe('TripService.findById / findActiveOffer / createOffered', () => {
       distanceKm: 5,
       estimatedMinutes: 12,
       estimatedEarnings: 1500,
+      tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
       expiresAt,
     })
   })

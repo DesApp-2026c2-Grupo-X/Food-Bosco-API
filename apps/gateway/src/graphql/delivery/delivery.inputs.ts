@@ -1,4 +1,4 @@
-import { Field, InputType } from '@nestjs/graphql'
+import { Field, Float, InputType } from '@nestjs/graphql'
 
 @InputType()
 export class UpdateRiderProfileInput {
@@ -19,4 +19,19 @@ export class UpdateVehicleInput {
 
   @Field({ nullable: true })
   plate?: string
+}
+
+@InputType()
+export class PublishDeliveryTariffInput {
+  @Field(() => Float)
+  baseFare!: number
+
+  @Field(() => Float)
+  perKm!: number
+
+  @Field(() => Float)
+  perOrder!: number
+
+  @Field(() => String)
+  currency!: string
 }

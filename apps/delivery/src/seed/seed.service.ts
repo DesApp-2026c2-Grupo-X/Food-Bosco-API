@@ -10,6 +10,7 @@ import { DeliveryOrderRepository } from '../delivery-order/delivery-order.reposi
 import { normalizeVehicle } from '../rider/rider.model'
 import { RiderService } from '../rider/rider.service'
 import { ShiftService } from '../shift/shift.service'
+import { TariffService } from '../tariff/tariff.service'
 import { ZoneService } from '../zone/zone.service'
 
 interface ZoneSeed {
@@ -81,6 +82,7 @@ export class SeedService {
     private readonly riderService: RiderService,
     private readonly zoneService: ZoneService,
     private readonly shiftService: ShiftService,
+    private readonly tariffService: TariffService,
     private readonly deliveryOrderRepository: DeliveryOrderRepository,
     @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -89,6 +91,7 @@ export class SeedService {
     const zones = await this.seedZones()
     const shifts = await this.seedShifts()
     const riders = await this.seedRiderProfilesFromAuth()
+    await this.tariffService.ensureBootstrap()
 
     return {
       summary: {

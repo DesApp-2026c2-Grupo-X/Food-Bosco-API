@@ -16,6 +16,8 @@ import { isRiderStale } from '../rider/rider.model'
 import type { PublicRider } from '../rider/rider.model'
 import { RiderOrchestrator } from '../rider/rider.orchestrator'
 import { RiderService } from '../rider/rider.service'
+import type { PublicDeliveryTariff } from '../tariff/tariff.model'
+import { TariffService } from '../tariff/tariff.service'
 import type { PublicTrip, PublicTripOrder, TripOrder } from '../trip/trip.model'
 import { TripService } from '../trip/trip.service'
 import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
@@ -42,6 +44,7 @@ export class OfferOrchestrator {
     private readonly deliveryOrderService: DeliveryOrderService,
     private readonly commerceClient: CommerceClient,
     private readonly eventBus: EventBus,
+    private readonly tariffService: TariffService,
   ) {}
 
   async listOffers(riderId: string): Promise<OfferListResponse> {
@@ -84,7 +87,8 @@ export class OfferOrchestrator {
     const { routeKm, orders } = this.buildRoute(rider, selected)
     const distanceKm = this.round(routeKm, 2)
     const estimatedMinutes = estimateMinutes(distanceKm, env.offer.avgSpeedKmh)
-    const estimatedEarnings = this.estimateEarnings(distanceKm, orders.length)
+    const tariff = await this.tariffService.getActive()
+    const estimatedEarnings = this.estimateEarnings(tariff, distanceKm, orders.length)
 
     const expiresAt = new Date(Date.now() + env.offer.ttlSeconds * 1000)
     const trip = await this.tripService.createOffered({
@@ -93,6 +97,11 @@ export class OfferOrchestrator {
       distanceKm,
       estimatedMinutes,
       estimatedEarnings,
+      tariffSnapshot: {
+        baseFare: tariff.baseFare,
+        perKm: tariff.perKm,
+        perOrder: tariff.perOrder,
+      },
       expiresAt,
     })
 
@@ -306,12 +315,12 @@ export class OfferOrchestrator {
     return { routeKm, orders }
   }
 
-  private estimateEarnings(routeKm: number, orderCount: number): number {
-    const raw =
-      env.offer.earningsBase +
-      env.offer.earningsPerKm * routeKm +
-      env.offer.earningsPerOrder * orderCount
-    return Math.round(raw)
+  private estimateEarnings(
+    tariff: PublicDeliveryTariff,
+    routeKm: number,
+    orderCount: number,
+  ): number {
+    return Math.round(tariff.baseFare + tariff.perKm * routeKm + tariff.perOrder * orderCount)
   }
 
   private tripAcceptedEvent(trip: PublicTrip): TripAcceptedEvent {

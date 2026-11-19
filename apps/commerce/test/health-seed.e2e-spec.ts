@@ -91,7 +91,7 @@ describe('Commerce — health & seed E2E', () => {
           ingredients: 19,
           products: 17,
           branches: 3,
-          promotions: 2,
+          promotions: 4,
           stockRows: 57,
           orderStates: 7,
           parameters: 3,

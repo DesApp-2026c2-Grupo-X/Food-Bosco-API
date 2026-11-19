@@ -23,6 +23,7 @@ const trip: PublicTrip = {
   distanceKm: 5,
   estimatedMinutes: 12,
   estimatedEarnings: 1500,
+  tariffSnapshot: { baseFare: 500, perKm: 200, perOrder: 300 },
   earnings: null,
   startedAt: null,
   completedAt: null,

@@ -29,6 +29,20 @@ export class TripOrder {
 
 export const TripOrderSchema = SchemaFactory.createForClass(TripOrder)
 
+@Schema({ _id: false })
+export class TripTariffSnapshot {
+  @Prop({ required: true, min: 0 })
+  baseFare!: number
+
+  @Prop({ required: true, min: 0 })
+  perKm!: number
+
+  @Prop({ required: true, min: 0 })
+  perOrder!: number
+}
+
+export const TripTariffSnapshotSchema = SchemaFactory.createForClass(TripTariffSnapshot)
+
 @Schema({ collection: 'trips', timestamps: { createdAt: true, updatedAt: true } })
 export class Trip {
   @Prop({ required: true, index: true })
@@ -48,6 +62,14 @@ export class Trip {
 
   @Prop({ required: true })
   estimatedEarnings!: number
+
+  @Prop({
+    required: function (this: { isNew?: boolean }) {
+      return this.isNew === true
+    },
+    type: TripTariffSnapshotSchema,
+  })
+  tariffSnapshot!: TripTariffSnapshot | null
 
   @Prop({ default: null, type: Number })
   earnings!: number | null
@@ -79,6 +101,12 @@ export interface PublicTripOrder {
   deliveredAt: string | null
 }
 
+export interface PublicTripTariffSnapshot {
+  baseFare: number
+  perKm: number
+  perOrder: number
+}
+
 export interface PublicTrip {
   id: string
   riderId: string
@@ -87,6 +115,7 @@ export interface PublicTrip {
   distanceKm: number
   estimatedMinutes: number
   estimatedEarnings: number
+  tariffSnapshot: PublicTripTariffSnapshot | null
   earnings: number | null
   startedAt: string | null
   completedAt: string | null
@@ -112,6 +141,13 @@ export const serializeTrip = (doc: TripDocument): PublicTrip => ({
   distanceKm: doc.distanceKm,
   estimatedMinutes: doc.estimatedMinutes,
   estimatedEarnings: doc.estimatedEarnings,
+  tariffSnapshot: doc.tariffSnapshot
+    ? {
+        baseFare: doc.tariffSnapshot.baseFare,
+        perKm: doc.tariffSnapshot.perKm,
+        perOrder: doc.tariffSnapshot.perOrder,
+      }
+    : null,
   earnings: doc.earnings ?? null,
   startedAt: doc.startedAt?.toISOString() ?? null,
   completedAt: doc.completedAt?.toISOString() ?? null,
