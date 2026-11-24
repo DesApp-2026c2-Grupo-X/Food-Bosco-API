@@ -66,7 +66,11 @@ export class CartController {
   setPromotionCode(
     @CurrentUser() auth: AuthContext,
     @Body() dto: SetPromotionCodeDto,
+    @Query() query: CartQueryDto,
   ): Promise<PublicCart> {
-    return this.orchestrator.setPromotionCode(auth.userId ?? '', dto.code ?? null)
+    return this.orchestrator.setPromotionCode(auth.userId ?? '', dto.code ?? null, {
+      latitude: query.lat,
+      longitude: query.lng,
+    })
   }
 }

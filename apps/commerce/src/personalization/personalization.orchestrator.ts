@@ -9,6 +9,7 @@ import type { PublicOrder } from '../order/order.model'
 import { OrderService } from '../order/order.service'
 import { ProductService } from '../product/product.service'
 import { resolveProductPromotionPreviews } from '../promotion/promotion.preview'
+import { isBranchMatch, isScheduleMatch } from '../promotion/promotion.engine'
 import { PromotionService } from '../promotion/promotion.service'
 import type { HomeFeed, ReorderCard } from './personalization.model'
 import type { HomeFeedQueryDto } from './dto/home-feed-query.dto'
@@ -112,6 +113,9 @@ export class PersonalizationOrchestrator {
     )
 
     const branchId = nearest?.branch.id ?? null
+    const activePromotions = promotions.filter(
+      (p) => isScheduleMatch(p, now) && isBranchMatch(p, branchId),
+    )
     const recommendedProducts = [
       ...new Map(
         [...forYou, ...discovery].map((entry) => [entry.product.id, entry.product]),
@@ -119,7 +123,7 @@ export class PersonalizationOrchestrator {
     ]
     const previewsByProduct = resolveProductPromotionPreviews(
       recommendedProducts,
-      promotions,
+      activePromotions,
       branchId,
       now,
     )
@@ -152,7 +156,11 @@ export class PersonalizationOrchestrator {
       forYou: forYou.map(withPreview),
       discovery: discovery.map(withPreview),
       reorder: reorderOrders.map((order) => this.toReorderCard(order, branchesById)),
-      promotions: rankPromotions(promotions, profile, PERSONALIZATION_CONSTANTS.promotionLimit),
+      promotions: rankPromotions(
+        activePromotions,
+        profile,
+        PERSONALIZATION_CONSTANTS.promotionLimit,
+      ),
     }
   }
 

@@ -421,6 +421,15 @@ export class CartItem {
 }
 
 @ObjectType()
+export class RejectedPromotionCode {
+  @Field()
+  code!: string
+
+  @Field()
+  reason!: string
+}
+
+@ObjectType()
 export class Cart {
   @Field(() => ID)
   id!: string
@@ -448,6 +457,9 @@ export class Cart {
 
   @Field(() => [AppliedPromotion])
   appliedPromotions!: AppliedPromotion[]
+
+  @Field(() => RejectedPromotionCode, { nullable: true })
+  rejectedPromotionCode!: RejectedPromotionCode | null
 }
 
 @ObjectType()
@@ -1243,6 +1255,13 @@ export const mapCart = (raw: RawRecord): Cart => {
     total,
     promotionCode: nullableString(raw.promotionCode),
     appliedPromotions: asRecordList(raw.appliedPromotions).map(mapAppliedPromotion),
+    rejectedPromotionCode:
+      raw.rejectedPromotionCode && typeof raw.rejectedPromotionCode === 'object'
+        ? {
+            code: asString((raw.rejectedPromotionCode as RawRecord).code),
+            reason: asString((raw.rejectedPromotionCode as RawRecord).reason),
+          }
+        : null,
   }
 }
 
