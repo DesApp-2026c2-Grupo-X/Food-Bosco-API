@@ -69,11 +69,17 @@ export interface AppliedPromotionPreview {
   amount: number
 }
 
+export interface RejectedPromotionCode {
+  code: string
+  reason: string
+}
+
 export interface CartPricingSnapshot {
   subtotal: number
   discountTotal: number
   total: number
   appliedPromotions: AppliedPromotionPreview[]
+  rejectedPromotionCode?: RejectedPromotionCode | null
 }
 
 export interface PublicCart {
@@ -86,6 +92,7 @@ export interface PublicCart {
   total: number
   promotionCode: string | null
   appliedPromotions: AppliedPromotionPreview[]
+  rejectedPromotionCode?: RejectedPromotionCode | null
 }
 
 const serializeItem = (item: CartItem): PublicCartItem => ({
@@ -106,4 +113,5 @@ export const serializeCart = (doc: CartDocument, pricing?: CartPricingSnapshot):
   total: pricing ? pricing.total : doc.total,
   promotionCode: doc.promotionCode ?? null,
   appliedPromotions: pricing ? pricing.appliedPromotions : [],
+  rejectedPromotionCode: pricing?.rejectedPromotionCode ?? null,
 })

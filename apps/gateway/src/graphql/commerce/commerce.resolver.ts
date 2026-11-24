@@ -963,11 +963,22 @@ export class CommerceResolver {
   @Roles(ROLES.customer)
   async setCartPromotionCode(
     @Args('code', { type: () => String, nullable: true }) code: string | null,
+    @Args('addressId', { type: () => ID, nullable: true }) addressId: string | null | undefined,
     @Context() ctx: GraphQLContext,
   ): Promise<Cart> {
+    let query: RestQuery | undefined = undefined
+    if (addressId) {
+      const address = await this.authRest.get<RawRecord>(`/v1/addresses/${addressId}`, {
+        context: toRestContext(ctx),
+      })
+      if (address?.latitude !== undefined && address?.longitude !== undefined) {
+        query = { lat: Number(address.latitude), lng: Number(address.longitude) }
+      }
+    }
     const raw = await this.rest.patch<RawRecord>('/v1/carts/promotion-code', {
       body: { code },
       context: toRestContext(ctx),
+      ...(query ? { query } : {}),
     })
     return mapCart(raw)
   }

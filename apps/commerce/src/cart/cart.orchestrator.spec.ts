@@ -51,6 +51,7 @@ const makeOrchestrator = () => {
     createActive: jest.fn(),
     replaceItems: jest.fn(),
     confirm: jest.fn(),
+    setPromotionCode: jest.fn(),
   }
   const productService = {
     findById: jest.fn(),
@@ -447,5 +448,25 @@ describe('CartOrchestrator.confirmCart (RQ-CART-08/09)', () => {
       status: 404,
     })
     expect(cartService.confirm).not.toHaveBeenCalled()
+  })
+})
+
+describe('CartOrchestrator.removeItem (promotionCode cleanup)', () => {
+  it('limpia promotionCode cuando el carrito queda vacío tras eliminar el último ítem', async () => {
+    const { orchestrator, cartService } = makeOrchestrator()
+    cartService.findActiveByClient.mockResolvedValue(
+      cart({
+        items: [{ id: 'i1', productId: 'p1', quantity: 1, observations: null, optionIds: [] }],
+        total: 100,
+        promotionCode: 'BIENVENIDO2000',
+      }),
+    )
+    cartService.replaceItems.mockResolvedValue(cart({ items: [], total: 0 }))
+    cartService.setPromotionCode.mockResolvedValue(undefined)
+
+    const result = await orchestrator.removeItem('c1', 'i1')
+
+    expect(cartService.setPromotionCode).toHaveBeenCalledWith('cart1', null)
+    expect(result.promotionCode).toBeNull()
   })
 })

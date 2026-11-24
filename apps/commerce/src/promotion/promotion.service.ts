@@ -347,7 +347,9 @@ export class PromotionService {
 
   async getPublicActive(now: Date = new Date()): Promise<PublicBannerPromotion[]> {
     const docs = await this.repository.findPublicActive(now)
-    return docs.map(serializeBannerPromotion)
+    return docs
+      .filter((doc) => isScheduleMatch(serializePromotion(doc), now))
+      .map(serializeBannerPromotion)
   }
 
   /**

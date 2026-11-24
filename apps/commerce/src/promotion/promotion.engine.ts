@@ -180,6 +180,87 @@ interface SelectionResult {
   rejectedCode: { code: string; reason: string } | null
 }
 
+const selectAutomaticPromotions = (evaluated: EvaluatedPromotion[]): EvaluatedPromotion[] => {
+  const automaticEvaluated = evaluated.filter((e) => !e.promotion.code)
+
+  const exclusiveList = automaticEvaluated
+    .filter((e) => !e.promotion.stackable)
+    .sort(compareEvaluated)
+  const stackableList = automaticEvaluated
+    .filter((e) => e.promotion.stackable)
+    .sort(compareEvaluated)
+
+  const bestExclusive = exclusiveList[0]
+  const exclusiveTotal = bestExclusive?.amount ?? 0
+  const stackableTotal = stackableList.reduce((sum, e) => sum + e.amount, 0)
+
+  if (exclusiveTotal > stackableTotal && bestExclusive) {
+    return [bestExclusive]
+  }
+
+  if (exclusiveTotal === stackableTotal && bestExclusive && stackableList.length > 0) {
+    const maxStackablePriority = Math.max(...stackableList.map((e) => e.promotion.priority))
+    if (bestExclusive.promotion.priority >= maxStackablePriority) {
+      return [bestExclusive]
+    }
+    return stackableList
+  }
+
+  if (stackableTotal > 0) {
+    return stackableList
+  }
+
+  if (bestExclusive) {
+    return [bestExclusive]
+  }
+
+  return []
+}
+
+const resolveRejectedReason = (
+  candidateWithCode: PromotionCandidate | undefined,
+  context?: PromotionEvaluationContext,
+): string => {
+  if (!candidateWithCode) {
+    return 'PROMOTION_CODE_NOT_FOUND'
+  }
+  if (!candidateWithCode.active) {
+    return 'PROMOTION_INACTIVE'
+  }
+  if (
+    context &&
+    (context.now < new Date(candidateWithCode.startDate) ||
+      context.now > new Date(candidateWithCode.endDate))
+  ) {
+    return 'PROMOTION_EXPIRED'
+  }
+  if (context && !isScheduleMatch(candidateWithCode, context.now)) {
+    return 'PROMOTION_SCHEDULE_NOT_MET'
+  }
+  if (context && !isBranchMatch(candidateWithCode, context.branchId)) {
+    return 'PROMOTION_BRANCH_NOT_ALLOWED'
+  }
+  if (context && !isUsageMatch(candidateWithCode, context.usage)) {
+    return 'PROMOTION_LIMIT_REACHED'
+  }
+  if (context) {
+    const eligibleLines = selectEligibleLines(candidateWithCode, context.lines)
+    const eligibleQuantity = eligibleLines.reduce((sum, l) => sum + l.quantity, 0)
+    const eligibleSubtotal = eligibleLines.reduce((sum, l) => sum + l.subtotal, 0)
+
+    if (eligibleQuantity === 0) {
+      return 'PROMOTION_SCOPE_NOT_MET'
+    }
+    if (candidateWithCode.minSubtotal && eligibleSubtotal < candidateWithCode.minSubtotal) {
+      return 'PROMOTION_MIN_SUBTOTAL_NOT_MET'
+    }
+    if (candidateWithCode.minQuantity && eligibleQuantity < candidateWithCode.minQuantity) {
+      return 'PROMOTION_MIN_QUANTITY_NOT_MET'
+    }
+  }
+  return 'PROMOTION_CONDITIONS_NOT_MET'
+}
+
 export const selectPromotions = (
   evaluated: EvaluatedPromotion[],
   requestedCode: string | null,
@@ -194,31 +275,13 @@ export const selectPromotions = (
     )
 
     if (!coupon) {
-      // Determinar motivo del rechazo del código
       const candidateWithCode = rawCandidates.find(
         (c) => c.code && c.code.toUpperCase() === normCode,
       )
-      let reason = 'PROMOTION_CODE_INVALID'
-      if (!candidateWithCode) {
-        reason = 'PROMOTION_CODE_NOT_FOUND'
-      } else if (!candidateWithCode.active) {
-        reason = 'PROMOTION_INACTIVE'
-      } else if (
-        context &&
-        (context.now < new Date(candidateWithCode.startDate) ||
-          context.now > new Date(candidateWithCode.endDate))
-      ) {
-        reason = 'PROMOTION_EXPIRED'
-      } else if (context && !isBranchMatch(candidateWithCode, context.branchId)) {
-        reason = 'PROMOTION_BRANCH_NOT_ALLOWED'
-      } else if (context && !isUsageMatch(candidateWithCode, context.usage)) {
-        reason = 'PROMOTION_LIMIT_REACHED'
-      } else {
-        reason = 'PROMOTION_CONDITIONS_NOT_MET'
-      }
+      const reason = resolveRejectedReason(candidateWithCode, context)
 
       return {
-        applied: [],
+        applied: selectAutomaticPromotions(evaluated),
         rejectedCode: { code: normCode, reason },
       }
     }
@@ -240,41 +303,7 @@ export const selectPromotions = (
     }
   }
 
-  // Sin cupón: solo participan promociones automáticas (code === null)
-  const automaticEvaluated = evaluated.filter((e) => !e.promotion.code)
-
-  const exclusiveList = automaticEvaluated
-    .filter((e) => !e.promotion.stackable)
-    .sort(compareEvaluated)
-  const stackableList = automaticEvaluated
-    .filter((e) => e.promotion.stackable)
-    .sort(compareEvaluated)
-
-  const bestExclusive = exclusiveList[0]
-  const exclusiveTotal = bestExclusive?.amount ?? 0
-  const stackableTotal = stackableList.reduce((sum, e) => sum + e.amount, 0)
-
-  if (exclusiveTotal > stackableTotal && bestExclusive) {
-    return { applied: [bestExclusive], rejectedCode: null }
-  }
-
-  if (exclusiveTotal === stackableTotal && bestExclusive && stackableList.length > 0) {
-    const maxStackablePriority = Math.max(...stackableList.map((e) => e.promotion.priority))
-    if (bestExclusive.promotion.priority >= maxStackablePriority) {
-      return { applied: [bestExclusive], rejectedCode: null }
-    }
-    return { applied: stackableList, rejectedCode: null }
-  }
-
-  if (stackableTotal > 0) {
-    return { applied: stackableList, rejectedCode: null }
-  }
-
-  if (bestExclusive) {
-    return { applied: [bestExclusive], rejectedCode: null }
-  }
-
-  return { applied: [], rejectedCode: null }
+  return { applied: selectAutomaticPromotions(evaluated), rejectedCode: null }
 }
 
 export const capToSubtotal = (
