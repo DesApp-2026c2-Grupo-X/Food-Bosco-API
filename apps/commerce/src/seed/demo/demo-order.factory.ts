@@ -55,13 +55,11 @@ const STATUS_OFFSETS: Record<OrderStatus, number> = {
   [ORDER_STATUS.cancelled]: 10,
 }
 
-/** Los primeros pedidos garantizan que exista al menos uno de cada estado. */
+/** Los primeros pedidos garantizan que exista al menos uno de cada estado permitido en demo. */
 const FORCED_ORDERS: { status: OrderStatus; minutesAgo: number }[] = [
   { status: ORDER_STATUS.pending, minutesAgo: 4 },
   { status: ORDER_STATUS.confirmed, minutesAgo: 12 },
   { status: ORDER_STATUS.preparing, minutesAgo: 25 },
-  { status: ORDER_STATUS.readyForDelivery, minutesAgo: 45 },
-  { status: ORDER_STATUS.onTheWay, minutesAgo: 75 },
   { status: ORDER_STATUS.delivered, minutesAgo: 150 },
   { status: ORDER_STATUS.cancelled, minutesAgo: 90 },
 ]
@@ -71,7 +69,6 @@ const BRANCH_ACTIVE_SLOTS: { status: OrderStatus; minutesAgo: number }[] = [
   { status: ORDER_STATUS.pending, minutesAgo: 6 },
   { status: ORDER_STATUS.confirmed, minutesAgo: 15 },
   { status: ORDER_STATUS.preparing, minutesAgo: 28 },
-  { status: ORDER_STATUS.readyForDelivery, minutesAgo: 50 },
 ]
 
 export interface DemoAddressInput {
@@ -179,20 +176,14 @@ const chooseStatus = (
   }
 
   if (ageMinutes > 90) {
-    return random.weighted([
-      { value: ORDER_STATUS.delivered, weight: 6 },
-      { value: ORDER_STATUS.onTheWay, weight: 3 },
-      { value: ORDER_STATUS.readyForDelivery, weight: 1 },
-    ])
+    return random.chance(config.cancelRate) ? ORDER_STATUS.cancelled : ORDER_STATUS.delivered
   }
 
   if (ageMinutes > 30) {
     return random.weighted([
       { value: ORDER_STATUS.delivered, weight: 3 },
-      { value: ORDER_STATUS.onTheWay, weight: 2 },
-      { value: ORDER_STATUS.readyForDelivery, weight: 3 },
-      { value: ORDER_STATUS.preparing, weight: 1.5 },
-      { value: ORDER_STATUS.confirmed, weight: 0.5 },
+      { value: ORDER_STATUS.preparing, weight: 3 },
+      { value: ORDER_STATUS.confirmed, weight: 1 },
     ])
   }
 
@@ -200,8 +191,6 @@ const chooseStatus = (
     { value: ORDER_STATUS.pending, weight: 2 },
     { value: ORDER_STATUS.confirmed, weight: 2 },
     { value: ORDER_STATUS.preparing, weight: 2 },
-    { value: ORDER_STATUS.readyForDelivery, weight: 1.5 },
-    { value: ORDER_STATUS.onTheWay, weight: 1 },
   ])
 }
 

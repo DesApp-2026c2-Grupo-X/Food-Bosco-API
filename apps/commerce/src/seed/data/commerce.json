@@ -686,7 +686,7 @@
     },
     {
       "branch": "Centro",
-      "status": "ready_for_delivery",
+      "status": "preparing",
       "items": [
         { "product": "Pizza Mozzarella", "quantity": 1, "options": ["Grande"] },
         { "product": "Gaseosa", "quantity": 2, "options": ["1L"] }
@@ -694,7 +694,7 @@
     },
     {
       "branch": "Norte",
-      "status": "on_the_way",
+      "status": "confirmed",
       "items": [{ "product": "Doble Cheddar", "quantity": 1, "options": ["Doble", "Bacon"] }]
     },
     {

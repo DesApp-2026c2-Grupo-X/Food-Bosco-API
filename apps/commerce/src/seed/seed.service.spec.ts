@@ -276,10 +276,10 @@ describe('SeedService (commerce)', () => {
       expect(created.total).toBeGreaterThan(0)
 
       expect(result.summary.orders).toBe(2)
-      expect(result.orders.map((order) => order.status)).toEqual(['pending', 'ready_for_delivery'])
+      expect(result.orders.map((order) => order.status)).toEqual(['pending', 'preparing'])
 
       const transitions = mocks.orderService.applyTransition.mock.calls.map((call) => call[1])
-      expect(transitions).toEqual(['confirmed', 'preparing', 'ready_for_delivery'])
+      expect(transitions).toEqual(['confirmed', 'preparing'])
     })
 
     it('es idempotente: no recrea pedidos si el cliente ya tiene los demo', async () => {
