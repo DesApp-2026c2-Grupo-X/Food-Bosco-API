@@ -11,6 +11,23 @@ interface EnumerateCase {
 
 const enumerateCases: EnumerateCase[] = [
   {
+    name: 'horas consecutivas en un rango corto',
+    from: '2026-01-01T10:00:00.000-03:00',
+    to: '2026-01-01T12:59:59.999-03:00',
+    groupBy: 'hour',
+    expected: ['2026-01-01T10', '2026-01-01T11', '2026-01-01T12'],
+  },
+  {
+    name: 'un día completo genera 24 horas en el huso horario del negocio',
+    from: '2026-01-01T00:00:00.000-03:00',
+    to: '2026-01-01T23:59:59.999-03:00',
+    groupBy: 'hour',
+    expected: Array.from(
+      { length: 24 },
+      (_, hour) => `2026-01-01T${String(hour).padStart(2, '0')}`,
+    ),
+  },
+  {
     name: 'días consecutivos',
     from: '2026-01-01T00:00:00.000-03:00',
     to: '2026-01-03T23:59:59.999-03:00',

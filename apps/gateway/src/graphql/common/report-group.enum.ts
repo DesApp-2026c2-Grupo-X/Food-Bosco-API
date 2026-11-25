@@ -1,6 +1,7 @@
 import { registerEnumType } from '@nestjs/graphql'
 
 export enum ReportGroupBy {
+  HOUR = 'HOUR',
   DAY = 'DAY',
   WEEK = 'WEEK',
   MONTH = 'MONTH',
@@ -9,6 +10,7 @@ export enum ReportGroupBy {
 registerEnumType(ReportGroupBy, { name: 'ReportGroupBy' })
 
 const BY_STRING: Record<string, ReportGroupBy> = {
+  hour: ReportGroupBy.HOUR,
   day: ReportGroupBy.DAY,
   week: ReportGroupBy.WEEK,
   month: ReportGroupBy.MONTH,

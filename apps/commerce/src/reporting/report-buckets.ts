@@ -1,7 +1,8 @@
 import { BUSINESS_TIME_ZONE } from '../config/constants'
 import type { ReportGroupBy } from './reporting.model'
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
+const MS_PER_HOUR = 60 * 60 * 1000
+const MS_PER_DAY = 24 * MS_PER_HOUR
 
 interface CalendarDate {
   year: number
@@ -14,6 +15,15 @@ const calendarFormatter = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
+})
+
+const hourFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  hourCycle: 'h23',
 })
 
 const toCalendarDate = (date: Date): CalendarDate => {
@@ -111,7 +121,27 @@ const enumerateMonths = (from: CalendarDate, to: CalendarDate): string[] => {
   return buckets
 }
 
+const toHourBucket = (date: Date): string => {
+  const parts = hourFormatter.formatToParts(date)
+  const read = (type: string): string => parts.find((part) => part.type === type)?.value ?? '00'
+  return `${read('year')}-${read('month')}-${read('day')}T${read('hour')}`
+}
+
+const enumerateHours = (from: Date, to: Date): string[] => {
+  const startMs = Math.floor(from.getTime() / MS_PER_HOUR) * MS_PER_HOUR
+  const endMs = to.getTime()
+  const buckets: string[] = []
+
+  for (let cursor = startMs; cursor <= endMs; cursor += MS_PER_HOUR) {
+    buckets.push(toHourBucket(new Date(cursor)))
+  }
+
+  return buckets
+}
+
 export const enumerateReportBuckets = (from: Date, to: Date, groupBy: ReportGroupBy): string[] => {
+  if (groupBy === 'hour') return enumerateHours(from, to)
+
   const start = toCalendarDate(from)
   const end = toCalendarDate(to)
 
