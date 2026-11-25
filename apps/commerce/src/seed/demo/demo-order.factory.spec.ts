@@ -128,10 +128,20 @@ describe('buildDemoOrders', () => {
     }
   })
 
-  it('garantiza al menos un pedido de cada estado', () => {
+  it('garantiza al menos un pedido de cada estado permitido y ninguno en ready_for_delivery ni on_the_way', () => {
     const statuses = new Set(build().map((order) => order.status))
 
-    expect([...statuses].sort()).toEqual([...ORDER_STATUS_VALUES].sort())
+    expect([...statuses].sort()).toEqual(
+      [
+        ORDER_STATUS.pending,
+        ORDER_STATUS.confirmed,
+        ORDER_STATUS.preparing,
+        ORDER_STATUS.delivered,
+        ORDER_STATUS.cancelled,
+      ].sort(),
+    )
+    expect(statuses.has(ORDER_STATUS.readyForDelivery)).toBe(false)
+    expect(statuses.has(ORDER_STATUS.onTheWay)).toBe(false)
   })
 
   it('los pedidos con más de dos días sólo están entregados o cancelados', () => {
@@ -149,8 +159,6 @@ describe('buildDemoOrders', () => {
     { status: ORDER_STATUS.pending, steps: 0 },
     { status: ORDER_STATUS.confirmed, steps: 1 },
     { status: ORDER_STATUS.preparing, steps: 2 },
-    { status: ORDER_STATUS.readyForDelivery, steps: 3 },
-    { status: ORDER_STATUS.onTheWay, steps: 4 },
     { status: ORDER_STATUS.delivered, steps: 5 },
   ])('el historial acompaña el estado $status', ({ status, steps }) => {
     const order = build().find((entry) => entry.status === status)
@@ -266,12 +274,7 @@ describe('buildDemoOrders', () => {
 
     for (const b of branches) {
       const branchOrders = orders.filter((order) => order.branchId === b.id)
-      for (const status of [
-        ORDER_STATUS.pending,
-        ORDER_STATUS.confirmed,
-        ORDER_STATUS.preparing,
-        ORDER_STATUS.readyForDelivery,
-      ]) {
+      for (const status of [ORDER_STATUS.pending, ORDER_STATUS.confirmed, ORDER_STATUS.preparing]) {
         expect(branchOrders.some((order) => order.status === status)).toBe(true)
       }
     }
