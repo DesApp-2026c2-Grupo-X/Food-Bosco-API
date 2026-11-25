@@ -126,14 +126,14 @@ describe('SeedService (commerce)', () => {
 
     const result = await service.seed()
 
-    expect(mocks.branchService.updateHours).toHaveBeenCalledTimes(3)
+    expect(mocks.branchService.updateHours).toHaveBeenCalledTimes(4)
     for (const call of mocks.branchService.updateHours.mock.calls) {
       const hours = call[1]
       expect(hours).toHaveLength(7)
       expect(hours.filter((entry: { closed: boolean }) => entry.closed === false)).toHaveLength(7)
     }
-    expect(result.branches).toHaveLength(3)
-    expect(result.summary.branches).toBe(3)
+    expect(result.branches).toHaveLength(4)
+    expect(result.summary.branches).toBe(4)
     expect(result.summary.categories).toBe(5)
   })
 
@@ -142,6 +142,7 @@ describe('SeedService (commerce)', () => {
       existingEntity({ id: 'b1', name: 'Centro', hours: [{ dayOfWeek: 1 }] }),
       existingEntity({ id: 'b2', name: 'Norte', hours: [{ dayOfWeek: 1 }] }),
       existingEntity({ id: 'b3', name: 'Oeste', hours: [{ dayOfWeek: 1 }] }),
+      existingEntity({ id: 'b4', name: 'UNAHUR', hours: [{ dayOfWeek: 1 }] }),
     ]
     const mocks = buildMocks({
       branchService: {
@@ -158,9 +159,9 @@ describe('SeedService (commerce)', () => {
 
     const result = await service.seed()
 
-    expect(mocks.branchService.upsertByName).toHaveBeenCalledTimes(3)
+    expect(mocks.branchService.upsertByName).toHaveBeenCalledTimes(4)
     expect(mocks.branchService.updateHours).not.toHaveBeenCalled()
-    expect(result.branches).toHaveLength(3)
+    expect(result.branches).toHaveLength(4)
   })
 
   it('es idempotente: no vuelve a crear catálogo que ya existe y actualiza minQuantity si estaba en 0', async () => {

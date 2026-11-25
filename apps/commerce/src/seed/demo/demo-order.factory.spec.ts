@@ -260,4 +260,20 @@ describe('buildDemoOrders', () => {
     expect(withoutRider.length).toBeGreaterThan(0)
     expect(withRider.every((order) => riderIds.includes(order.riderId!))).toBe(true)
   })
+
+  it('garantiza pedidos activos en cada sucursal cuando el lote supera el umbral', () => {
+    const orders = build({ config: config({ orders: 40 }) })
+
+    for (const b of branches) {
+      const branchOrders = orders.filter((order) => order.branchId === b.id)
+      for (const status of [
+        ORDER_STATUS.pending,
+        ORDER_STATUS.confirmed,
+        ORDER_STATUS.preparing,
+        ORDER_STATUS.readyForDelivery,
+      ]) {
+        expect(branchOrders.some((order) => order.status === status)).toBe(true)
+      }
+    }
+  })
 })

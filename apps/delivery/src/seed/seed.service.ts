@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 
 import { InjectConnection } from '@nestjs/mongoose'
 import { Connection } from 'mongoose'
@@ -6,12 +6,16 @@ import { join } from 'node:path'
 
 import { envString, loadSeedData } from '@repo/seed-utils'
 
+import { ORDER_STATUS, TRIP_STATUS } from '../config/constants'
+import { env } from '../config/env'
+import { estimateMinutes, haversineDistanceKm } from '../config/geo/distance'
 import { DeliveryOrderRepository } from '../delivery-order/delivery-order.repository'
 import { normalizeVehicle } from '../rider/rider.model'
 import { RiderService } from '../rider/rider.service'
 import { ShiftService } from '../shift/shift.service'
 import { TariffService } from '../tariff/tariff.service'
 import { ZoneService } from '../zone/zone.service'
+import { DemoTripsRepository, type PlannedDemoTrip } from './demo-trips.repository'
 
 interface ZoneSeed {
   name: string
@@ -53,6 +57,16 @@ export interface SeedReadyOrder {
 
 const DATA_DIR = join(__dirname, 'data')
 
+export interface SeedCompletedOrder {
+  orderId: string
+  branchId: string
+  branchLocation: SeedLocation
+  deliveryAddress: { text: string } & SeedLocation
+  createdAt: string
+  pickedUpAt?: string | null
+  deliveredAt: string
+}
+
 export interface SeedRiderInput {
   userId: string
   firstName: string
@@ -63,6 +77,9 @@ export interface SeedRiderInput {
   location?: SeedLocation
   readyOrder?: SeedReadyOrder
   readyOrders?: SeedReadyOrder[]
+  completedOrders?: SeedCompletedOrder[]
+  demoBatchId?: string
+  resetDemoTrips?: boolean
 }
 
 export interface SeedResult {
@@ -70,6 +87,7 @@ export interface SeedResult {
     zones: number
     shifts: number
     riders: number
+    completedTrips?: number
   }
   rider: { id: string; userId: string } | null
   readyOrderId: string | null
@@ -85,6 +103,7 @@ export class SeedService {
     private readonly tariffService: TariffService,
     private readonly deliveryOrderRepository: DeliveryOrderRepository,
     @InjectConnection() private readonly connection: Connection,
+    @Optional() private readonly demoTripsRepository?: DemoTripsRepository,
   ) {}
 
   async seed(): Promise<SeedResult> {
@@ -165,11 +184,21 @@ export class SeedService {
         : []
     const readyOrderIds = await this.seedReadyOrders(readyOrders)
 
+    if (input.resetDemoTrips && this.demoTripsRepository) {
+      await this.demoTripsRepository.resetDemoData()
+    }
+    const completedTrips = await this.seedCompletedTrips(
+      input.userId,
+      input.completedOrders ?? [],
+      input.demoBatchId ?? 'demo',
+    )
+
     return {
       summary: {
         zones: 0,
         shifts: 0,
         riders: 1,
+        completedTrips,
       },
       rider: {
         id: rider.id,
@@ -178,6 +207,66 @@ export class SeedService {
       readyOrderId: readyOrderIds[0] ?? null,
       readyOrderIds,
     }
+  }
+
+  private async seedCompletedTrips(
+    riderId: string,
+    orders: SeedCompletedOrder[],
+    batchId: string,
+  ): Promise<number> {
+    if (orders.length === 0 || !this.demoTripsRepository) return 0
+
+    await this.tariffService.ensureBootstrap()
+    const tariff = await this.tariffService.getActive()
+
+    const existingOrderIds = await this.demoTripsRepository.findExistingOrderIds(
+      orders.map((order) => order.orderId),
+    )
+    const pending = orders.filter((order) => !existingOrderIds.has(order.orderId))
+    if (pending.length === 0) return 0
+
+    const planned: PlannedDemoTrip[] = pending.map((order) => {
+      const distanceKm =
+        Math.round(
+          Math.max(0.5, haversineDistanceKm(order.branchLocation, order.deliveryAddress)) * 100,
+        ) / 100
+      const estimatedMinutes = estimateMinutes(distanceKm, env.offer.avgSpeedKmh)
+      const earnings = Math.round(tariff.baseFare + tariff.perKm * distanceKm + tariff.perOrder)
+
+      const createdAt = new Date(order.createdAt)
+      const deliveredAt = new Date(order.deliveredAt)
+      const pickedUpAt = order.pickedUpAt ? new Date(order.pickedUpAt) : createdAt
+
+      return {
+        riderId,
+        status: TRIP_STATUS.completed,
+        orders: [
+          {
+            orderId: order.orderId,
+            pickupBranchId: order.branchId,
+            pickupLocation: order.branchLocation,
+            deliveryAddress: order.deliveryAddress,
+            status: ORDER_STATUS.delivered,
+            pickedUpAt,
+            deliveredAt,
+          },
+        ],
+        distanceKm,
+        estimatedMinutes,
+        estimatedEarnings: earnings,
+        tariffSnapshot: {
+          baseFare: tariff.baseFare,
+          perKm: tariff.perKm,
+          perOrder: tariff.perOrder,
+        },
+        earnings,
+        startedAt: pickedUpAt,
+        completedAt: deliveredAt,
+        createdAt,
+      }
+    })
+
+    return this.demoTripsRepository.insertCompleted(planned, batchId)
   }
 
   private async applyPresence(input: SeedRiderInput): Promise<void> {

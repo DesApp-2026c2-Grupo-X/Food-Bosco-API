@@ -66,6 +66,14 @@ const FORCED_ORDERS: { status: OrderStatus; minutesAgo: number }[] = [
   { status: ORDER_STATUS.cancelled, minutesAgo: 90 },
 ]
 
+/** Garantiza pedidos activos en cada sucursal cuando el lote es suficientemente grande. */
+const BRANCH_ACTIVE_SLOTS: { status: OrderStatus; minutesAgo: number }[] = [
+  { status: ORDER_STATUS.pending, minutesAgo: 6 },
+  { status: ORDER_STATUS.confirmed, minutesAgo: 15 },
+  { status: ORDER_STATUS.preparing, minutesAgo: 28 },
+  { status: ORDER_STATUS.readyForDelivery, minutesAgo: 50 },
+]
+
 export interface DemoAddressInput {
   id: string
   text: string
@@ -310,17 +318,68 @@ const nearestBranch = (address: DemoAddressInput, branches: PublicBranch[]): Pub
     haversineDistanceKm(address, branch) < haversineDistanceKm(address, closest) ? branch : closest,
   )
 
+const pickBranchSlot = (
+  index: number,
+  branches: PublicBranch[],
+  totalOrders: number,
+): { branch: PublicBranch; status: OrderStatus; minutesAgo: number } | null => {
+  const start = FORCED_ORDERS.length
+  const slotCount = branches.length * BRANCH_ACTIVE_SLOTS.length
+  if (totalOrders < start + slotCount || index < start || index >= start + slotCount) {
+    return null
+  }
+  const offset = index - start
+  const branch = branches[Math.floor(offset / BRANCH_ACTIVE_SLOTS.length)]
+  const slot = BRANCH_ACTIVE_SLOTS[offset % BRANCH_ACTIVE_SLOTS.length]
+  return { branch, status: slot.status, minutesAgo: slot.minutesAgo }
+}
+
+const pickCustomerForBranch = (
+  targetBranch: PublicBranch,
+  branches: PublicBranch[],
+  customerEntries: { value: DemoCustomerInput; weight: number }[],
+  random: SeededRandom,
+): { customer: DemoCustomerInput; address: DemoAddressInput } => {
+  const matching = customerEntries.flatMap((entry) => {
+    const addresses = entry.value.addresses.filter(
+      (addr) => nearestBranch(addr, branches).id === targetBranch.id,
+    )
+    return addresses.length > 0 ? [{ customer: entry.value, addresses }] : []
+  })
+
+  if (matching.length > 0) {
+    const picked = random.pick(matching)
+    return { customer: picked.customer, address: random.pick(picked.addresses) }
+  }
+
+  const fallback = random.weighted(customerEntries)
+  return { customer: fallback, address: random.pick(fallback.addresses) }
+}
+
 const buildOrder = (
   index: number,
   input: BuildDemoOrdersInput,
   customerEntries: { value: DemoCustomerInput; weight: number }[],
 ): PlannedOrder | null => {
   const { random, config, now, branches, products } = input
-  const customer = random.weighted(customerEntries)
-  const address = random.pick(customer.addresses)
-  const branch = nearestBranch(address, branches)
+  const branchSlot = pickBranchSlot(index, branches, config.orders)
+  const forced = FORCED_ORDERS[index] ?? branchSlot
 
-  const forced = FORCED_ORDERS[index]
+  const { customer, address, branch } = branchSlot
+    ? {
+        ...pickCustomerForBranch(branchSlot.branch, branches, customerEntries, random),
+        branch: branchSlot.branch,
+      }
+    : (() => {
+        const pickedCustomer = random.weighted(customerEntries)
+        const pickedAddress = random.pick(pickedCustomer.addresses)
+        return {
+          customer: pickedCustomer,
+          address: pickedAddress,
+          branch: nearestBranch(pickedAddress, branches),
+        }
+      })()
+
   const createdAt = forced
     ? new Date(now.getTime() - forced.minutesAgo * MINUTE_MS)
     : (() => {
