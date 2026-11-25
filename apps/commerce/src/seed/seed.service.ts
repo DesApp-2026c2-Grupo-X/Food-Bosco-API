@@ -208,7 +208,7 @@ const STATUS_PATHS: Record<OrderStatus, OrderStatus[]> = {
 const MAX_DEMO_ORDERS = 2000
 const MAX_DEMO_DAYS = 730
 const READY_ORDER_WINDOW_MS = 6 * 60 * 60 * 1000
-const MAX_READY_ORDERS = 5
+const MAX_READY_ORDERS = 12
 
 interface SeedSummary {
   categories: number
@@ -233,6 +233,17 @@ export interface SeedOrderSummary {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+export interface SeedDeliveredOrderSummary {
+  orderId: string
+  branchId: string
+  riderId: string
+  branchLocation: { latitude: number; longitude: number }
+  deliveryAddress: { text: string; latitude: number; longitude: number }
+  createdAt: string
+  pickedUpAt: string | null
+  deliveredAt: string
+}
+
 export interface SeedDemoSummary {
   enabled: boolean
   batchId: string | null
@@ -246,14 +257,16 @@ export interface SeedDemoSummary {
 
 export interface SeedResult {
   summary: SeedSummary
-  branches: { id: string; name: string }[]
+  branches: { id: string; name: string; latitude: number; longitude: number }[]
   orders: SeedOrderSummary[]
+  deliveredOrders: SeedDeliveredOrderSummary[]
   demo: SeedDemoSummary
 }
 
 interface DemoRunResult {
   summary: SeedDemoSummary
   readyOrders: SeedOrderSummary[]
+  deliveredOrders: SeedDeliveredOrderSummary[]
 }
 
 const emptyDemoSummary = (): SeedDemoSummary => ({
@@ -338,8 +351,14 @@ export class SeedService {
         orders: showcaseOrders.length,
         demoOrders: demo.orders,
       },
-      branches: branches.map((branch) => ({ id: branch.id, name: branch.name })),
+      branches: branches.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+        latitude: branch.latitude,
+        longitude: branch.longitude,
+      })),
       orders,
+      deliveredOrders: demoRun.deliveredOrders,
       demo,
     }
   }
@@ -351,7 +370,7 @@ export class SeedService {
   ): Promise<DemoRunResult> {
     const customers = (options.customers ?? []).filter((customer) => customer.addresses.length > 0)
     if (customers.length === 0) {
-      return { summary: emptyDemoSummary(), readyOrders: [] }
+      return { summary: emptyDemoSummary(), readyOrders: [], deliveredOrders: [] }
     }
 
     const demo = options.demo ?? {}
@@ -362,7 +381,7 @@ export class SeedService {
       MAX_DEMO_ORDERS,
     )
     if (orders === 0) {
-      return { summary: emptyDemoSummary(), readyOrders: [] }
+      return { summary: emptyDemoSummary(), readyOrders: [], deliveredOrders: [] }
     }
 
     const days = clampInt(
@@ -391,6 +410,7 @@ export class SeedService {
       return {
         summary: { ...emptyDemoSummary(), resetDeleted },
         readyOrders: [],
+        deliveredOrders: [],
       }
     }
 
@@ -425,6 +445,28 @@ export class SeedService {
       .slice(0, MAX_READY_ORDERS)
       .map((order) => this.toDemoOrderSummary(order, branchById))
 
+    const deliveredOrders: SeedDeliveredOrderSummary[] = inserted
+      .filter(
+        (order): order is InsertedDemoOrder & { riderId: string } =>
+          order.status === ORDER_STATUS.delivered && order.riderId !== null,
+      )
+      .map((order) => {
+        const branch = branchById.get(order.branchId)
+        return {
+          orderId: order.id,
+          branchId: order.branchId,
+          riderId: order.riderId,
+          branchLocation: {
+            latitude: branch?.latitude ?? 0,
+            longitude: branch?.longitude ?? 0,
+          },
+          deliveryAddress: order.deliveryAddress,
+          createdAt: order.createdAt.toISOString(),
+          pickedUpAt: order.pickedUpAt ? order.pickedUpAt.toISOString() : null,
+          deliveredAt: order.deliveredAt.toISOString(),
+        }
+      })
+
     Logger.log(
       `lote demo ${batchId}: ${inserted.length} pedidos de ${customers.length} clientes, ${reviewsCount} reseñas (semilla ${seedValue})`,
       'Seed',
@@ -442,6 +484,7 @@ export class SeedService {
         outOfStockRows: 0,
       },
       readyOrders,
+      deliveredOrders,
     }
   }
 

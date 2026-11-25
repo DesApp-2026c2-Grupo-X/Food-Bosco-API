@@ -14,6 +14,7 @@ export interface InsertedDemoOrder {
   status: OrderStatus
   deliveryAddress: { text: string; latitude: number; longitude: number }
   createdAt: Date
+  pickedUpAt?: Date | null
   deliveredAt: Date
 }
 
@@ -60,6 +61,7 @@ export class DemoOrdersRepository {
     return documents.map((document) => {
       const lastChange =
         document.statusHistory[document.statusHistory.length - 1]?.changedAt ?? document.createdAt
+      const pickedUp = document.statusHistory.find((entry) => entry.newStatus === 'on_the_way')
       return {
         id: document._id.toString(),
         number: document.number,
@@ -69,6 +71,7 @@ export class DemoOrdersRepository {
         status: document.status,
         deliveryAddress: document.deliveryAddress,
         createdAt: document.createdAt,
+        pickedUpAt: pickedUp?.changedAt ?? null,
         deliveredAt: lastChange,
       }
     })

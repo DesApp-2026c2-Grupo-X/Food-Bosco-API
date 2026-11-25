@@ -52,6 +52,36 @@ class SeedReadyOrderDto {
   deliveryAddress!: SeedDeliveryAddressDto
 }
 
+class SeedCompletedOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  orderId!: string
+
+  @IsString()
+  @IsNotEmpty()
+  branchId!: string
+
+  @ValidateNested()
+  @Type(() => SeedLocationDto)
+  branchLocation!: SeedLocationDto
+
+  @ValidateNested()
+  @Type(() => SeedDeliveryAddressDto)
+  deliveryAddress!: SeedDeliveryAddressDto
+
+  @IsString()
+  @IsNotEmpty()
+  createdAt!: string
+
+  @IsOptional()
+  @IsString()
+  pickedUpAt?: string | null
+
+  @IsString()
+  @IsNotEmpty()
+  deliveredAt!: string
+}
+
 class SeedBody {
   @IsString()
   @IsNotEmpty()
@@ -92,6 +122,20 @@ class SeedBody {
   @ValidateNested({ each: true })
   @Type(() => SeedReadyOrderDto)
   readyOrders?: SeedReadyOrderDto[]
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SeedCompletedOrderDto)
+  completedOrders?: SeedCompletedOrderDto[]
+
+  @IsOptional()
+  @IsString()
+  demoBatchId?: string
+
+  @IsOptional()
+  @IsBoolean()
+  resetDemoTrips?: boolean
 }
 
 @Controller('v1/seed')

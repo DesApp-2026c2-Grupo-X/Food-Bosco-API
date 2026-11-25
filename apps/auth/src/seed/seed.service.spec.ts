@@ -85,9 +85,9 @@ describe('SeedService (auth) — usuarios', () => {
 
     const result = await instantiate(userService, addressService).seed()
 
-    expect(result.summary.users).toBe(5)
-    expect(result.summary.addresses).toBe(2)
-    expect(userService.createUser).toHaveBeenCalledTimes(5)
+    expect(result.summary.users).toBe(8)
+    expect(result.summary.addresses).toBe(3)
+    expect(userService.createUser).toHaveBeenCalledTimes(8)
 
     const createdEmails = (userService.createUser as jest.Mock).mock.calls.map(
       (call) => call[0].email,
@@ -98,6 +98,9 @@ describe('SeedService (auth) — usuarios', () => {
       'repartidor@foodbosco.local',
       'repartidor.norte@foodbosco.local',
       'repartidor.oeste@foodbosco.local',
+      'repartidor.unahur@foodbosco.local',
+      'repartidor.norte2@foodbosco.local',
+      'repartidor.oeste2@foodbosco.local',
     ])
 
     const customerId = result.users.find((user) => user.email === 'cliente@foodbosco.local')?.id
@@ -111,7 +114,7 @@ describe('SeedService (auth) — usuarios', () => {
 
     const result = await service.seed({ branchId: 'b1' })
 
-    expect(result.summary.users).toBe(6)
+    expect(result.summary.users).toBe(9)
     const call = (userService.createUser as jest.Mock).mock.calls.find(
       (entry) => entry[0].email === 'sucursal@foodbosco.local',
     )
@@ -120,16 +123,18 @@ describe('SeedService (auth) — usuarios', () => {
 
   it.each([
     {
-      name: 'tres sucursales',
+      name: 'cuatro sucursales',
       branches: [
         { id: 'b1', name: 'Centro' },
         { id: 'b2', name: 'Norte' },
         { id: 'b3', name: 'Oeste' },
+        { id: 'b4', name: 'UNAHUR' },
       ],
       expected: [
         { email: 'sucursal.centro@foodbosco.local', branchId: 'b1' },
         { email: 'sucursal.norte@foodbosco.local', branchId: 'b2' },
         { email: 'sucursal.oeste@foodbosco.local', branchId: 'b3' },
+        { email: 'sucursal.unahur@foodbosco.local', branchId: 'b4' },
       ],
     },
     {
@@ -145,7 +150,7 @@ describe('SeedService (auth) — usuarios', () => {
 
       const result = await service.seed({ branches })
 
-      expect(result.summary.users).toBe(5 + expected.length)
+      expect(result.summary.users).toBe(8 + expected.length)
       const adminCalls = (userService.createUser as jest.Mock).mock.calls.filter(
         (call) => call[0].role === 'branch_admin',
       )
@@ -163,6 +168,7 @@ describe('SeedService (auth) — usuarios', () => {
       listByUser: jest.fn().mockResolvedValue({
         data: [
           publicAddress({ id: 'a-casa', label: 'Casa' }),
+          publicAddress({ id: 'a-unahur', label: 'UNAHUR' }),
           publicAddress({ id: 'a-trabajo', label: 'Trabajo' }),
         ],
       }),
@@ -172,8 +178,8 @@ describe('SeedService (auth) — usuarios', () => {
 
     expect(userService.createUser).not.toHaveBeenCalled()
     expect(addressService.create).not.toHaveBeenCalled()
-    expect(addressService.update).toHaveBeenCalledTimes(2)
-    expect(result.summary.users).toBe(5)
+    expect(addressService.update).toHaveBeenCalledTimes(3)
+    expect(result.summary.users).toBe(8)
     expect(result.addresses[0]).toMatchObject({ userId: 'u-existing', id: 'a-casa', label: 'Casa' })
   })
 
@@ -217,9 +223,9 @@ describe('SeedService (auth) — clientes demo', () => {
 
     const result = await instantiate(userService, addressService).seed({ demoCustomers: true })
 
-    expect(result.summary.users).toBe(29)
+    expect(result.summary.users).toBe(32)
     expect(result.customers).toHaveLength(25)
-    expect(result.summary.addresses).toBe(30)
+    expect(result.summary.addresses).toBe(31)
 
     const sofia = result.customers.find(
       (customer) => customer.email === 'sofia.ramirez@foodbosco.local',
@@ -241,9 +247,9 @@ describe('SeedService (auth) — clientes demo', () => {
 
     const result = await instantiate(userService, buildAddressService()).seed()
 
-    expect(result.summary.users).toBe(5)
+    expect(result.summary.users).toBe(8)
     expect(result.customers.map((customer) => customer.email)).toEqual(['cliente@foodbosco.local'])
-    expect(userService.createUser).toHaveBeenCalledTimes(5)
+    expect(userService.createUser).toHaveBeenCalledTimes(8)
   })
 
   it('permite pedir más clientes que la bolsa curada reutilizando direcciones', async () => {
@@ -254,9 +260,9 @@ describe('SeedService (auth) — clientes demo', () => {
       demoCustomerCount: 30,
     })
 
-    expect(result.summary.users).toBe(35)
+    expect(result.summary.users).toBe(38)
     expect(result.customers).toHaveLength(31)
-    expect(result.summary.addresses).toBe(36)
+    expect(result.summary.addresses).toBe(37)
 
     const generated = result.customers.find(
       (customer) => customer.email === 'cliente.demo.25@foodbosco.local',
@@ -282,7 +288,7 @@ describe('SeedService (auth) — clientes demo', () => {
     const result = await instantiate(userService, addressService).seed({ demoCustomers: true })
 
     expect(userService.createUser).not.toHaveBeenCalled()
-    expect(addressService.create).toHaveBeenCalledTimes(30)
+    expect(addressService.create).toHaveBeenCalledTimes(31)
     expect(result.customers).toHaveLength(25)
   })
 })

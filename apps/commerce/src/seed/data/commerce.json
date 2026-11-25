@@ -47,6 +47,13 @@
       "latitude": -34.6492342,
       "longitude": -58.6240339,
       "phone": "11 5555 3333"
+    },
+    {
+      "name": "UNAHUR",
+      "addressText": "Tte. Origone 151, Villa Tesei",
+      "latitude": -34.6186422,
+      "longitude": -58.637652,
+      "phone": "11 5555 4444"
     }
   ],
   "products": [
