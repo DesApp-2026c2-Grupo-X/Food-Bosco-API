@@ -171,10 +171,40 @@ describe('CustomerInsightsService.overview', () => {
       }),
     })
 
-    const result = await service.overview({ from: FROM.toISOString(), to: TO.toISOString() }, NOW)
+    const result = await service.overview(
+      {
+        from: '2026-09-01T00:00:00.000-03:00',
+        to: '2026-10-31T23:59:59.999-03:00',
+        groupBy: 'month',
+      },
+      NOW,
+    )
 
     expect(result.buyerSeries).toEqual([
       { bucket: '2026-09', buyers: 3 },
+      { bucket: '2026-10', buyers: 5 },
+    ])
+  })
+
+  it('completa los meses sin compradores con cero', async () => {
+    const { service } = makeService({
+      overview: rawInsights({
+        series: [{ _id: '2026-10', buyers: 5 }],
+      }),
+    })
+
+    const result = await service.overview(
+      {
+        from: '2026-08-01T00:00:00.000-03:00',
+        to: '2026-10-31T23:59:59.999-03:00',
+        groupBy: 'month',
+      },
+      NOW,
+    )
+
+    expect(result.buyerSeries).toEqual([
+      { bucket: '2026-08', buyers: 0 },
+      { bucket: '2026-09', buyers: 0 },
       { bucket: '2026-10', buyers: 5 },
     ])
   })

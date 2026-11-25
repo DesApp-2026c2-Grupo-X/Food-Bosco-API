@@ -1,6 +1,7 @@
 import type { OrderStatus } from '../config/constants'
 
 export const REPORT_GROUP_BY = {
+  hour: 'hour',
   day: 'day',
   week: 'week',
   month: 'month',
@@ -9,6 +10,7 @@ export const REPORT_GROUP_BY = {
 export type ReportGroupBy = (typeof REPORT_GROUP_BY)[keyof typeof REPORT_GROUP_BY]
 
 export const REPORT_GROUP_BY_VALUES: ReportGroupBy[] = [
+  REPORT_GROUP_BY.hour,
   REPORT_GROUP_BY.day,
   REPORT_GROUP_BY.week,
   REPORT_GROUP_BY.month,

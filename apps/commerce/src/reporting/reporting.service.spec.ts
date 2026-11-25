@@ -469,11 +469,15 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
     })
   })
 
-  it('sin datos devuelve ceros, listas vacías y sin mejor producto ni sucursal', async () => {
+  it('sin datos devuelve ceros, la serie completa en cero y sin mejor producto ni sucursal', async () => {
     const { service } = makeService({ overviews: [rawOverview(), rawOverview()] })
 
     const result = await service.overview(
-      { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      {
+        from: '2026-01-01T00:00:00.000-03:00',
+        to: '2026-01-31T23:59:59.999-03:00',
+        groupBy: 'day',
+      },
       new Date('2026-02-01T00:00:00.000Z'),
     )
 
@@ -486,9 +490,41 @@ describe('ReportingService.overview (RQ-REP-07/08/09/11)', () => {
       bestSellingProduct: null,
       topBranch: null,
     })
-    expect(result.salesSeries).toEqual([])
+    expect(result.salesSeries).toHaveLength(31)
+    expect(result.salesSeries.every((row) => row.revenue === 0 && row.orders === 0)).toBe(true)
     expect(result.topProducts).toEqual([])
     expect(result.branchPerformance).toEqual([])
+  })
+
+  it('completa los días sin ventas para no cortar la evolución temporal', async () => {
+    const { service } = makeService({
+      overviews: [
+        rawOverview({
+          series: [
+            { _id: '2026-01-01', revenue: 500, orders: 2 },
+            { _id: '2026-01-04', revenue: 300, orders: 1 },
+          ],
+        }),
+        rawOverview(),
+      ],
+    })
+
+    const result = await service.overview(
+      {
+        from: '2026-01-01T00:00:00.000-03:00',
+        to: '2026-01-05T23:59:59.999-03:00',
+        groupBy: 'day',
+      },
+      new Date('2026-02-01T00:00:00.000Z'),
+    )
+
+    expect(result.salesSeries).toEqual([
+      { bucket: '2026-01-01', revenue: 500, orders: 2 },
+      { bucket: '2026-01-02', revenue: 0, orders: 0 },
+      { bucket: '2026-01-03', revenue: 0, orders: 0 },
+      { bucket: '2026-01-04', revenue: 300, orders: 1 },
+      { bucket: '2026-01-05', revenue: 0, orders: 0 },
+    ])
   })
 
   it('usa los últimos 30 días como rango por defecto', async () => {
