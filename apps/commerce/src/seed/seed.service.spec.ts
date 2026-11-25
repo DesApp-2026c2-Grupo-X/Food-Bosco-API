@@ -70,32 +70,30 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
   },
   demoOrdersRepository: {
     count: jest.fn().mockResolvedValue(0),
-    insert: jest
-      .fn()
-      .mockImplementation(
-        async (
-          planned: {
-            clientId: string
-            status: string
-            branchId: string
-            riderId: string | null
-            createdAt: Date
-            statusHistory: { changedAt: Date }[]
-          }[],
-        ) =>
-          planned.map((order, index) => ({
-            id: `demo-${index}`,
-            number: String(index + 1).padStart(6, '0'),
-            clientId: order.clientId,
-            status: order.status,
-            branchId: order.branchId,
-            riderId: order.riderId ?? null,
-            deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
-            createdAt: order.createdAt,
-            deliveredAt:
-              order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
-          })),
-      ),
+    insert: jest.fn().mockImplementation(
+      async (
+        planned: {
+          clientId: string
+          status: string
+          branchId: string
+          riderId: string | null
+          createdAt: Date
+          statusHistory: { changedAt: Date }[]
+        }[],
+      ) =>
+        planned.map((order, index) => ({
+          id: `demo-${index}`,
+          number: String(index + 1).padStart(6, '0'),
+          clientId: order.clientId,
+          status: order.status,
+          branchId: order.branchId,
+          riderId: order.riderId ?? null,
+          deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
+          createdAt: order.createdAt,
+          deliveredAt:
+            order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
+        })),
+    ),
     findDemoOrderIds: jest.fn().mockResolvedValue([]),
     resetDemoData: jest.fn().mockResolvedValue(0),
   },
@@ -407,6 +405,41 @@ describe('SeedService (commerce)', () => {
       expect(mocks.demoOrdersRepository.insert).not.toHaveBeenCalled()
       expect(result.demo.enabled).toBe(false)
       expect(result.summary.demoOrders).toBe(0)
+    })
+  })
+
+  it('seedea las 16 promociones activas resolviendo categorías, productos, sucursales y horarios', async () => {
+    const mocks = buildMocks()
+    const service = instantiate(mocks)
+
+    const result = await service.seed()
+
+    expect(result.summary.promotions).toBe(16)
+    expect(mocks.promotionService.upsertByName).toHaveBeenCalledTimes(16)
+
+    const calls = mocks.promotionService.upsertByName.mock.calls.map(
+      (call: [Record<string, unknown>]) => call[0],
+    )
+    const happyHour = calls.find((c) => c.name === 'Happy Hour Café')
+    const centroPromo = calls.find((c) => c.name === 'Exclusivo Sucursal Centro')
+    const trasnoche = calls.find((c) => c.name === 'Trasnoche Dulce')
+
+    expect(happyHour).toMatchObject({
+      productIds: ['p-Café'],
+      daysOfWeek: [4],
+      startTime: '14:00',
+      endTime: '20:00',
+    })
+    expect(centroPromo).toMatchObject({
+      branchIds: ['b-Centro'],
+      discountValue: 15,
+      maxDiscount: 2500,
+    })
+    expect(trasnoche).toMatchObject({
+      categoryIds: ['c-Postres'],
+      code: 'NOCHE25',
+      startTime: '22:00',
+      endTime: '02:00',
     })
   })
 })

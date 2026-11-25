@@ -191,9 +191,7 @@ export class SeedController {
     )
     if (customers.length === 0) return { summary: {}, branches: [], orders: [] }
 
-    const riderIds = authResult.users
-      .filter((user) => user.role === 'rider')
-      .map((user) => user.id)
+    const riderIds = authResult.users.filter((user) => user.role === 'rider').map((user) => user.id)
 
     return this.commerce.post<CommerceSeedResult>('/v1/seed', {
       context,

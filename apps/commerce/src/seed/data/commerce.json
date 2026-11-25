@@ -516,6 +516,142 @@
       "buyQuantity": 3,
       "payQuantity": 2,
       "active": true
+    },
+    {
+      "name": "Cupón Demo Jueves",
+      "description": "$1.000 de descuento acumulable en pedidos desde $5.000 con el cupón DEMO1000.",
+      "type": "FIXED_AMOUNT",
+      "scope": "ORDER",
+      "code": "DEMO1000",
+      "discountValue": 1000,
+      "minSubtotal": 5000,
+      "maxUsesTotal": 50,
+      "maxUsesPerCustomer": 3,
+      "stackable": true,
+      "active": true
+    },
+    {
+      "name": "Bonus 2+ unidades",
+      "description": "$500 de descuento automático los jueves llevando 2 o más unidades (acumulable).",
+      "type": "FIXED_AMOUNT",
+      "scope": "ORDER",
+      "discountValue": 500,
+      "minQuantity": 2,
+      "daysOfWeek": [4],
+      "stackable": true,
+      "active": true
+    },
+    {
+      "name": "Exclusivo Sucursal Centro",
+      "description": "15% de descuento (tope $2.500) exclusivo para pedidos en Sucursal Centro.",
+      "type": "PERCENTAGE",
+      "scope": "ORDER",
+      "branchNames": ["Centro"],
+      "discountValue": 15,
+      "maxDiscount": 2500,
+      "active": true
+    },
+    {
+      "name": "Norte 20% OFF",
+      "description": "20% de descuento (tope $3.000) exclusivo para pedidos en Sucursal Norte.",
+      "type": "PERCENTAGE",
+      "scope": "ORDER",
+      "branchNames": ["Norte"],
+      "discountValue": 20,
+      "maxDiscount": 3000,
+      "active": true
+    },
+    {
+      "name": "Happy Hour Café",
+      "description": "30% de descuento en Café los jueves de 14:00 a 20:00 hs.",
+      "type": "PERCENTAGE",
+      "scope": "PRODUCT",
+      "productNames": ["Café"],
+      "discountValue": 30,
+      "daysOfWeek": [4],
+      "startTime": "14:00",
+      "endTime": "20:00",
+      "active": true
+    },
+    {
+      "name": "Trasnoche Dulce",
+      "description": "25% de descuento en Postres de 22:00 a 02:00 hs con el cupón NOCHE25.",
+      "type": "PERCENTAGE",
+      "scope": "CATEGORY",
+      "categoryName": "Postres",
+      "code": "NOCHE25",
+      "discountValue": 25,
+      "startTime": "22:00",
+      "endTime": "02:00",
+      "active": true
+    },
+    {
+      "name": "2x1 Papas Fritas Jueves",
+      "description": "Llevás 2 porciones de Papas Fritas y pagás 1 los jueves.",
+      "type": "BUY_X_GET_Y",
+      "scope": "PRODUCT",
+      "productNames": ["Papas Fritas"],
+      "buyQuantity": 2,
+      "payQuantity": 1,
+      "daysOfWeek": [4],
+      "priority": 20,
+      "active": true
+    },
+    {
+      "name": "50% Agua Mineral (Tope $400)",
+      "description": "50% de descuento en Agua Mineral con tope de $400.",
+      "type": "PERCENTAGE",
+      "scope": "PRODUCT",
+      "productNames": ["Agua Mineral"],
+      "discountValue": 50,
+      "maxDiscount": 400,
+      "priority": 30,
+      "active": true
+    },
+    {
+      "name": "Cupón VIP Compra Grande",
+      "description": "$5.000 de descuento no acumulable en compras desde $15.000 con el cupón VIP5000.",
+      "type": "FIXED_AMOUNT",
+      "scope": "ORDER",
+      "code": "VIP5000",
+      "discountValue": 5000,
+      "minSubtotal": 15000,
+      "stackable": false,
+      "active": true
+    },
+    {
+      "name": "Cupón Flash 1 Uso",
+      "description": "$1.500 de descuento válido para 1 solo uso total con el cupón FLASH1.",
+      "type": "FIXED_AMOUNT",
+      "scope": "ORDER",
+      "code": "FLASH1",
+      "discountValue": 1500,
+      "maxUsesTotal": 1,
+      "maxUsesPerCustomer": 1,
+      "active": true
+    },
+    {
+      "name": "20% Off en Postres",
+      "description": "20% de descuento acumulable en Postres llevando 2 o más unidades con el cupón DULCE20.",
+      "type": "PERCENTAGE",
+      "scope": "CATEGORY",
+      "categoryName": "Postres",
+      "code": "DULCE20",
+      "discountValue": 20,
+      "minQuantity": 2,
+      "stackable": true,
+      "active": true
+    },
+    {
+      "name": "Primeros 10 Pedidos -$800",
+      "description": "$800 de descuento automático acumulable para los primeros 10 pedidos.",
+      "type": "FIXED_AMOUNT",
+      "scope": "ORDER",
+      "discountValue": 800,
+      "maxUsesTotal": 10,
+      "stackable": true,
+      "priority": 10,
+      "active": true
     }
   ],
   "orderStates": [

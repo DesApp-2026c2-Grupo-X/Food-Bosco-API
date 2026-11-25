@@ -4,17 +4,17 @@
 
 Usuarios creados por el seed (dominio `@foodbosco.local`).
 
-| Email                             | Rol            | Contraseña       | Sucursal      |
-| --------------------------------- | -------------- | ---------------- | ------------- |
-| `admin@foodbosco.local`           | `super_admin`  | `Admin123!`      | —             |
-| `cliente@foodbosco.local`         | `customer`     | `Cliente123!`    | —             |
+| Email                              | Rol            | Contraseña       | Sucursal      |
+| ---------------------------------- | -------------- | ---------------- | ------------- |
+| `admin@foodbosco.local`            | `super_admin`  | `Admin123!`      | —             |
+| `cliente@foodbosco.local`          | `customer`     | `Cliente123!`    | —             |
 | `repartidor@foodbosco.local`       | `rider`        | `Repartidor123!` | —             |
 | `repartidor.norte@foodbosco.local` | `rider`        | `Repartidor123!` | —             |
 | `repartidor.oeste@foodbosco.local` | `rider`        | `Repartidor123!` | —             |
-| `sucursal@foodbosco.local`        | `branch_admin` | `Sucursal123!`   | (sin asignar) |
-| `sucursal.centro@foodbosco.local` | `branch_admin` | `Sucursal123!`   | **Centro**    |
-| `sucursal.norte@foodbosco.local`  | `branch_admin` | `Sucursal123!`   | **Norte**     |
-| `sucursal.oeste@foodbosco.local`  | `branch_admin` | `Sucursal123!`   | **Oeste**     |
+| `sucursal@foodbosco.local`         | `branch_admin` | `Sucursal123!`   | (sin asignar) |
+| `sucursal.centro@foodbosco.local`  | `branch_admin` | `Sucursal123!`   | **Centro**    |
+| `sucursal.norte@foodbosco.local`   | `branch_admin` | `Sucursal123!`   | **Norte**     |
+| `sucursal.oeste@foodbosco.local`   | `branch_admin` | `Sucursal123!`   | **Oeste**     |
 
 - El `customer` tiene **2 direcciones** sembradas.
 - Los 3 `rider` arrancan con vehículos asignados (`Moto Honda CG Titan`, `Bicicleta rodado 29`, `Moto Yamaha YBR 125`).
