@@ -73,7 +73,15 @@ describe('CustomerReportingService.overview (RQ-REP-CLIENTE)', () => {
       }),
     })
 
-    const result = await service.overview('client-1', {}, NOW)
+    const result = await service.overview(
+      'client-1',
+      {
+        from: '2026-09-01T00:00:00.000-03:00',
+        to: '2026-10-31T23:59:59.999-03:00',
+        groupBy: 'month',
+      },
+      NOW,
+    )
 
     expect(result.activitySeries).toEqual([
       { bucket: '2026-09', orders: 4, completedOrders: 2, totalSpent: 700 },
@@ -115,10 +123,18 @@ describe('CustomerReportingService.overview (RQ-REP-CLIENTE)', () => {
     })
   })
 
-  it('sin pedidos devuelve ceros, listas vacías y sin sucursal favorita', async () => {
+  it('sin pedidos devuelve ceros, la serie en cero y sin sucursal favorita', async () => {
     const { service } = makeService()
 
-    const result = await service.overview('client-1', {}, NOW)
+    const result = await service.overview(
+      'client-1',
+      {
+        from: '2026-10-01T00:00:00.000-03:00',
+        to: '2026-10-31T23:59:59.999-03:00',
+        groupBy: 'month',
+      },
+      NOW,
+    )
 
     expect(result.summary).toEqual({
       totalOrders: 0,
@@ -129,7 +145,9 @@ describe('CustomerReportingService.overview (RQ-REP-CLIENTE)', () => {
       averageTicket: 0,
       favoriteBranch: null,
     })
-    expect(result.activitySeries).toEqual([])
+    expect(result.activitySeries).toEqual([
+      { bucket: '2026-10', orders: 0, completedOrders: 0, totalSpent: 0 },
+    ])
     expect(result.frequentProducts).toEqual([])
     expect(result.ordersByStatus).toHaveLength(7)
   })
