@@ -409,4 +409,39 @@ describe('SeedService (commerce)', () => {
       expect(result.summary.demoOrders).toBe(0)
     })
   })
+
+  it('seedea las 16 promociones activas resolviendo categorías, productos, sucursales y horarios', async () => {
+    const mocks = buildMocks()
+    const service = instantiate(mocks)
+
+    const result = await service.seed()
+
+    expect(result.summary.promotions).toBe(16)
+    expect(mocks.promotionService.upsertByName).toHaveBeenCalledTimes(16)
+
+    const calls = mocks.promotionService.upsertByName.mock.calls.map(
+      (call: [Record<string, unknown>]) => call[0],
+    )
+    const happyHour = calls.find((c) => c.name === 'Happy Hour Café')
+    const centroPromo = calls.find((c) => c.name === 'Exclusivo Sucursal Centro')
+    const trasnoche = calls.find((c) => c.name === 'Trasnoche Dulce')
+
+    expect(happyHour).toMatchObject({
+      productIds: ['p-Café'],
+      daysOfWeek: [4],
+      startTime: '14:00',
+      endTime: '20:00',
+    })
+    expect(centroPromo).toMatchObject({
+      branchIds: ['b-Centro'],
+      discountValue: 15,
+      maxDiscount: 2500,
+    })
+    expect(trasnoche).toMatchObject({
+      categoryIds: ['c-Postres'],
+      code: 'NOCHE25',
+      startTime: '22:00',
+      endTime: '02:00',
+    })
+  })
 })
