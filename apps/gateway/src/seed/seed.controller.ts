@@ -163,7 +163,7 @@ export class SeedController {
     const authResult = await this.auth.post<AuthSeedResult>('/v1/seed', {
       context,
       body: {
-        branches: commerceResult.branches,
+        branches: commerceResult.branches.map(({ id, name }) => ({ id, name })),
         demoCustomers: demoEnabled,
         ...(clients !== undefined ? { demoCustomerCount: clients } : {}),
       },
