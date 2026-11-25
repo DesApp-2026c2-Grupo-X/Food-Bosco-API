@@ -216,18 +216,18 @@
 >
 > Una vez implementada la funcionalidad, realizar las siguientes pruebas:
 >
-> | Caso | Resultado esperado |
-> |---|---|
-> | Carrito con un producto | Permite eliminarlo correctamente |
-> | Carrito con varios productos | Elimina únicamente el seleccionado |
-> | Eliminar el último producto | El carrito queda vacío |
-> | Eliminar un producto con cantidad mayor a uno | Se elimina el producto completo, no solamente una unidad |
-> | Productos con diferentes precios | Los totales se recalculan correctamente |
-> | Productos con variantes o identificadores diferentes | Se elimina únicamente el producto seleccionado |
-> | Actualización del carrito | Los cambios se reflejan inmediatamente |
-> | Persistencia | El producto eliminado no reaparece al recargar o navegar, según el mecanismo actual |
-> | Checkout | Continúa funcionando correctamente con productos restantes |
-> | Carrito vacío | No permite continuar con una compra inválida |
+> | Caso                                                 | Resultado esperado                                                                  |
+> | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+> | Carrito con un producto                              | Permite eliminarlo correctamente                                                    |
+> | Carrito con varios productos                         | Elimina únicamente el seleccionado                                                  |
+> | Eliminar el último producto                          | El carrito queda vacío                                                              |
+> | Eliminar un producto con cantidad mayor a uno        | Se elimina el producto completo, no solamente una unidad                            |
+> | Productos con diferentes precios                     | Los totales se recalculan correctamente                                             |
+> | Productos con variantes o identificadores diferentes | Se elimina únicamente el producto seleccionado                                      |
+> | Actualización del carrito                            | Los cambios se reflejan inmediatamente                                              |
+> | Persistencia                                         | El producto eliminado no reaparece al recargar o navegar, según el mecanismo actual |
+> | Checkout                                             | Continúa funcionando correctamente con productos restantes                          |
+> | Carrito vacío                                        | No permite continuar con una compra inválida                                        |
 >
 > También verificar:
 >
@@ -255,38 +255,48 @@
 > El informe debe incluir:
 >
 > ### 1. Resumen
+>
 > Descripción de la funcionalidad incorporada.
 >
 > ### 2. Diagnóstico inicial
+>
 > Explicación de cómo funcionaba el carrito antes del cambio y qué limitación presentaba.
 >
 > ### 3. Arquitectura identificada
+>
 > Explicar brevemente cómo se administraba el estado y la persistencia del carrito.
 >
 > ### 4. Implementación
+>
 > Describir cómo se incorporó la opción de eliminación y qué lógica existente se reutilizó.
 >
 > ### 5. Archivos modificados
 >
 > | Repositorio | Archivo | Función o componente | Modificación | Justificación |
-> |---|---|---|---|---|
+> | ----------- | ------- | -------------------- | ------------ | ------------- |
 >
 > Incluir todos los archivos modificados, sin omitir ninguno.
 >
 > ### 6. Funcionamiento final
+>
 > Explicar el comportamiento de la nueva opción desde la interacción del usuario hasta la actualización del carrito.
 >
 > ### 7. Pruebas realizadas
+>
 > Detallar casos probados, resultados y limitaciones.
 >
 > ### 8. Compatibilidad
+>
 > Explicar cómo se preservaron las funcionalidades anteriores del carrito y del checkout.
 >
 > ### 9. Control de alcance
+>
 > Confirmar que no se modificaron funcionalidades ajenas al objetivo.
 >
 > ### 10. Git
+>
 > Informar:
+>
 > - Rama creada en cada repositorio.
 > - Rama base.
 > - Estado final de Git.
@@ -294,6 +304,7 @@
 > - Commits realizados, si existieran.
 >
 > ### 11. Pendientes
+>
 > Documentar observaciones que hayan quedado fuera del alcance.
 >
 > ---

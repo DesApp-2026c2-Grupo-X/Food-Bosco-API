@@ -70,32 +70,30 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
   },
   demoOrdersRepository: {
     count: jest.fn().mockResolvedValue(0),
-    insert: jest
-      .fn()
-      .mockImplementation(
-        async (
-          planned: {
-            clientId: string
-            status: string
-            branchId: string
-            riderId: string | null
-            createdAt: Date
-            statusHistory: { changedAt: Date }[]
-          }[],
-        ) =>
-          planned.map((order, index) => ({
-            id: `demo-${index}`,
-            number: String(index + 1).padStart(6, '0'),
-            clientId: order.clientId,
-            status: order.status,
-            branchId: order.branchId,
-            riderId: order.riderId ?? null,
-            deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
-            createdAt: order.createdAt,
-            deliveredAt:
-              order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
-          })),
-      ),
+    insert: jest.fn().mockImplementation(
+      async (
+        planned: {
+          clientId: string
+          status: string
+          branchId: string
+          riderId: string | null
+          createdAt: Date
+          statusHistory: { changedAt: Date }[]
+        }[],
+      ) =>
+        planned.map((order, index) => ({
+          id: `demo-${index}`,
+          number: String(index + 1).padStart(6, '0'),
+          clientId: order.clientId,
+          status: order.status,
+          branchId: order.branchId,
+          riderId: order.riderId ?? null,
+          deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
+          createdAt: order.createdAt,
+          deliveredAt:
+            order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
+        })),
+    ),
     findDemoOrderIds: jest.fn().mockResolvedValue([]),
     resetDemoData: jest.fn().mockResolvedValue(0),
   },
