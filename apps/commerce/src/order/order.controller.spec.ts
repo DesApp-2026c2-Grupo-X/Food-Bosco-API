@@ -136,6 +136,12 @@ describe('OrderController.get — visibilidad (assertCanView)', () => {
     },
     { name: 'super_admin', ctx: auth({ roles: [ROLES.superAdmin] }), doc: order(), ok: true },
     {
+      name: 'llamada interna entre servicios',
+      ctx: auth({ roles: [], userId: null, internal: true }),
+      doc: order(),
+      ok: true,
+    },
+    {
       name: 'rider asignado',
       ctx: auth({ roles: [ROLES.rider], userId: 'r1' }),
       doc: order({ riderId: 'r1' }),

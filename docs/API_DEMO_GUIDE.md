@@ -626,6 +626,8 @@ Los servicios:
 | `registerRider`                                                                                                                                                                                                           |   ✅    |      ✅      |        ✅        |     ✅      |       ✅       |
 
 > `order`/`orderHistory` delegan el ownership al servicio: super_admin; branch_admin de la sucursal; rider asignado; o el cliente dueño. Si no, el servicio responde `404 ORDER_NOT_FOUND` (no 403, para no filtrar existencia).
+>
+> Para el rider, el gateway además valida el ownership contra Delivery cuando Commerce responde `404 ORDER_NOT_FOUND`: si el pedido pertenece a un viaje del rider (`GET /v1/trips/by-order/:orderId`) lo relee con el token interno. Así la app del repartidor funciona aunque el evento `trip.accepted` no haya llegado a Commerce (por ejemplo, sin broker).
 
 ## 5.5 Scoping por rol (dónde se aplica de verdad)
 
@@ -1118,7 +1120,7 @@ Sin `BROKER_URL` (default):
 
 - `POST /seed`/`npm run seed` inserta directamente un pedido `ready_for_delivery` en `deliveryOrders` (seed de delivery), salteando el evento.
 - El flujo del rider (oferta → aceptar → pickup → deliver) funciona porque vive en delivery y actualiza commerce por REST interno (`PATCH /v1/orders/:id/status`).
-- Lo que no se ve sin broker es la **ubicación del rider en el tracking del cliente**: `Order.riderId`/`Order.tripId` quedan `null` en commerce, así que `Order.riderLocation` devuelve `null` (y un rider no podría consultar el pedido por `order(id)`, porque el ownership se apoya en `riderId`).
+- Lo que no se ve sin broker es la **ubicación del rider en el tracking del cliente**: `Order.riderId`/`Order.tripId` quedan `null` en commerce, así que `Order.riderLocation` devuelve `null`. El detalle del pedido para el rider **sí** funciona: si Commerce responde `ORDER_NOT_FOUND`, el gateway valida el viaje contra Delivery y relee la orden con el token interno.
 
 Para el flujo completo real: levantar RabbitMQ y definir `BROKER_URL=amqp://...` en commerce y delivery.
 
@@ -1562,6 +1564,7 @@ Estas rutas las consumen el gateway (y ocasionalmente el frontend para uploads).
 | POST      | `/v1/trips/:tripId/orders/:orderId/pickup`  | rider          |
 | POST      | `/v1/trips/:tripId/orders/:orderId/deliver` | rider          |
 | GET       | `/v1/trips`                                 | rider          |
+| GET       | `/v1/trips/by-order/:orderId`               | rider (propio) |
 | GET       | `/v1/trips/:tripId`                         | rider (propio) |
 | GET       | `/v1/zones`                                 | público        |
 | GET       | `/v1/zones/:id`                             | público        |

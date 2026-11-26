@@ -56,6 +56,7 @@ export class OrderController {
 
   @Get(':orderId')
   @Authenticated()
+  @Internal()
   async get(
     @CurrentUser() auth: AuthContext,
     @Param('orderId') orderId: string,
@@ -113,6 +114,9 @@ export class OrderController {
   ): asserts order is PublicOrder {
     if (!order) {
       throw new DomainException(ERROR_CODES.orderNotFound, 'Pedido no encontrado', 404)
+    }
+    if (auth.internal) {
+      return
     }
     if (auth.roles.includes(ROLES.superAdmin)) {
       return
