@@ -120,7 +120,7 @@ describe('Commerce — health & seed E2E', () => {
       expect(res.body.summary.orders).toBe(5)
       expect(res.body.orders).toHaveLength(5)
       expect((res.body.orders as { status: string }[]).map((order) => order.status).sort()).toEqual(
-        ['cancelled', 'delivered', 'on_the_way', 'pending', 'ready_for_delivery'],
+        ['cancelled', 'confirmed', 'delivered', 'pending', 'preparing'],
       )
     })
 

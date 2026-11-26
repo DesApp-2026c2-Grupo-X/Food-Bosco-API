@@ -14,6 +14,7 @@ import type {
   ReportVariation,
   SalesSeriesPoint,
 } from './reporting.model'
+import { fillReportSeries } from './report-buckets'
 import { ReportingRepository } from './reporting.repository'
 import type { OverviewAggregateRaw } from './reporting.repository'
 
@@ -178,11 +179,17 @@ export class ReportingService {
         averageTicket,
         previousAverageTicket,
       ),
-      salesSeries: current.series.map((row): SalesSeriesPoint => ({
-        bucket: row._id,
-        revenue: row.revenue,
-        orders: row.orders,
-      })),
+      salesSeries: fillReportSeries(
+        current.series.map((row): SalesSeriesPoint => ({
+          bucket: row._id,
+          revenue: row.revenue,
+          orders: row.orders,
+        })),
+        range.from,
+        range.to,
+        currentFilter.groupBy ?? 'day',
+        (bucket): SalesSeriesPoint => ({ bucket, revenue: 0, orders: 0 }),
+      ),
       ordersByStatus: this.toOrdersByStatus(current),
       topProducts,
       branchPerformance,

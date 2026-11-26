@@ -85,6 +85,9 @@ interface PromotionSeed {
   type: PromotionType
   scope: PromotionScope
   categoryName?: string
+  categoryNames?: string[]
+  productNames?: string[]
+  branchNames?: string[]
   discountValue?: number
   maxDiscount?: number
   buyQuantity?: number
@@ -95,6 +98,8 @@ interface PromotionSeed {
   maxUsesTotal?: number
   maxUsesPerCustomer?: number
   daysOfWeek?: number[]
+  startTime?: string
+  endTime?: string
   stackable?: boolean
   priority?: number
   active?: boolean
@@ -203,7 +208,7 @@ const STATUS_PATHS: Record<OrderStatus, OrderStatus[]> = {
 const MAX_DEMO_ORDERS = 2000
 const MAX_DEMO_DAYS = 730
 const READY_ORDER_WINDOW_MS = 6 * 60 * 60 * 1000
-const MAX_READY_ORDERS = 5
+const MAX_READY_ORDERS = 12
 
 interface SeedSummary {
   categories: number
@@ -228,6 +233,17 @@ export interface SeedOrderSummary {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+export interface SeedDeliveredOrderSummary {
+  orderId: string
+  branchId: string
+  riderId: string
+  branchLocation: { latitude: number; longitude: number }
+  deliveryAddress: { text: string; latitude: number; longitude: number }
+  createdAt: string
+  pickedUpAt: string | null
+  deliveredAt: string
+}
+
 export interface SeedDemoSummary {
   enabled: boolean
   batchId: string | null
@@ -241,14 +257,16 @@ export interface SeedDemoSummary {
 
 export interface SeedResult {
   summary: SeedSummary
-  branches: { id: string; name: string }[]
+  branches: { id: string; name: string; latitude: number; longitude: number }[]
   orders: SeedOrderSummary[]
+  deliveredOrders: SeedDeliveredOrderSummary[]
   demo: SeedDemoSummary
 }
 
 interface DemoRunResult {
   summary: SeedDemoSummary
   readyOrders: SeedOrderSummary[]
+  deliveredOrders: SeedDeliveredOrderSummary[]
 }
 
 const emptyDemoSummary = (): SeedDemoSummary => ({
@@ -298,8 +316,17 @@ export class SeedService {
     const categories = await this.seedCategories(data.categories)
     const ingredients = await this.seedIngredients(data.ingredients)
     const branches = await this.seedBranches(data)
-    const products = await this.seedProducts(data.products, categories, ingredients)
-    const promotions = await this.seedPromotions(data.promotions, categories)
+    const { createdCount: products, productByName } = await this.seedProducts(
+      data.products,
+      categories,
+      ingredients,
+    )
+    const promotions = await this.seedPromotions(
+      data.promotions,
+      categories,
+      branches,
+      productByName,
+    )
     const stockRows = await this.seedStock(branches, ingredients)
     const showcaseOrders = await this.seedOrders(data.orders ?? [], branches, options)
 
@@ -324,8 +351,14 @@ export class SeedService {
         orders: showcaseOrders.length,
         demoOrders: demo.orders,
       },
-      branches: branches.map((branch) => ({ id: branch.id, name: branch.name })),
+      branches: branches.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+        latitude: branch.latitude,
+        longitude: branch.longitude,
+      })),
       orders,
+      deliveredOrders: demoRun.deliveredOrders,
       demo,
     }
   }
@@ -337,7 +370,7 @@ export class SeedService {
   ): Promise<DemoRunResult> {
     const customers = (options.customers ?? []).filter((customer) => customer.addresses.length > 0)
     if (customers.length === 0) {
-      return { summary: emptyDemoSummary(), readyOrders: [] }
+      return { summary: emptyDemoSummary(), readyOrders: [], deliveredOrders: [] }
     }
 
     const demo = options.demo ?? {}
@@ -348,7 +381,7 @@ export class SeedService {
       MAX_DEMO_ORDERS,
     )
     if (orders === 0) {
-      return { summary: emptyDemoSummary(), readyOrders: [] }
+      return { summary: emptyDemoSummary(), readyOrders: [], deliveredOrders: [] }
     }
 
     const days = clampInt(
@@ -377,6 +410,7 @@ export class SeedService {
       return {
         summary: { ...emptyDemoSummary(), resetDeleted },
         readyOrders: [],
+        deliveredOrders: [],
       }
     }
 
@@ -411,6 +445,28 @@ export class SeedService {
       .slice(0, MAX_READY_ORDERS)
       .map((order) => this.toDemoOrderSummary(order, branchById))
 
+    const deliveredOrders: SeedDeliveredOrderSummary[] = inserted
+      .filter(
+        (order): order is InsertedDemoOrder & { riderId: string } =>
+          order.status === ORDER_STATUS.delivered && order.riderId !== null,
+      )
+      .map((order) => {
+        const branch = branchById.get(order.branchId)
+        return {
+          orderId: order.id,
+          branchId: order.branchId,
+          riderId: order.riderId,
+          branchLocation: {
+            latitude: branch?.latitude ?? 0,
+            longitude: branch?.longitude ?? 0,
+          },
+          deliveryAddress: order.deliveryAddress,
+          createdAt: order.createdAt.toISOString(),
+          pickedUpAt: order.pickedUpAt ? order.pickedUpAt.toISOString() : null,
+          deliveredAt: order.deliveredAt.toISOString(),
+        }
+      })
+
     Logger.log(
       `lote demo ${batchId}: ${inserted.length} pedidos de ${customers.length} clientes, ${reviewsCount} reseñas (semilla ${seedValue})`,
       'Seed',
@@ -428,6 +484,7 @@ export class SeedService {
         outOfStockRows: 0,
       },
       readyOrders,
+      deliveredOrders,
     }
   }
 
@@ -700,12 +757,13 @@ export class SeedService {
     products: ProductSeed[],
     categories: { id: string; name: string }[],
     ingredients: Map<string, string>,
-  ): Promise<number> {
+  ): Promise<{ createdCount: number; productByName: Map<string, string> }> {
     const { data } = await this.productService.list({ limit: 500, offset: 0 })
+    const productByName = new Map(data.map((product) => [product.name, product.id]))
     let createdCount = 0
 
     for (const seed of products) {
-      if (data.find((product) => product.name === seed.name)) {
+      if (productByName.has(seed.name)) {
         continue
       }
 
@@ -751,6 +809,7 @@ export class SeedService {
           await this.productService.setRecipe(product.id, recipe)
         }
 
+        productByName.set(seed.name, product.id)
         createdCount += 1
         Logger.log(`producto creado: ${seed.name}`, 'Seed')
       } catch (error: unknown) {
@@ -759,26 +818,37 @@ export class SeedService {
       }
     }
 
-    return createdCount
+    return { createdCount, productByName }
+  }
+
+  private resolveNamesToIds(names: string[] | undefined, map: Map<string, string>): string[] {
+    if (!names || names.length === 0) return []
+    return names.map((name) => map.get(name)).filter((id): id is string => id !== undefined)
   }
 
   private async seedPromotions(
     promotions: PromotionSeed[],
     categories: { id: string; name: string }[],
+    branches: { id: string; name: string }[],
+    productByName: Map<string, string>,
   ): Promise<number> {
     const now = Date.now()
     const { data } = await this.promotionService.list({ limit: 500, offset: 0 })
     let createdCount = 0
 
     const categoryByName = new Map(categories.map((c) => [c.name, c.id]))
+    const branchByName = new Map(branches.map((b) => [b.name, b.id]))
 
     for (const seed of promotions) {
       if (data.find((promotion) => promotion.name === seed.name)) continue
 
-      const categoryIds =
-        seed.categoryName && categoryByName.get(seed.categoryName)
-          ? [categoryByName.get(seed.categoryName)!]
-          : []
+      const requestedCategories = [
+        ...(seed.categoryName ? [seed.categoryName] : []),
+        ...(seed.categoryNames ?? []),
+      ]
+      const categoryIds = this.resolveNamesToIds(requestedCategories, categoryByName)
+      const productIds = this.resolveNamesToIds(seed.productNames, productByName)
+      const branchIds = this.resolveNamesToIds(seed.branchNames, branchByName)
 
       await this.promotionService.upsertByName({
         name: seed.name,
@@ -790,14 +860,16 @@ export class SeedService {
         buyQuantity: seed.buyQuantity,
         payQuantity: seed.payQuantity,
         categoryIds,
-        productIds: [],
-        branchIds: [],
+        productIds,
+        branchIds,
         code: seed.code,
         minSubtotal: seed.minSubtotal ?? 0,
         minQuantity: seed.minQuantity ?? 0,
         maxUsesTotal: seed.maxUsesTotal,
         maxUsesPerCustomer: seed.maxUsesPerCustomer,
         daysOfWeek: seed.daysOfWeek ?? [],
+        startTime: seed.startTime ?? null,
+        endTime: seed.endTime ?? null,
         stackable: seed.stackable ?? false,
         priority: seed.priority ?? 0,
         startDate: new Date(now - 24 * 60 * 60 * 1000),

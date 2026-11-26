@@ -1,7 +1,10 @@
+import type { BranchService } from '../branch/branch.service'
 import type { CategoryService } from '../category/category.service'
-import { ERROR_CODES } from '../config/constants'
+import { ERROR_CODES, PROMOTION_SCOPE, PROMOTION_TYPE } from '../config/constants'
 import type { PublicIngredient } from '../ingredient/ingredient.model'
 import type { IngredientService } from '../ingredient/ingredient.service'
+import type { PublicPromotion } from '../promotion/promotion.model'
+import type { PromotionService } from '../promotion/promotion.service'
 import type { PublicProduct } from './product.model'
 import { ProductOrchestrator } from './product.orchestrator'
 import type { ProductService } from './product.service'
@@ -27,8 +30,40 @@ const ingredient = (id: string): PublicIngredient => ({
   active: true,
 })
 
+const makePromotion = (overrides: Partial<PublicPromotion> = {}): PublicPromotion => ({
+  id: 'promo-1',
+  name: '20% en burgers',
+  description: null,
+  startDate: '2020-01-01T00:00:00.000Z',
+  endDate: '2099-12-31T23:59:59.999Z',
+  active: true,
+  type: PROMOTION_TYPE.percentage,
+  discountValue: 20,
+  maxDiscount: null,
+  buyQuantity: null,
+  payQuantity: null,
+  scope: PROMOTION_SCOPE.product,
+  categoryIds: [],
+  productIds: ['p1'],
+  branchIds: [],
+  minSubtotal: 0,
+  minQuantity: 0,
+  daysOfWeek: [],
+  startTime: null,
+  endTime: null,
+  code: null,
+  stackable: false,
+  priority: 0,
+  maxUsesTotal: null,
+  maxUsesPerCustomer: null,
+  usedCount: 0,
+  ...overrides,
+})
+
 const makeOrchestrator = () => {
   const productService = {
+    list: jest.fn(),
+    findById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     setRecipe: jest.fn(),
@@ -37,12 +72,23 @@ const makeOrchestrator = () => {
   }
   const categoryService = { findById: jest.fn() }
   const ingredientService = { findByIds: jest.fn() }
+  const promotionService = { getCandidates: jest.fn().mockResolvedValue([]) }
+  const branchService = { findAvailable: jest.fn().mockResolvedValue([]) }
   const orchestrator = new ProductOrchestrator(
     productService as unknown as ProductService,
     categoryService as unknown as CategoryService,
     ingredientService as unknown as IngredientService,
+    promotionService as unknown as PromotionService,
+    branchService as unknown as BranchService,
   )
-  return { orchestrator, productService, categoryService, ingredientService }
+  return {
+    orchestrator,
+    productService,
+    categoryService,
+    ingredientService,
+    promotionService,
+    branchService,
+  }
 }
 
 describe('ProductOrchestrator.create — validación de categoría (RQ-CAT-04)', () => {
@@ -163,5 +209,66 @@ describe('ProductOrchestrator — receta: validación de ingredientes (RQ-CAT-11
     ])
 
     expect(ingredientService.findByIds).toHaveBeenCalledWith(['ing1'])
+  })
+})
+
+describe('ProductOrchestrator — previews de promociones', () => {
+  it('lista productos con preview y resuelve la sucursal desde coordenadas', async () => {
+    const { orchestrator, productService, promotionService, branchService } = makeOrchestrator()
+    productService.list.mockResolvedValue({
+      data: [product()],
+      meta: { total: 1, limit: 20, offset: 0 },
+    })
+    promotionService.getCandidates.mockResolvedValue([makePromotion()])
+    branchService.findAvailable.mockResolvedValue([{ id: 'branch-1' }])
+
+    const result = await orchestrator.listWithPreviews(
+      { limit: 20, offset: 0 },
+      { lat: -34.6, lng: -58.4 },
+    )
+
+    expect(branchService.findAvailable).toHaveBeenCalledWith(-34.6, -58.4)
+    expect(promotionService.getCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: 'branch-1' }),
+    )
+    expect(result.data[0].promotion?.badge).toBe('-20%')
+    expect(result.data[0].promotion?.estimatedUnitPrice).toBe(80)
+  })
+
+  it('sin coordenadas sólo evalúa promociones globales', async () => {
+    const { orchestrator, productService, promotionService, branchService } = makeOrchestrator()
+    productService.list.mockResolvedValue({
+      data: [product()],
+      meta: { total: 1, limit: 20, offset: 0 },
+    })
+
+    await orchestrator.listWithPreviews({ limit: 20, offset: 0 })
+
+    expect(branchService.findAvailable).not.toHaveBeenCalled()
+    expect(promotionService.getCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ branchId: null }),
+    )
+  })
+
+  it('rechaza coordenadas incompletas', async () => {
+    const { orchestrator, productService } = makeOrchestrator()
+    productService.list.mockResolvedValue({
+      data: [],
+      meta: { total: 0, limit: 20, offset: 0 },
+    })
+
+    await expect(
+      orchestrator.listWithPreviews({ limit: 20, offset: 0 }, { lat: -34.6 }),
+    ).rejects.toMatchObject({
+      code: ERROR_CODES.validationError,
+      status: 400,
+    })
+  })
+
+  it('devuelve null si el producto no existe', async () => {
+    const { orchestrator, productService } = makeOrchestrator()
+    productService.findById.mockResolvedValue(null)
+
+    await expect(orchestrator.findByIdWithPreviews('missing')).resolves.toBeNull()
   })
 })

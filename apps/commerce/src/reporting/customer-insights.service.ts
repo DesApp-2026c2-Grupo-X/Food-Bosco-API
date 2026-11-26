@@ -18,6 +18,7 @@ import type {
   CustomerInsightsSort,
   ReportGroupBy,
 } from './reporting.model'
+import { fillReportSeries } from './report-buckets'
 import { ReportingRepository } from './reporting.repository'
 
 export interface CustomerInsightsQuery {
@@ -62,10 +63,11 @@ export class CustomerInsightsService {
     now: Date = new Date(),
   ): Promise<CustomerInsightsOverview> {
     const range = this.resolveRange(query, now)
+    const groupBy = query.groupBy ?? 'month'
     const filter: CustomerInsightsFilter = {
       ...range,
       branchId: query.branchId,
-      groupBy: query.groupBy ?? 'month',
+      groupBy,
       sortBy: query.sortBy ?? CUSTOMER_INSIGHTS_SORT.lastPurchase,
       limit: this.resolveLimit(query.limit),
     }
@@ -115,10 +117,16 @@ export class CustomerInsightsService {
     return {
       period: { from: range.from.toISOString(), to: range.to.toISOString() },
       kpis,
-      buyerSeries: raw.series.map((entry) => ({
-        bucket: entry._id,
-        buyers: entry.buyers,
-      })),
+      buyerSeries: fillReportSeries(
+        raw.series.map((entry) => ({
+          bucket: entry._id,
+          buyers: entry.buyers,
+        })),
+        range.from,
+        range.to,
+        groupBy,
+        (bucket) => ({ bucket, buyers: 0 }),
+      ),
       frequency: this.toFrequency(buyers),
       recency: this.toRecency(buyers, now),
       branchActivity,

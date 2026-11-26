@@ -10,6 +10,7 @@ import type {
   ReportGroupBy,
 } from './reporting.model'
 import { CUSTOMER_REPORT_DEFAULT_DAYS } from './reporting.model'
+import { fillReportSeries } from './report-buckets'
 import { ReportingRepository } from './reporting.repository'
 
 export interface CustomerReportQuery {
@@ -48,9 +49,10 @@ export class CustomerReportingService {
     }
 
     const range = this.resolveRange(query, now)
+    const groupBy = query.groupBy ?? 'month'
     const raw = await this.repository.aggregateCustomerOverview(clientId, {
       ...range,
-      groupBy: query.groupBy ?? 'month',
+      groupBy,
     })
 
     const summaryRaw = raw.summary[0] ?? emptySummary()
@@ -67,12 +69,23 @@ export class CustomerReportingService {
         averageTicket,
         favoriteBranch,
       },
-      activitySeries: raw.series.map((row): CustomerActivityPoint => ({
-        bucket: row._id,
-        orders: row.orders,
-        completedOrders: row.completedOrders,
-        totalSpent: row.totalSpent,
-      })),
+      activitySeries: fillReportSeries(
+        raw.series.map((row): CustomerActivityPoint => ({
+          bucket: row._id,
+          orders: row.orders,
+          completedOrders: row.completedOrders,
+          totalSpent: row.totalSpent,
+        })),
+        range.from,
+        range.to,
+        groupBy,
+        (bucket): CustomerActivityPoint => ({
+          bucket,
+          orders: 0,
+          completedOrders: 0,
+          totalSpent: 0,
+        }),
+      ),
       frequentProducts: raw.frequentProducts.map((row): CustomerProductRow => ({
         productId: row._id,
         name: row.name,

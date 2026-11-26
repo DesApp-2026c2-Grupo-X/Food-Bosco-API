@@ -1,5 +1,5 @@
 import { Inject, UseGuards } from '@nestjs/common'
-import { Args, Context, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
+import { Args, Context, Float, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { ROLES } from '../../config/constants'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient, RestQuery } from '../../rest/rest.client'
@@ -53,6 +53,7 @@ import {
   Product,
   ProductReportRow,
   Promotion,
+  PromotionCatalogItem,
   RepeatOrderResult,
   ReportsOverview,
   mapBranch,
@@ -74,6 +75,7 @@ import {
   mapProduct,
   mapProductReportRow,
   mapPromotion,
+  mapPromotionCatalogItem,
   mapReportsOverview,
 } from './commerce.types'
 
@@ -149,10 +151,14 @@ export class CommerceResolver {
   @Query(() => Product)
   async product(
     @Args('id', { type: () => ID }) id: string,
+    @Args('lat', { type: () => Float, nullable: true }) lat: number | null,
+    @Args('lng', { type: () => Float, nullable: true }) lng: number | null,
     @Context() ctx: GraphQLContext,
   ): Promise<Product> {
+    const query = lat !== null && lng !== null ? { lat, lng } : undefined
     const raw = await this.rest.get<RawRecord>(`/v1/catalog/products/${id}`, {
       context: toRestContext(ctx),
+      ...(query ? { query } : {}),
     })
     return mapProduct(raw)
   }
@@ -186,6 +192,18 @@ export class CommerceResolver {
   async publicPromotions(): Promise<Promotion[]> {
     const raw = await this.rest.get<RawRecord[]>('/v1/catalog/promotions/public')
     return raw.map(mapPromotion)
+  }
+
+  @Query(() => [PromotionCatalogItem])
+  async promotionCatalog(
+    @Args('lat', { type: () => Float, nullable: true }) lat: number | null,
+    @Args('lng', { type: () => Float, nullable: true }) lng: number | null,
+  ): Promise<PromotionCatalogItem[]> {
+    const query = lat !== null && lng !== null ? { lat, lng } : undefined
+    const raw = await this.rest.get<RawRecord[]>('/v1/catalog/promotions/public/catalog', {
+      ...(query ? { query } : {}),
+    })
+    return raw.map(mapPromotionCatalogItem)
   }
 
   @Query(() => [Promotion])
@@ -945,11 +963,22 @@ export class CommerceResolver {
   @Roles(ROLES.customer)
   async setCartPromotionCode(
     @Args('code', { type: () => String, nullable: true }) code: string | null,
+    @Args('addressId', { type: () => ID, nullable: true }) addressId: string | null | undefined,
     @Context() ctx: GraphQLContext,
   ): Promise<Cart> {
+    let query: RestQuery | undefined = undefined
+    if (addressId) {
+      const address = await this.authRest.get<RawRecord>(`/v1/addresses/${addressId}`, {
+        context: toRestContext(ctx),
+      })
+      if (address?.latitude !== undefined && address?.longitude !== undefined) {
+        query = { lat: Number(address.latitude), lng: Number(address.longitude) }
+      }
+    }
     const raw = await this.rest.patch<RawRecord>('/v1/carts/promotion-code', {
       body: { code },
       context: toRestContext(ctx),
+      ...(query ? { query } : {}),
     })
     return mapCart(raw)
   }

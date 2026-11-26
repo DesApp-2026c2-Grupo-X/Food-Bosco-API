@@ -101,6 +101,25 @@ PromotionSchema.index(
 PromotionSchema.index({ active: 1, startDate: 1, endDate: 1 })
 PromotionSchema.index({ branchIds: 1 })
 
+export type PromotionBadgeKind =
+  'PERCENTAGE' | 'FIXED_AMOUNT' | 'BUY_X_GET_Y' | 'COUPON' | 'INFORMATIONAL'
+
+export interface ProductPromotionPreview {
+  promotionId: string
+  name: string
+  kind: PromotionBadgeKind
+  badge: string
+  originalPrice: number
+  estimatedUnitPrice: number | null
+  discountValue: number | null
+  maxDiscount: number | null
+  minSubtotal: number
+  minQuantity: number
+  conditionsMet: boolean
+  promotionCount: number
+  endsAt: string
+}
+
 export interface PublicPromotion {
   id: string
   name: string
@@ -174,6 +193,7 @@ export interface PublicBannerPromotion {
   categoryIds: string[]
   productIds: string[]
   branchIds: string[]
+  code: string | null
 }
 
 export const serializeBannerPromotion = (doc: PromotionDocument): PublicBannerPromotion => ({
@@ -191,4 +211,5 @@ export const serializeBannerPromotion = (doc: PromotionDocument): PublicBannerPr
   categoryIds: doc.categoryIds ?? [],
   productIds: doc.productIds ?? [],
   branchIds: doc.branchIds ?? [],
+  code: doc.code ?? null,
 })

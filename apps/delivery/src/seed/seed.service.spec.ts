@@ -25,6 +25,7 @@ const buildService = (deps: {
   shift?: unknown
   repo?: unknown
   tariff?: unknown
+  demoTrips?: unknown
   connection?: Connection
 }) =>
   new SeedService(
@@ -34,6 +35,7 @@ const buildService = (deps: {
     (deps.tariff ?? { ensureBootstrap: jest.fn() }) as unknown as TariffService,
     (deps.repo ?? buildRepo()) as DeliveryOrderRepository,
     deps.connection ?? buildConnection(),
+    deps.demoTrips as never,
   )
 
 const zoneStub = () => ({
@@ -92,7 +94,7 @@ describe('SeedService (delivery)', () => {
     const result = await service.seed()
 
     expect(tariff.ensureBootstrap).toHaveBeenCalledTimes(1)
-    expect(result.summary).toEqual({ zones: 3, shifts: 3, riders: 1 })
+    expect(result.summary).toEqual({ zones: 4, shifts: 3, riders: 1 })
     expect(result.rider).toEqual({ id: 'r1', userId: 'u-rider' })
     expect(result.readyOrderId).toBeNull()
     expect(result.readyOrderIds).toEqual([])
@@ -188,7 +190,7 @@ describe('SeedService (delivery)', () => {
 
     expect(zones).toBe(0)
     expect(shifts).toBe(0)
-    expect(zoneService.upsertByName).toHaveBeenCalledTimes(3)
+    expect(zoneService.upsertByName).toHaveBeenCalledTimes(4)
     expect(zoneService.create).not.toHaveBeenCalled()
     expect(shiftService.create).not.toHaveBeenCalled()
   })
@@ -276,6 +278,65 @@ describe('SeedService (delivery)', () => {
       expect(repo.upsertReady).toHaveBeenCalledTimes(3)
       expect(result.readyOrderIds).toEqual(['o1', 'o2', 'o3'])
       expect(result.readyOrderId).toBe('o1')
+    })
+
+    it('crea viajes completados históricos con ganancias y soporta resetDemoTrips', async () => {
+      const demoTrips = {
+        resetDemoData: jest.fn().mockResolvedValue(2),
+        findExistingOrderIds: jest.fn().mockResolvedValue(new Set(['o-existing'])),
+        insertCompleted: jest.fn().mockImplementation(async (trips: unknown[]) => trips.length),
+      }
+      const tariff = {
+        ensureBootstrap: jest.fn().mockResolvedValue(undefined),
+        getActive: jest.fn().mockResolvedValue({
+          baseFare: 500,
+          perKm: 200,
+          perOrder: 300,
+          currency: 'ARS',
+        }),
+      }
+
+      const result = await buildService({
+        rider: riderStub(),
+        tariff,
+        demoTrips,
+      }).seedRiderProfile({
+        ...baseInput,
+        demoBatchId: 'batch-1',
+        resetDemoTrips: true,
+        completedOrders: [
+          {
+            orderId: 'o-existing',
+            branchId: 'b1',
+            branchLocation: { latitude: -34.6186, longitude: -58.6376 },
+            deliveryAddress: { text: 'Calle 1', latitude: -34.6186, longitude: -58.6376 },
+            createdAt: '2026-10-01T12:00:00.000Z',
+            deliveredAt: '2026-10-01T12:40:00.000Z',
+          },
+          {
+            orderId: 'o-new',
+            branchId: 'b1',
+            branchLocation: { latitude: -34.6186, longitude: -58.6376 },
+            deliveryAddress: { text: 'Calle 2', latitude: -34.6, longitude: -58.63 },
+            createdAt: '2026-10-02T12:00:00.000Z',
+            pickedUpAt: '2026-10-02T12:25:00.000Z',
+            deliveredAt: '2026-10-02T12:45:00.000Z',
+          },
+        ],
+      })
+
+      expect(demoTrips.resetDemoData).toHaveBeenCalledTimes(1)
+      expect(demoTrips.insertCompleted).toHaveBeenCalledWith(
+        [
+          expect.objectContaining({
+            riderId: 'u1',
+            status: 'completed',
+            earnings: expect.any(Number),
+          }),
+        ],
+        'batch-1',
+      )
+      expect(result.summary.completedTrips).toBe(1)
     })
   })
 })

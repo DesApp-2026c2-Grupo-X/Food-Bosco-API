@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { IngredientModule } from '../ingredient/ingredient.module'
 import { ParameterModule } from '../parameter/parameter.module'
 import { ProductModule } from '../product/product.module'
+import { PromotionModule } from '../promotion/promotion.module'
 import { StockModule } from '../stock/stock.module'
 import { BranchController } from './branch.controller'
 import { BranchOrchestrator } from './branch.orchestrator'
@@ -21,7 +22,8 @@ import { BranchService } from './branch.service'
       { name: BranchProductAvailability.name, schema: BranchProductAvailabilitySchema },
     ]),
     ParameterModule,
-    ProductModule,
+    forwardRef(() => ProductModule),
+    forwardRef(() => PromotionModule),
     forwardRef(() => IngredientModule),
     StockModule,
   ],

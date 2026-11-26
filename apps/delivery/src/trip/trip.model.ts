@@ -83,6 +83,9 @@ export class Trip {
   @Prop({ default: null, type: Date })
   expiresAt!: Date | null
 
+  @Prop({ default: null, type: String, index: true })
+  demoBatchId?: string | null
+
   createdAt!: Date
   updatedAt!: Date
 }

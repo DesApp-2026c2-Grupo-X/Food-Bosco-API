@@ -75,7 +75,12 @@ export class CartOrchestrator {
     const total = await this.computeGrossTotal(items)
     const updated = await this.cartService.replaceItems(cart.id, items, total)
     if (!updated) this.notFound()
-    return this.enrichCartWithPricing({ ...updated, promotionCode: cart.promotionCode }, context)
+    let promotionCode = cart.promotionCode
+    if (items.length === 0 && promotionCode) {
+      await this.cartService.setPromotionCode(cart.id, null)
+      promotionCode = null
+    }
+    return this.enrichCartWithPricing({ ...updated, promotionCode }, context)
   }
 
   async updateItem(
@@ -109,7 +114,12 @@ export class CartOrchestrator {
     const total = await this.computeGrossTotal(items)
     const updated = await this.cartService.replaceItems(cart.id, items, total)
     if (!updated) this.notFound()
-    return this.enrichCartWithPricing({ ...updated, promotionCode: cart.promotionCode }, context)
+    let promotionCode = cart.promotionCode
+    if (items.length === 0 && promotionCode) {
+      await this.cartService.setPromotionCode(cart.id, null)
+      promotionCode = null
+    }
+    return this.enrichCartWithPricing({ ...updated, promotionCode }, context)
   }
 
   async removeItem(clientId: string, itemId: string, context?: CartContext): Promise<PublicCart> {
@@ -124,7 +134,12 @@ export class CartOrchestrator {
     const total = await this.computeGrossTotal(items)
     const updated = await this.cartService.replaceItems(cart.id, items, total)
     if (!updated) this.notFound()
-    return this.enrichCartWithPricing({ ...updated, promotionCode: cart.promotionCode }, context)
+    let promotionCode = cart.promotionCode
+    if (items.length === 0 && promotionCode) {
+      await this.cartService.setPromotionCode(cart.id, null)
+      promotionCode = null
+    }
+    return this.enrichCartWithPricing({ ...updated, promotionCode }, context)
   }
 
   async confirmCart(clientId: string): Promise<PublicCart> {
@@ -145,10 +160,19 @@ export class CartOrchestrator {
     const total = await this.computeGrossTotal(items)
     const updated = await this.cartService.replaceItems(cart.id, items, total)
     if (!updated) this.notFound()
-    return this.enrichCartWithPricing({ ...updated, promotionCode: cart.promotionCode }, context)
+    let promotionCode = cart.promotionCode
+    if (items.length === 0 && promotionCode) {
+      await this.cartService.setPromotionCode(cart.id, null)
+      promotionCode = null
+    }
+    return this.enrichCartWithPricing({ ...updated, promotionCode }, context)
   }
 
-  async setPromotionCode(clientId: string, code: string | null): Promise<PublicCart> {
+  async setPromotionCode(
+    clientId: string,
+    code: string | null,
+    context?: CartContext,
+  ): Promise<PublicCart> {
     const cart = await this.cartService.findActiveByClient(clientId)
     if (!cart) {
       throw new DomainException(ERROR_CODES.cartNotFound, 'Carrito no encontrado', 404)
@@ -192,10 +216,74 @@ export class CartOrchestrator {
           409,
         )
       }
+
+      const preview = await this.enrichCartWithPricing(
+        { ...cart, promotionCode: normCode },
+        context,
+      )
+      if (preview.rejectedPromotionCode) {
+        throw this.mapRejectedCodeException(preview.rejectedPromotionCode.reason)
+      }
+
+      await this.cartService.setPromotionCode(cart.id, normCode)
+      return preview
     }
 
     await this.cartService.setPromotionCode(cart.id, normCode)
-    return this.enrichCartWithPricing({ ...cart, promotionCode: normCode })
+    return this.enrichCartWithPricing({ ...cart, promotionCode: normCode }, context)
+  }
+
+  private mapRejectedCodeException(reason: string): DomainException {
+    switch (reason) {
+      case 'CART_EMPTY':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'Agregá productos al carrito antes de aplicar un cupón',
+          400,
+        )
+      case 'PROMOTION_SCHEDULE_NOT_MET':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'El cupón no está vigente en este día u horario',
+          400,
+        )
+      case 'PROMOTION_BRANCH_NOT_ALLOWED':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'El cupón no aplica para la sucursal de tu dirección seleccionada',
+          400,
+        )
+      case 'PROMOTION_SCOPE_NOT_MET':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'El cupón no aplica a los productos de tu carrito',
+          400,
+        )
+      case 'PROMOTION_MIN_SUBTOTAL_NOT_MET':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'No alcanzaste el monto mínimo de compra para este cupón',
+          400,
+        )
+      case 'PROMOTION_MIN_QUANTITY_NOT_MET':
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'No alcanzaste la cantidad mínima de unidades para este cupón',
+          400,
+        )
+      case 'PROMOTION_LIMIT_REACHED':
+        return new DomainException(
+          ERROR_CODES.promotionLimitReached,
+          'El cupón ha alcanzado su límite de usos',
+          409,
+        )
+      default:
+        return new DomainException(
+          ERROR_CODES.promotionCodeInvalid,
+          'El cupón no cumple las condiciones para aplicarse a este carrito',
+          400,
+        )
+    }
   }
 
   private async enrichCartWithPricing(
@@ -209,6 +297,9 @@ export class CartOrchestrator {
         discountTotal: 0,
         total: cart.total ?? 0,
         appliedPromotions: [],
+        rejectedPromotionCode: cart.promotionCode
+          ? { code: cart.promotionCode, reason: 'CART_EMPTY' }
+          : null,
       }
     }
 
@@ -243,6 +334,7 @@ export class CartOrchestrator {
         discountTotal: 0,
         total: grossSubtotal,
         appliedPromotions: [],
+        rejectedPromotionCode: null,
       }
     }
 
@@ -281,6 +373,7 @@ export class CartOrchestrator {
       discountTotal: pricing.discountTotal,
       total: pricing.total,
       appliedPromotions: pricing.appliedPromotions as AppliedPromotionPreview[],
+      rejectedPromotionCode: pricing.rejectedCode ?? null,
     }
   }
 

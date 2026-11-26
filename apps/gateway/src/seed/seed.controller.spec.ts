@@ -105,7 +105,7 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
     expect(auth.post).toHaveBeenCalledWith(
       '/v1/seed',
       expect.objectContaining({
-        body: { branches: [branch], demoCustomers: true },
+        body: { branches: [branch], demoCustomers: true, demoCustomerCount: 40 },
       }),
     )
     expect(commerce.post).toHaveBeenNthCalledWith(
@@ -153,7 +153,7 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
       commerce: baseCommerce.summary,
       auth: { users: 27, addresses: 30 },
       demo: demoCommerce.demo,
-      delivery: { riders: 1, readyOrderId: 'o-ready' },
+      delivery: { riders: 1, readyOrderId: 'o-ready', completedTrips: 0 },
     })
   })
 
@@ -226,7 +226,7 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
     const result = await controller.seed({})
 
     expect(delivery.post).not.toHaveBeenCalled()
-    expect(result.delivery).toEqual({ riders: 0 })
+    expect(result.delivery).toEqual({ riders: 0, completedTrips: 0 })
   })
 
   it('soporta múltiples riders enviando todos los riderIds a commerce y creando perfiles en delivery', async () => {
@@ -267,7 +267,90 @@ describe('Gateway SeedController (RQ-GW-12)', () => {
         body: expect.objectContaining({ userId: 'u-rider-2', readyOrders: [] }),
       }),
     )
-    expect(result.delivery).toEqual({ riders: 2, readyOrderId: 'o-ready' })
+    expect(result.delivery).toEqual({ riders: 2, readyOrderId: 'o-ready', completedTrips: 0 })
+  })
+
+  it('asigna ubicación a todos los riders y agrupa completedOrders por riderId', async () => {
+    const { controller, commerce, auth, delivery } = makeController()
+    const unahurBranch = {
+      id: 'b-unahur',
+      name: 'UNAHUR',
+      latitude: -34.6186422,
+      longitude: -58.637652,
+    }
+    const baseWithCoords = {
+      summary: { branches: 2 },
+      branches: [
+        { id: 'b1', name: 'Centro', latitude: -34.5899, longitude: -58.6332 },
+        unahurBranch,
+      ],
+    }
+    const demoWithDelivered = {
+      ...demoCommerce,
+      deliveredOrders: [
+        {
+          orderId: 'o-del-1',
+          branchId: 'b-unahur',
+          riderId: 'u-rider-unahur',
+          branchLocation: { latitude: -34.6186422, longitude: -58.637652 },
+          deliveryAddress: { text: 'Tte. Origone 151', latitude: -34.619, longitude: -58.638 },
+          createdAt: '2026-10-01T12:00:00.000Z',
+          pickedUpAt: '2026-10-01T12:20:00.000Z',
+          deliveredAt: '2026-10-01T12:40:00.000Z',
+        },
+      ],
+    }
+    commerce.post.mockImplementation(
+      async (_path: string, options: { body?: { customers?: unknown } }) =>
+        options?.body?.customers ? demoWithDelivered : baseWithCoords,
+    )
+    const riderUnahur = {
+      ...rider,
+      id: 'u-rider-unahur',
+      email: 'repartidor.unahur@foodbosco.local',
+    }
+    auth.post.mockResolvedValue({
+      summary: { users: 4 },
+      users: [customer, rider, riderUnahur],
+      customers: [customer],
+    })
+    delivery.post
+      .mockResolvedValueOnce({ summary: { riders: 1, completedTrips: 0 } })
+      .mockResolvedValueOnce({ summary: { riders: 1, completedTrips: 1 } })
+
+    const result = await controller.seed({ reset: true })
+
+    expect(delivery.post).toHaveBeenNthCalledWith(
+      1,
+      '/v1/seed',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          userId: 'u-rider',
+          resetDemoTrips: true,
+          demoBatchId: '20261027201511-73',
+        }),
+      }),
+    )
+    expect(delivery.post).toHaveBeenNthCalledWith(
+      2,
+      '/v1/seed',
+      expect.objectContaining({
+        body: expect.objectContaining({
+          userId: 'u-rider-unahur',
+          location: expect.objectContaining({
+            latitude: expect.any(Number),
+            longitude: expect.any(Number),
+          }),
+          completedOrders: [
+            expect.objectContaining({
+              orderId: 'o-del-1',
+              branchId: 'b-unahur',
+            }),
+          ],
+        }),
+      }),
+    )
+    expect(result.delivery).toEqual({ riders: 2, completedTrips: 1 })
   })
 
   it.each([

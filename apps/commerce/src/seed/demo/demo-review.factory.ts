@@ -68,14 +68,8 @@ const COURIER_COMMENTS_BY_RATING: Record<RatingScore, readonly string[]> = {
     'Tardó un poco en encontrar el timbre pero todo bien.',
     'Entrega normal, sin problemas.',
   ],
-  2: [
-    'Costó coordinar la entrega en la puerta.',
-    'Llegó bastante después del horario estimado.',
-  ],
-  1: [
-    'Muy poca predisposición al entregar el pedido.',
-    'Demoró demasiado y no avisó al llegar.',
-  ],
+  2: ['Costó coordinar la entrega en la puerta.', 'Llegó bastante después del horario estimado.'],
+  1: ['Muy poca predisposición al entregar el pedido.', 'Demoró demasiado y no avisó al llegar.'],
 }
 
 export interface PlannedOrderReview {

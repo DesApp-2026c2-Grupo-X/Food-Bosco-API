@@ -1,1 +1,1 @@
-npm run lint && npm run format
+npm run lint && node -e "const { execFileSync } = require('child_process'); const files = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z']).toString().split('\0').filter(Boolean); if (files.length) { execFileSync('npx', ['prettier', '--write', '--ignore-unknown', ...files], { stdio: 'inherit', shell: true }); execFileSync('git', ['add', '--', ...files], { stdio: 'inherit' }); }"

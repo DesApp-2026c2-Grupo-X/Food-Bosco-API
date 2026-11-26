@@ -8,6 +8,8 @@ import type { AuthContext } from '../config/security/jwt.service'
 import type { PublicOrder } from '../order/order.model'
 import { OrderService } from '../order/order.service'
 import { ProductService } from '../product/product.service'
+import { resolveProductPromotionPreviews } from '../promotion/promotion.preview'
+import { isBranchMatch, isScheduleMatch } from '../promotion/promotion.engine'
 import { PromotionService } from '../promotion/promotion.service'
 import type { HomeFeed, ReorderCard } from './personalization.model'
 import type { HomeFeedQueryDto } from './dto/home-feed-query.dto'
@@ -110,6 +112,33 @@ export class PersonalizationOrchestrator {
         .map((branch) => [branch.id, branch]),
     )
 
+    const branchId = nearest?.branch.id ?? null
+    const activePromotions = promotions.filter(
+      (p) => isScheduleMatch(p, now) && isBranchMatch(p, branchId),
+    )
+    const recommendedProducts = [
+      ...new Map(
+        [...forYou, ...discovery].map((entry) => [entry.product.id, entry.product]),
+      ).values(),
+    ]
+    const previewsByProduct = resolveProductPromotionPreviews(
+      recommendedProducts,
+      activePromotions,
+      branchId,
+      now,
+    )
+    const withPreview = (entry: (typeof forYou)[number]) => {
+      const preview = previewsByProduct.get(entry.product.id)
+      return {
+        ...entry,
+        product: {
+          ...entry.product,
+          promotion: preview?.promotion ?? null,
+          promotions: preview?.promotions ?? [],
+        },
+      }
+    }
+
     return {
       generatedAt: now.toISOString(),
       hasHistory: profile.hasHistory,
@@ -124,10 +153,14 @@ export class PersonalizationOrchestrator {
           }
         : null,
       categories: sortCategories(categories, profile),
-      forYou,
-      discovery,
+      forYou: forYou.map(withPreview),
+      discovery: discovery.map(withPreview),
       reorder: reorderOrders.map((order) => this.toReorderCard(order, branchesById)),
-      promotions: rankPromotions(promotions, profile, PERSONALIZATION_CONSTANTS.promotionLimit),
+      promotions: rankPromotions(
+        activePromotions,
+        profile,
+        PERSONALIZATION_CONSTANTS.promotionLimit,
+      ),
     }
   }
 

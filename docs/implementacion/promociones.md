@@ -174,3 +174,44 @@ En reportes y métricas de ventas (`reporting.repository.ts`):
 - **Carrito (`/cart`):** Tarjeta de cupón de descuento para ingresar o quitar códigos con feedback visual inmediato, y `OrderTotalCard` con desglose de subtotal bruto, descuentos y total a pagar.
 - **Checkout (`/checkout`):** Desglose transparente de promociones aplicadas.
 - **Seguimiento (`/orders/:id`):** Resumen fiel del snapshot con subtotal, descuentos y total definitivo.
+
+---
+
+## 8. Previews de productos y catálogo público de promociones
+
+La Tienda necesita mostrar el beneficio vigente en las tarjetas de producto y una página
+dedicada de promociones. El precio final sigue calculándose exclusivamente en el carrito.
+
+### 8.1 Preview por producto
+
+Los endpoints de catálogo devuelven `promotion` (la mejor promo para la tarjeta) y
+`promotions` (todas las aplicables):
+
+- `GET /v1/catalog/products?lat=&lng=`
+- `GET /v1/catalog/products/{id}?lat=&lng=`
+- `GET /v1/branches/available/products?lat=&lng=` (sucursal más cercana disponible)
+
+Reglas:
+
+- Se reutilizan `isScheduleMatch` e `isBranchMatch` del motor.
+- Porcentaje sin `maxDiscount`: badge + precio estimado por unidad.
+- Porcentaje con `maxDiscount`: sólo badge y tope; sin precio estimado.
+- `FIXED_AMOUNT`: badge `Hasta $X OFF`; sin precio final.
+- `BUY_X_GET_Y`: badge `NxM`; sin precio final.
+- Si `minSubtotal` o `minQuantity` no se cumplen con una unidad, `conditionsMet=false`
+  y no se devuelve precio estimado.
+- El preview no se persiste ni reemplaza el cálculo del carrito.
+
+### 8.2 Catálogo público de promociones
+
+`GET /v1/catalog/promotions/public/catalog?lat=&lng=` devuelve las promociones vigentes
+con `categories` y `products` hidratados, `code` para cupones, condiciones y vigencia.
+No expone `usedCount` ni `maxUsesTotal` / `maxUsesPerCustomer`.
+
+La home feed (`GET /v1/personalization/home-feed`) también adjunta previews a los
+productos de `forYou` y `discovery`.
+
+### 8.3 Regla de oro
+
+El carrito sigue siendo la única fuente de verdad del precio. El preview es informativo
+y puede variar por cantidad, sucursal, horario, mínimos, topes de uso o cupón ingresado.

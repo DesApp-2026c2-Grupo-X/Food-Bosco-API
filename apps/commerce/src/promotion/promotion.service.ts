@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ERROR_CODES, PROMOTION_SCOPE, PROMOTION_TYPE } from '../config/constants'
 import { DomainException } from '../config/exceptions/domain.exception'
-import { AppliedPromotion } from './promotion.engine'
+import { AppliedPromotion, isBranchMatch, isScheduleMatch } from './promotion.engine'
 import {
   PromotionDocument,
   PublicBannerPromotion,
@@ -347,7 +347,9 @@ export class PromotionService {
 
   async getPublicActive(now: Date = new Date()): Promise<PublicBannerPromotion[]> {
     const docs = await this.repository.findPublicActive(now)
-    return docs.map(serializeBannerPromotion)
+    return docs
+      .filter((doc) => isScheduleMatch(serializePromotion(doc), now))
+      .map(serializeBannerPromotion)
   }
 
   /**
@@ -358,6 +360,20 @@ export class PromotionService {
   async getActiveForHome(now: Date = new Date()): Promise<PublicPromotion[]> {
     const docs = await this.repository.findPublicActive(now)
     return docs.map(serializePromotion)
+  }
+
+  /**
+   * Promociones vigentes para la página pública: incluye informativas y filtra
+   * día, horario y sucursal. No aplica el filtro de cupón del carrito.
+   */
+  async getPublicCatalogCandidates(
+    branchId: string | null,
+    now: Date = new Date(),
+  ): Promise<PublicPromotion[]> {
+    const docs = await this.repository.findActivePublicCandidates({ branchId, now })
+    return docs
+      .map(serializePromotion)
+      .filter((promotion) => isScheduleMatch(promotion, now) && isBranchMatch(promotion, branchId))
   }
 
   async getUsageMap(

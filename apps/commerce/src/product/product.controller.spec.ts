@@ -78,6 +78,10 @@ const makeController = (
     ...overrides,
   }
   const orchestrator = {
+    listWithPreviews: jest.fn((query: Parameters<ProductService['list']>[0]) =>
+      service.list(query),
+    ),
+    findByIdWithPreviews: jest.fn((id: string) => service.findById(id)),
     create: jest.fn(),
     update: jest.fn(),
     setRecipe: jest.fn(),

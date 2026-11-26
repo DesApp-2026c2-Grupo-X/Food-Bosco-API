@@ -464,4 +464,35 @@ describe('PromotionEngine (pure functions)', () => {
     const ctxPast = makeContext(lines, { now: new Date('2026-01-15T12:00:00Z') })
     expect(evaluatePromotions([promo], ctxPast).discountTotal).toBe(0)
   })
+
+  it('31. Cupón rechazado por condiciones no suprime promociones automáticas activas', () => {
+    const lines = [line('l1', 'p1', 'c1', 5000, 1)]
+    const autoPromo = makeCandidate({
+      id: 'auto1',
+      name: 'Auto 500',
+      type: PROMOTION_TYPE.fixedAmount,
+      discountValue: 500,
+      code: null,
+    })
+    const coupon = makeCandidate({
+      id: 'cp-min',
+      code: 'MIN8000',
+      type: PROMOTION_TYPE.fixedAmount,
+      discountValue: 2000,
+      minSubtotal: 8000,
+    })
+
+    const res = evaluatePromotions(
+      [autoPromo, coupon],
+      makeContext(lines, { requestedCode: 'MIN8000' }),
+    )
+
+    expect(res.rejectedCode).toEqual({
+      code: 'MIN8000',
+      reason: 'PROMOTION_MIN_SUBTOTAL_NOT_MET',
+    })
+    expect(res.discountTotal).toBe(500)
+    expect(res.appliedPromotions).toHaveLength(1)
+    expect(res.appliedPromotions[0].promotionId).toBe('auto1')
+  })
 })

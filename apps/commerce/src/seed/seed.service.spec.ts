@@ -70,32 +70,30 @@ const buildMocks = (overrides: Record<string, unknown> = {}) => ({
   },
   demoOrdersRepository: {
     count: jest.fn().mockResolvedValue(0),
-    insert: jest
-      .fn()
-      .mockImplementation(
-        async (
-          planned: {
-            clientId: string
-            status: string
-            branchId: string
-            riderId: string | null
-            createdAt: Date
-            statusHistory: { changedAt: Date }[]
-          }[],
-        ) =>
-          planned.map((order, index) => ({
-            id: `demo-${index}`,
-            number: String(index + 1).padStart(6, '0'),
-            clientId: order.clientId,
-            status: order.status,
-            branchId: order.branchId,
-            riderId: order.riderId ?? null,
-            deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
-            createdAt: order.createdAt,
-            deliveredAt:
-              order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
-          })),
-      ),
+    insert: jest.fn().mockImplementation(
+      async (
+        planned: {
+          clientId: string
+          status: string
+          branchId: string
+          riderId: string | null
+          createdAt: Date
+          statusHistory: { changedAt: Date }[]
+        }[],
+      ) =>
+        planned.map((order, index) => ({
+          id: `demo-${index}`,
+          number: String(index + 1).padStart(6, '0'),
+          clientId: order.clientId,
+          status: order.status,
+          branchId: order.branchId,
+          riderId: order.riderId ?? null,
+          deliveryAddress: { text: 'Calle 1', latitude: -34.59, longitude: -58.63 },
+          createdAt: order.createdAt,
+          deliveredAt:
+            order.statusHistory?.[order.statusHistory.length - 1]?.changedAt ?? order.createdAt,
+        })),
+    ),
     findDemoOrderIds: jest.fn().mockResolvedValue([]),
     resetDemoData: jest.fn().mockResolvedValue(0),
   },
@@ -128,14 +126,14 @@ describe('SeedService (commerce)', () => {
 
     const result = await service.seed()
 
-    expect(mocks.branchService.updateHours).toHaveBeenCalledTimes(3)
+    expect(mocks.branchService.updateHours).toHaveBeenCalledTimes(4)
     for (const call of mocks.branchService.updateHours.mock.calls) {
       const hours = call[1]
       expect(hours).toHaveLength(7)
       expect(hours.filter((entry: { closed: boolean }) => entry.closed === false)).toHaveLength(7)
     }
-    expect(result.branches).toHaveLength(3)
-    expect(result.summary.branches).toBe(3)
+    expect(result.branches).toHaveLength(4)
+    expect(result.summary.branches).toBe(4)
     expect(result.summary.categories).toBe(5)
   })
 
@@ -144,6 +142,7 @@ describe('SeedService (commerce)', () => {
       existingEntity({ id: 'b1', name: 'Centro', hours: [{ dayOfWeek: 1 }] }),
       existingEntity({ id: 'b2', name: 'Norte', hours: [{ dayOfWeek: 1 }] }),
       existingEntity({ id: 'b3', name: 'Oeste', hours: [{ dayOfWeek: 1 }] }),
+      existingEntity({ id: 'b4', name: 'UNAHUR', hours: [{ dayOfWeek: 1 }] }),
     ]
     const mocks = buildMocks({
       branchService: {
@@ -160,9 +159,9 @@ describe('SeedService (commerce)', () => {
 
     const result = await service.seed()
 
-    expect(mocks.branchService.upsertByName).toHaveBeenCalledTimes(3)
+    expect(mocks.branchService.upsertByName).toHaveBeenCalledTimes(4)
     expect(mocks.branchService.updateHours).not.toHaveBeenCalled()
-    expect(result.branches).toHaveLength(3)
+    expect(result.branches).toHaveLength(4)
   })
 
   it('es idempotente: no vuelve a crear catálogo que ya existe y actualiza minQuantity si estaba en 0', async () => {
@@ -277,10 +276,10 @@ describe('SeedService (commerce)', () => {
       expect(created.total).toBeGreaterThan(0)
 
       expect(result.summary.orders).toBe(2)
-      expect(result.orders.map((order) => order.status)).toEqual(['pending', 'ready_for_delivery'])
+      expect(result.orders.map((order) => order.status)).toEqual(['pending', 'preparing'])
 
       const transitions = mocks.orderService.applyTransition.mock.calls.map((call) => call[1])
-      expect(transitions).toEqual(['confirmed', 'preparing', 'ready_for_delivery'])
+      expect(transitions).toEqual(['confirmed', 'preparing'])
     })
 
     it('es idempotente: no recrea pedidos si el cliente ya tiene los demo', async () => {
@@ -407,6 +406,41 @@ describe('SeedService (commerce)', () => {
       expect(mocks.demoOrdersRepository.insert).not.toHaveBeenCalled()
       expect(result.demo.enabled).toBe(false)
       expect(result.summary.demoOrders).toBe(0)
+    })
+  })
+
+  it('seedea las 16 promociones activas resolviendo categorías, productos, sucursales y horarios', async () => {
+    const mocks = buildMocks()
+    const service = instantiate(mocks)
+
+    const result = await service.seed()
+
+    expect(result.summary.promotions).toBe(16)
+    expect(mocks.promotionService.upsertByName).toHaveBeenCalledTimes(16)
+
+    const calls = mocks.promotionService.upsertByName.mock.calls.map(
+      (call: [Record<string, unknown>]) => call[0],
+    )
+    const happyHour = calls.find((c) => c.name === 'Happy Hour Café')
+    const centroPromo = calls.find((c) => c.name === 'Exclusivo Sucursal Centro')
+    const trasnoche = calls.find((c) => c.name === 'Trasnoche Dulce')
+
+    expect(happyHour).toMatchObject({
+      productIds: ['p-Café'],
+      daysOfWeek: [4],
+      startTime: '14:00',
+      endTime: '20:00',
+    })
+    expect(centroPromo).toMatchObject({
+      branchIds: ['b-Centro'],
+      discountValue: 15,
+      maxDiscount: 2500,
+    })
+    expect(trasnoche).toMatchObject({
+      categoryIds: ['c-Postres'],
+      code: 'NOCHE25',
+      startTime: '22:00',
+      endTime: '02:00',
     })
   })
 })

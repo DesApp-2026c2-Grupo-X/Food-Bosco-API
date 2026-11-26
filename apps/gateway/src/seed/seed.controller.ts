@@ -9,6 +9,8 @@ type Raw = Record<string, unknown>
 interface SeedBranch {
   id: string
   name: string
+  latitude?: number
+  longitude?: number
 }
 
 interface SeedUser {
@@ -48,6 +50,17 @@ interface SeedOrder {
   deliveryAddress: { text: string; latitude: number; longitude: number }
 }
 
+interface SeedDeliveredOrder {
+  orderId: string
+  branchId: string
+  riderId: string
+  branchLocation: { latitude: number; longitude: number }
+  deliveryAddress: { text: string; latitude: number; longitude: number }
+  createdAt: string
+  pickedUpAt: string | null
+  deliveredAt: string
+}
+
 interface SeedDemoSummary {
   enabled: boolean
   batchId: string | null
@@ -62,6 +75,7 @@ interface CommerceSeedResult {
   summary: Raw
   branches: SeedBranch[]
   orders?: SeedOrder[]
+  deliveredOrders?: SeedDeliveredOrder[]
   demo?: SeedDemoSummary
 }
 
@@ -87,7 +101,8 @@ interface SeedRequest {
 
 const MAX_DEMO_ORDERS = 2000
 const MAX_DEMO_DAYS = 730
-const MAX_READY_ORDERS = 5
+const MAX_READY_ORDERS = 12
+const DEFAULT_DEMO_CLIENTS = 40
 
 const readBoolean = (value: unknown): boolean | undefined =>
   typeof value === 'boolean' ? value : undefined
@@ -135,7 +150,9 @@ export class SeedController {
   ): Promise<{ commerce: Raw; auth: Raw; demo: SeedDemoSummary; delivery: Raw }> {
     const context: RestContext = { internalToken: env.internalApiToken }
     const demoEnabled = readBoolean(body.demo) ?? env.seed.demo
-    const clients = demoEnabled ? readInt('clients', body.clients, 1, 500) : undefined
+    const clients = demoEnabled
+      ? (readInt('clients', body.clients, 1, 500) ?? DEFAULT_DEMO_CLIENTS)
+      : undefined
     const demo = demoEnabled ? this.readDemoOptions(body) : undefined
 
     const commerceResult = await this.commerce.post<CommerceSeedResult>('/v1/seed', {
@@ -146,7 +163,7 @@ export class SeedController {
     const authResult = await this.auth.post<AuthSeedResult>('/v1/seed', {
       context,
       body: {
-        branches: commerceResult.branches,
+        branches: commerceResult.branches.map(({ id, name }) => ({ id, name })),
         demoCustomers: demoEnabled,
         ...(clients !== undefined ? { demoCustomerCount: clients } : {}),
       },
@@ -155,7 +172,13 @@ export class SeedController {
 
     const ordersResult = await this.seedOrders(context, authResult, demo)
 
-    const deliverySummary = await this.seedDelivery(context, authResult, ordersResult)
+    const deliverySummary = await this.seedDelivery(
+      context,
+      authResult,
+      commerceResult.branches,
+      ordersResult,
+      Boolean(demo?.reset),
+    )
 
     return {
       commerce: commerceResult.summary,
@@ -191,9 +214,7 @@ export class SeedController {
     )
     if (customers.length === 0) return { summary: {}, branches: [], orders: [] }
 
-    const riderIds = authResult.users
-      .filter((user) => user.role === 'rider')
-      .map((user) => user.id)
+    const riderIds = authResult.users.filter((user) => user.role === 'rider').map((user) => user.id)
 
     return this.commerce.post<CommerceSeedResult>('/v1/seed', {
       context,
@@ -217,10 +238,12 @@ export class SeedController {
   private async seedDelivery(
     context: RestContext,
     authResult: AuthSeedResult,
+    branches: SeedBranch[],
     ordersResult: CommerceSeedResult,
+    resetDemoTrips: boolean,
   ): Promise<Raw> {
     const riders = authResult.users.filter((user) => user.role === 'rider')
-    if (riders.length === 0) return { riders: 0 }
+    if (riders.length === 0) return { riders: 0, completedTrips: 0 }
 
     const readyOrders = (ordersResult.orders ?? [])
       .filter((order) => order.status === 'ready_for_delivery')
@@ -232,10 +255,30 @@ export class SeedController {
         deliveryAddress: order.deliveryAddress,
       }))
 
+    const deliveredByRider = new Map<string, Omit<SeedDeliveredOrder, 'riderId'>[]>()
+    for (const order of ordersResult.deliveredOrders ?? []) {
+      const list = deliveredByRider.get(order.riderId) ?? []
+      list.push({
+        orderId: order.orderId,
+        branchId: order.branchId,
+        branchLocation: order.branchLocation,
+        deliveryAddress: order.deliveryAddress,
+        createdAt: order.createdAt,
+        pickedUpAt: order.pickedUpAt,
+        deliveredAt: order.deliveredAt,
+      })
+      deliveredByRider.set(order.riderId, list)
+    }
+
+    const demoBatchId = ordersResult.demo?.batchId ?? undefined
     let primarySummary: Raw = { riders: 0 }
+    let totalCompletedTrips = 0
 
     for (const [index, rider] of riders.entries()) {
       const isPrimary = index === 0
+      const location = this.resolveRiderLocation(rider, index, branches, readyOrders)
+      const completedOrders = deliveredByRider.get(rider.id) ?? []
+
       const deliveryResult = await this.delivery.post<{ summary: Raw }>('/v1/seed', {
         context,
         body: {
@@ -245,17 +288,60 @@ export class SeedController {
           phone: rider.phone,
           vehicle: rider.vehicle,
           available: true,
-          ...(isPrimary ? { location: readyOrders[0]?.branchLocation } : {}),
+          ...(location ? { location } : {}),
           readyOrders: isPrimary ? readyOrders : [],
+          ...(completedOrders.length > 0 ? { completedOrders } : {}),
+          ...(demoBatchId ? { demoBatchId } : {}),
+          ...(isPrimary && resetDemoTrips ? { resetDemoTrips: true } : {}),
         },
         errorsAsHttp: true,
       })
+
+      const tripsCount = deliveryResult.summary?.completedTrips
+      if (typeof tripsCount === 'number') {
+        totalCompletedTrips += tripsCount
+      }
 
       if (isPrimary) {
         primarySummary = deliveryResult.summary
       }
     }
 
-    return riders.length === 1 ? primarySummary : { ...primarySummary, riders: riders.length }
+    return {
+      ...primarySummary,
+      riders: riders.length,
+      completedTrips: totalCompletedTrips,
+    }
+  }
+
+  private resolveRiderLocation(
+    rider: SeedUser,
+    index: number,
+    branches: SeedBranch[],
+    readyOrders: { branchLocation: { latitude: number; longitude: number } }[],
+  ): { latitude: number; longitude: number } | undefined {
+    if (index === 0 && readyOrders[0]?.branchLocation) {
+      return readyOrders[0].branchLocation
+    }
+
+    const locatedBranches = branches.filter(
+      (branch): branch is SeedBranch & { latitude: number; longitude: number } =>
+        typeof branch.latitude === 'number' && typeof branch.longitude === 'number',
+    )
+    if (locatedBranches.length === 0) return undefined
+
+    const email = rider.email.toLowerCase()
+    const matched =
+      (email.includes('unahur') &&
+        locatedBranches.find((b) => b.name.toLowerCase() === 'unahur')) ||
+      (email.includes('norte') && locatedBranches.find((b) => b.name.toLowerCase() === 'norte')) ||
+      (email.includes('oeste') && locatedBranches.find((b) => b.name.toLowerCase() === 'oeste')) ||
+      locatedBranches[index % locatedBranches.length]
+
+    const offset = index === 0 ? 0 : index * 0.0005
+    return {
+      latitude: matched.latitude + offset,
+      longitude: matched.longitude - offset,
+    }
   }
 }

@@ -14,6 +14,11 @@
       "name": "Oeste",
       "center": { "latitude": -34.6492342, "longitude": -58.6240339 },
       "radiusKm": 5
+    },
+    {
+      "name": "UNAHUR",
+      "center": { "latitude": -34.6186422, "longitude": -58.637652 },
+      "radiusKm": 4
     }
   ],
   "shifts": [

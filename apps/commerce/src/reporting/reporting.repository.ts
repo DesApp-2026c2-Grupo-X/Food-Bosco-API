@@ -66,6 +66,7 @@ export interface CustomerInsightsAggregateRaw {
 const TOP_PRODUCTS_LIMIT = 10
 
 const GROUP_FORMATS: Record<ReportGroupBy, string> = {
+  hour: '%Y-%m-%dT%H',
   day: '%Y-%m-%d',
   week: '%G-W%V',
   month: '%Y-%m',
