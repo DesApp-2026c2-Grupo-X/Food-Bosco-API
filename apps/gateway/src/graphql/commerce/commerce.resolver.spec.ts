@@ -1,3 +1,4 @@
+import { GraphQLError } from 'graphql'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient } from '../../rest/rest.client'
 import { ConfigGroupType } from '../common/config-group-type.enum'
@@ -27,9 +28,11 @@ const restMock = {
   delete: jest.fn(),
 }
 const authMock = { get: jest.fn() }
+const deliveryMock = { get: jest.fn() }
 const resolver = new CommerceResolver(
   restMock as unknown as RestClient,
   authMock as unknown as RestClient,
+  deliveryMock as unknown as RestClient,
 )
 
 beforeEach(() => jest.resetAllMocks())
@@ -296,6 +299,50 @@ describe('CommerceResolver — lookups por id', () => {
     expect(result[0].kind).toBe(PromotionBadgeKind.PERCENTAGE)
     expect(result[0].products[0].promotion?.estimatedUnitPrice).toBe(80)
     expect(result[0].categories[0].id).toBe('c1')
+  })
+})
+
+describe('CommerceResolver — order para rider sin riderId en commerce', () => {
+  const riderCtx = { ...ctx, roles: ['rider'], userId: 'r1' } as unknown as GraphQLContext
+  const orderNotFound = new GraphQLError('Pedido no encontrado', {
+    extensions: { code: 'ORDER_NOT_FOUND' },
+  })
+
+  it('usa el token interno cuando el pedido pertenece a un viaje del rider', async () => {
+    restMock.get.mockRejectedValueOnce(orderNotFound).mockResolvedValueOnce(rawOrder)
+    deliveryMock.get.mockResolvedValue({ id: 't1', orders: [{ orderId: 'o1' }] })
+
+    const result = await resolver.order('o1', riderCtx)
+
+    expect(deliveryMock.get).toHaveBeenCalledWith('/v1/trips/by-order/o1', {
+      context: expect.objectContaining({ userId: 'r1' }),
+    })
+    expect(restMock.get).toHaveBeenLastCalledWith('/v1/orders/o1', {
+      context: expect.objectContaining({ internalToken: expect.any(String) }),
+    })
+    expect(result.id).toBe('o1')
+  })
+
+  it('propaga el 404 cuando el pedido no pertenece a ningún viaje del rider', async () => {
+    restMock.get.mockRejectedValueOnce(orderNotFound)
+    deliveryMock.get.mockRejectedValue(new Error('TRIP_NOT_FOUND'))
+
+    await expect(resolver.order('o1', riderCtx)).rejects.toMatchObject({
+      extensions: { code: 'ORDER_NOT_FOUND' },
+    })
+    expect(restMock.get).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { name: 'un error distinto de ORDER_NOT_FOUND', error: new Error('boom'), role: 'rider' },
+    { name: 'un cliente', error: orderNotFound, role: 'customer' },
+  ])('no consulta delivery con $name', async ({ error, role }) => {
+    restMock.get.mockRejectedValueOnce(error)
+
+    await expect(
+      resolver.order('o1', { ...ctx, roles: [role] } as unknown as GraphQLContext),
+    ).rejects.toBe(error)
+    expect(deliveryMock.get).not.toHaveBeenCalled()
   })
 })
 

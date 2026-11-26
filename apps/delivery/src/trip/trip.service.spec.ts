@@ -216,6 +216,37 @@ describe('TripService.findByIdForRider (RQ-SEC-06)', () => {
   })
 })
 
+describe('TripService.findByOrderForRider (RQ-SEC-06)', () => {
+  it.each([
+    {
+      name: 'dueño del viaje',
+      doc: buildDoc({ status: 'active' }),
+      riderId: 'u1',
+      expected: 't1',
+    },
+    {
+      name: 'rider ajeno',
+      doc: buildDoc({ status: 'active' }),
+      riderId: 'u2',
+      expected: null,
+    },
+    {
+      name: 'pedido sin viaje',
+      doc: null,
+      riderId: 'u1',
+      expected: null,
+    },
+  ])('$name → $expected', async ({ doc, riderId, expected }) => {
+    const { service, repository } = makeService()
+    repository.findByOrderId.mockResolvedValue(doc)
+
+    const result = await service.findByOrderForRider('ord-1', riderId)
+
+    expect(repository.findByOrderId).toHaveBeenCalledWith('ord-1')
+    expect(result?.id ?? null).toBe(expected)
+  })
+})
+
 describe('TripService.listByRider / createOffered', () => {
   it('lista los viajes con meta de paginación', async () => {
     const { service, repository } = makeService()

@@ -62,6 +62,18 @@ export class OfferController {
     return this.tripService.listByRider(auth.userId ?? '', query.limit ?? 20, query.offset ?? 0)
   }
 
+  @Get('by-order/:orderId')
+  async getByOrder(
+    @CurrentUser() auth: AuthContext,
+    @Param('orderId') orderId: string,
+  ): Promise<PublicTrip> {
+    const trip = await this.tripService.findByOrderForRider(orderId, auth.userId ?? '')
+    if (!trip) {
+      throw new DomainException(ERROR_CODES.tripNotFound, 'Viaje no encontrado', 404)
+    }
+    return trip
+  }
+
   @Get(':tripId')
   async get(
     @CurrentUser() auth: AuthContext,

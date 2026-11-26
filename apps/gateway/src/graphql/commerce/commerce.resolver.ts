@@ -1,9 +1,14 @@
 import { Inject, UseGuards } from '@nestjs/common'
 import { Args, Context, Float, ID, Mutation, Query, Resolver } from '@nestjs/graphql'
 import { ROLES } from '../../config/constants'
+import { env } from '../../config/env'
 import type { GraphQLContext } from '../../gateway/gateway.context'
 import type { RestClient, RestQuery } from '../../rest/rest.client'
-import { AUTH_REST_CLIENT, COMMERCE_REST_CLIENT } from '../../rest/rest.module'
+import {
+  AUTH_REST_CLIENT,
+  COMMERCE_REST_CLIENT,
+  DELIVERY_REST_CLIENT,
+} from '../../rest/rest.module'
 import { AuthGuard } from '../../security/auth.guard'
 import { Authenticated } from '../../security/authenticated.decorator'
 import { Roles } from '../../security/roles.decorator'
@@ -85,12 +90,20 @@ interface ListRest {
   data: RawRecord[]
 }
 
+const ORDER_NOT_FOUND = 'ORDER_NOT_FOUND'
+
+const isOrderNotFound = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  (error as { extensions?: { code?: unknown } }).extensions?.code === ORDER_NOT_FOUND
+
 @Resolver()
 @UseGuards(AuthGuard)
 export class CommerceResolver {
   constructor(
     @Inject(COMMERCE_REST_CLIENT) private readonly rest: RestClient,
     @Inject(AUTH_REST_CLIENT) private readonly authRest: RestClient,
+    @Inject(DELIVERY_REST_CLIENT) private readonly deliveryRest: RestClient,
   ) {}
 
   @Query(() => [Category])
@@ -365,10 +378,37 @@ export class CommerceResolver {
     @Args('id', { type: () => ID }) id: string,
     @Context() ctx: GraphQLContext,
   ): Promise<Order> {
-    const raw = await this.rest.get<RawRecord>(`/v1/orders/${id}`, {
-      context: toRestContext(ctx),
-    })
-    return mapOrder(raw)
+    try {
+      const raw = await this.rest.get<RawRecord>(`/v1/orders/${id}`, {
+        context: toRestContext(ctx),
+      })
+      return mapOrder(raw)
+    } catch (error) {
+      if (!ctx.roles.includes(ROLES.rider) || !isOrderNotFound(error)) {
+        throw error
+      }
+
+      const ownsOrder = await this.riderOwnsOrder(id, ctx)
+      if (!ownsOrder) {
+        throw error
+      }
+
+      const raw = await this.rest.get<RawRecord>(`/v1/orders/${id}`, {
+        context: { internalToken: env.internalApiToken, requestId: ctx.requestId },
+      })
+      return mapOrder(raw)
+    }
+  }
+
+  private async riderOwnsOrder(orderId: string, ctx: GraphQLContext): Promise<boolean> {
+    try {
+      await this.deliveryRest.get<RawRecord>(`/v1/trips/by-order/${orderId}`, {
+        context: toRestContext(ctx),
+      })
+      return true
+    } catch {
+      return false
+    }
   }
 
   @Query(() => [OrderStatusHistory])

@@ -42,6 +42,7 @@ const makeController = () => {
   const tripService = {
     listByRider: jest.fn(),
     findByIdForRider: jest.fn(),
+    findByOrderForRider: jest.fn(),
   }
   const controller = new OfferController(
     orchestrator as unknown as OfferOrchestrator,
@@ -152,6 +153,27 @@ describe('OfferController (RQ-DLV-13)', () => {
       expect(domainError.message).toBe('Viaje no encontrado')
       expect(domainError.getStatus()).toBe(404)
     }
+  })
+
+  it('getByOrder devuelve el viaje del repartidor que contiene el pedido', async () => {
+    const { controller, tripService } = makeController()
+    tripService.findByOrderForRider.mockResolvedValue(trip)
+
+    const result = await controller.getByOrder(auth, 'ord-1')
+
+    expect(tripService.findByOrderForRider).toHaveBeenCalledWith('ord-1', 'u1')
+    expect(result).toBe(trip)
+  })
+
+  it('getByOrder lanza TRIP_NOT_FOUND cuando el pedido no pertenece al rider', async () => {
+    const { controller, tripService } = makeController()
+    tripService.findByOrderForRider.mockResolvedValue(null)
+
+    await expect(controller.getByOrder(auth, 'ord-1')).rejects.toMatchObject({
+      code: ERROR_CODES.tripNotFound,
+      message: 'Viaje no encontrado',
+      status: 404,
+    })
   })
 
   it.each([
